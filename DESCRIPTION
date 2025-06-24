@@ -1,0 +1,30 @@
+Package: waterlogged
+Title: Streamline the Processing of Water Logger Data
+Version: 0.0.0.9000
+Authors@R: 
+    c(
+    person(given = "Daniella", family = "LoScerbo",  email = "daniella.loscerbo@dfo-mpo.gc.ca", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0001-7832-4994")),
+    person(given = "Amanda", family = "Martens", email = "amanda.martens@dfo-mpo.gc.ca", role = "aut"),
+    person(given = "Julian", family = "Gan", email = "julian.gan@dfo-mpo.gc.ca", role = "aut"),
+    person(given = "Doug", family = "Braun", email = "douglas.braun@dfo-mpo.gc.ca", role = "fnd"))
+Description: This package aims to streamline the process of collating, converting and cleaning water chemistry data from continuous water loggers.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports: 
+    data.table,
+    dplyr,
+    geosphere,
+    ggplot2,
+    lubridate,
+    plotly,
+    plyr,
+    purrr,
+    readr,
+    tidyr
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
