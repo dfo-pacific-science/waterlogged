@@ -6,9 +6,79 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of waterlogged is to …
+## WELCOME TO waterlogged!
 
-## Installation
+We are embarking on an exciting journey of collaborative coding in
+github and this will be fun and also terrifying and probably also a bit
+kooky so lets just try it and see what happens, shall we?
+
+Right now, lets use this README to keep everyone on track with getting
+started here and assigning tasks. Eventually this README will be
+replaced by a (functioning) vignette to guide users on how to use the
+package.
+
+## STEP 1: Get all collaborators integrated with git, RStudio, and this project
+
+- Make sure you have git installed on your local computer and you have
+  integrated it in R Studio. Follow these instructions:
+  <https://happygitwithr.com/>
+- Next, clone this project onto your local computers for collaboration.
+  Follow these instructions, starting at Chapter 4 Using GitHub via
+  RStudio, specifically 4.3 Cloning a Repository
+  <https://pages.github.nceas.ucsb.edu/lter/github-workshop/using-github-via-rstudio.html>
+- Test it! Edit README.Rmd by replacing text indicated below. In git
+  window, stage README.Rmd file, commit, and then push to github.
+- After this, whenever you start working on this project, make sure you
+  press PULL in the git window first to pull any changes from
+  collaborators (us) from github before you start working on scripts.
+
+JULIAN GITHUB-R TEST: REPLACE TEXT HERE WITH WELCOME OF CHOICE
+
+AMANDA GITHUB-R TEST: REPLACE TEXT HERE WITH WELCOME OF CHOICE
+
+## Step 2: Add branches to update functions
+
+- I’ve uploaded my most recent versions of functions into the R folder
+  of this package. In doing so, I fixed a few errors in the
+  documentation (header) section of the functions, as well as separated
+  the scripts with multiple functions into separate scripts for each
+  functions. Take a look at these, and see if you have any other
+  additions to the scripts that you need to add.
+- Read through Ch 7 Appendix B Branches:
+  <https://pages.github.nceas.ucsb.edu/lter/github-workshop/appendix-b-branches.html>
+- Before working on anything, make sure you have pulled any changed from
+  github onto your local computer to be up to date.
+- in git window, create new branch and name it as “updates to \_\_\_\_
+  function” or another informative name
+- Edit the functions as needed. Then commit and push branch to github.
+- go to the github repo page (in your browser), and click “compare and
+  pull request”, enter info, and then hit “create pull request”. This
+  notifies me that you’ve made changes and are ready for them to be
+  integrated.
+- if everything looks good, I will integrate your edits (your branch)
+  ie. “merge pull request”. Then I will close your branch (delete it).
+- Pull from RStudio to get the latest repo changes from github
+
+## Step 3: update vignette
+
+Daniella:
+
+- make dummy data for: metadata, dissox, waterlevel, baro
+- update vignette with updated functions using dummy data
+
+Julian:
+
+- upload dummy conductivity data
+- in vignette, start a new BRANCH for conductivity data processing: add
+  section to process conductivity data using dummy data
+
+Amanda:
+
+- upload dummy manual discharge data
+- in vignette, start a new BRANCH for discharge data processing: add
+  section in vignette to process dishcarge data using dummy data
+
+## IGNORE (Placeholder): Installation
 
 You can install the development version of waterlogged from
 [GitHub](https://github.com/) with:
@@ -17,36 +87,3 @@ You can install the development version of waterlogged from
 # install.packages("pak")
 pak::pak("daniella-lo/waterlogged")
 ```
-
-## Example
-
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-#library(waterlogged)
-## basic example code
-```
-
-What is special about using `README.Rmd` instead of just `README.md`?
-You can include R chunks like so:
-
-``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
-```
-
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date. `devtools::build_readme()` is handy for this.
-
-You can also embed plots, for example:
-
-<img src="man/figures/README-pressure-1.png" width="100%" />
-
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub and CRAN.
