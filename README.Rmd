@@ -33,7 +33,7 @@ Right now, lets use this README to keep everyone on track with getting started h
 
 JULIAN GITHUB-R TEST: REPLACE TEXT HERE WITH WELCOME OF CHOICE
 
-AMANDA GITHUB-R TEST: REPLACE TEXT HERE WITH WELCOME OF CHOICE
+AMANDA GITHUB-R TEST: Here we gooooo!
 
 ## Step 2: Add branches to update functions
 
