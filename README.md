@@ -34,7 +34,7 @@ package.
 
 JULIAN GITHUB-R TEST: REPLACE TEXT HERE WITH WELCOME OF CHOICE
 
-AMANDA GITHUB-R TEST: REPLACE TEXT HERE WITH WELCOME OF CHOICE
+AMANDA GITHUB-R TEST: Here we gooooo! \[Nice work! - DL\]
 
 ## Step 2: Add branches to update functions
 
