@@ -42,7 +42,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
           output_data$watertemp_C_adj[i] <- NA
           output_data$wl_qaqc_code[i] <- "LOGGER_ICE"
           output_data$wl_qaqc_adj[i] <- "REMOVED"
-          output_data$wl_qaqc_code[i] <- "WL data removed due to logger in ice"
+          output_data$wl_qaqc_note[i] <- "WL data removed due to logger in ice"
         }
       }
     }
@@ -65,7 +65,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
             output_data$watertemp_C_adj[i] <- NA
             output_data$wl_qaqc_code[i] <- "LOGGER_DRY"
             output_data$wl_qaqc_adj[i] <- "REMOVED"
-            output_data$wl_qaqc_code[i] <- paste("Data removed due to dry logger at waterlevel below", dry_wl, "m")          }
+            output_data$wl_qaqc_note[i] <- paste("Data removed due to dry logger at waterlevel below", dry_wl, "m")          }
         }
       } else {
         for(i in 1:length(output_data$timestamp)) {
@@ -74,7 +74,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
             output_data$watertemp_C_adj[i] <- NA
             output_data$wl_qaqc_code[i] <- "LOGGER_DRY"
             output_data$wl_qaqc_adj[i] <- "REMOVED"
-            output_data$wl_qaqc_code[i] <- "Data removed due to dry logger"
+            output_data$wl_qaqc_note[i] <- "Data removed due to dry logger"
           }
         }
       } # apply_to_all_data == FALSE
@@ -87,7 +87,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
           output_data$watertemp_C_adj[i] <- NA
           output_data$do_qaqc_code[i] <- "LOGGER_DISTURANCE"
           output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_code[i] <- "DO data removed due to disturbance to logger"
+          output_data$do_qaqc_note[i] <- "DO data removed due to disturbance to logger"
         }
       }
     }
@@ -119,7 +119,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
           output_data$watertemp_C_adj[i] <- NA
           output_data$do_qaqc_code[i] <- "LOGGER_ICE"
           output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_code[i] <- "DO data removed due to logger in ice"
+          output_data$do_qaqc_note[i] <- "DO data removed due to logger in ice"
         }
       }
     }
@@ -132,7 +132,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
           output_data$watertemp_C_adj[i] <- NA
           output_data$do_qaqc_code[i] <- "LOGGER_DISTURANCE"
           output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_code[i] <- "DO data removed due to disturbance to logger"
+          output_data$do_qaqc_note[i] <- "DO data removed due to disturbance to logger"
         }
       }
     }
@@ -157,7 +157,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
               output_data$watertemp_C_adj[i] <- NA
               output_data$do_qaqc_code[i] <- "LOGGER_DRY"
               output_data$do_qaqc_adj[i] <- "REMOVED"
-              output_data$do_qaqc_code[i] <- paste("DO data removed due to dry logger at waterlevel below", dry_wl, "m")
+              output_data$do_qaqc_note[i] <- paste("DO data removed due to dry logger at waterlevel below", dry_wl, "m")
             }
           }
         } else{print("WARNING: Waterlevel variable missing from input. Unable to apply to all data.")}
@@ -169,7 +169,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
             output_data$watertemp_C_adj[i] <- NA
             output_data$do_qaqc_code[i] <- "LOGGER_DRY"
             output_data$do_qaqc_adj[i] <- "REMOVED"
-            output_data$do_qaqc_code[i] <- "DO data removed due to dry logger"
+            output_data$do_qaqc_note[i] <- "DO data removed due to dry logger"
 
           }
         }
