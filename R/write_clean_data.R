@@ -34,7 +34,7 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
   if(logger_type == "baro_U20"){
     logger_header <- "BARO"
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
                                           var_airpress_kPa, paste0(var_airpress_kPa, "_adj"),
                                           var_airtemp_C, paste0(var_airtemp_C, "_adj"),
@@ -45,7 +45,7 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
   if(logger_type == "waterlevel_U20"){
     logger_header <- "WL"
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
                                           var_waterlevel_m, paste0(var_waterlevel_m, "_adj"),
                                           var_watertemp_C, paste0(var_watertemp_C, "_adj"),
@@ -59,7 +59,7 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       var_watertemp_C <- "watertemp_C_TidbiT"
     }
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
                                           var_watertemp_C, paste0(var_watertemp_C, "_adj"),
                                           wt_qaqc_code, wt_qaqc_adj, wt_qaqc_note))
@@ -73,7 +73,7 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       var_airtemp_C <- "airtemp_C_TidbiT"
     }
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
                                           var_airtemp_C, paste0(var_airtemp_C, "_adj"),
                                           at_qaqc_code, at_qaqc_adj, at_qaqc_note))
@@ -107,10 +107,8 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
 
       # write csv for each year and site_station_code
-      # before save must recode timestamp as character so that excel does not ignore midnight "00:00:00"
-      site_year_j$timestamp<-as.character(format(site_year_j$timestamp))
 
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
+      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
       print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
 
     } #end of year level loop
