@@ -24,10 +24,15 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
 
     output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_do_mgl, paste0(var_do_mgl, "_adj"),
-                                          var_do_percsat, paste0(var_do_percsat, "_adj"),
-                                          var_watertemp_C, paste0(var_watertemp_C, "_adj"),
-                                          do_qaqc_code, do_qaqc_adj, do_qaqc_note))
+                                          all_of(var_do_mgl),
+                                          all_of(paste0(var_do_mgl, "_adj")),
+                                          all_of(var_do_percsat),
+                                          all_of(paste0(var_do_percsat, "_adj")),
+                                          all_of(var_watertemp_C),
+                                          all_of(paste0(var_watertemp_C, "_adj")),
+                                          do_qaqc_code,
+                                          do_qaqc_adj,
+                                          do_qaqc_note))
 
 
   }
@@ -36,9 +41,13 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
 
     output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_airpress_kPa, paste0(var_airpress_kPa, "_adj"),
-                                          var_airtemp_C, paste0(var_airtemp_C, "_adj"),
-                                          baro_qaqc_code, baro_qaqc_adj, baro_qaqc_note))
+                                          all_of(var_airpress_kPa),
+                                          all_of(paste0(var_airpress_kPa, "_adj")),
+                                          all_of(var_airtemp_C),
+                                          all_of(paste0(var_airtemp_C, "_adj")),
+                                          baro_qaqc_code,
+                                          baro_qaqc_adj,
+                                          baro_qaqc_note))
 
 
   }
@@ -47,10 +56,14 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
 
     output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_waterlevel_m, paste0(var_waterlevel_m, "_adj"),
-                                          var_watertemp_C, paste0(var_watertemp_C, "_adj"),
+                                          all_of(var_waterlevel_m),
+                                          all_of(paste0(var_waterlevel_m, "_adj")),
+                                          all_of(var_watertemp_C),
+                                          all_of(paste0(var_watertemp_C, "_adj")),
                                           waterlevel_reference,
-                                          wl_qaqc_code, wl_qaqc_adj, wl_qaqc_note))
+                                          wl_qaqc_code,
+                                          wl_qaqc_adj,
+                                          wl_qaqc_note))
   }
   if(logger_type == "watertemp_TidbiT"){
     logger_header <- "WT"
@@ -61,8 +74,11 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
 
     output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_watertemp_C, paste0(var_watertemp_C, "_adj"),
-                                          wt_qaqc_code, wt_qaqc_adj, wt_qaqc_note))
+                                          all_of(var_watertemp_C),
+                                          all_of(paste0(var_watertemp_C, "_adj")),
+                                          wt_qaqc_code,
+                                          wt_qaqc_adj,
+                                          wt_qaqc_note))
 
   }
 
@@ -75,8 +91,11 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
 
     output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_airtemp_C, paste0(var_airtemp_C, "_adj"),
-                                          at_qaqc_code, at_qaqc_adj, at_qaqc_note))
+                                          all_of(var_airtemp_C),
+                                          all_of(paste0(var_airtemp_C, "_adj")),
+                                          at_qaqc_code,
+                                          at_qaqc_adj,
+                                          at_qaqc_note))
 
   }
 
