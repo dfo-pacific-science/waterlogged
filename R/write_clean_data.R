@@ -123,12 +123,18 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       end_j <- gsub("\\D", "", end_j)
 
       # search for year folder, if does not exist, write new one
-      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      # if(!dir.exists(paste0(path_to_output_folder, year_j,))){dir.create(paste0(path_to_output_folder, year_j))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j,"/clean/"))){dir.create(paste0(path_to_output_folder, year_j, "/clean/"))}
 
       # write csv for each year and site_station_code
 
-      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
+      # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
+      # print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
+
+      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
       print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
+
+
 
     } #end of year level loop
 
