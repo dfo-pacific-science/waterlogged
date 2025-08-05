@@ -212,14 +212,16 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
       end_j <- gsub("\\D", "", end_j)
 
       # search for year folder, if does not exist, write new one
-      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+        if(!dir.exists(paste0(path_to_output_folder, year_j,"/processed/"))){dir.create(paste0(path_to_output_folder, year_j,"/processed/"))}
+
 
       # write csv for each year and site_station_code
-      # before save must recode timestamp as character so that excel does not ignore midnight "00:00:00"
-      site_year_j$timestamp<-as.character(format(site_year_j$timestamp))
 
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"), row.names = FALSE)
-      print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
+      # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
+      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
+
+       print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
 
       } #end of year level loop
 
