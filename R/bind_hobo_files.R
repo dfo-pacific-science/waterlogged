@@ -3,7 +3,7 @@
 #' Merge dissolved oxygen data from multiple loggers by site_station_code and trim for install/removal dates
 #' @param path_to_raw_folder The folder containing raw dissolved oxygen in mg/L from HOBO as csv files
 #' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
-#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20
+#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, watertemp_TidbiT, airtemp_TidbiT
 #' @param  metadata File containing serial number, install date, install time and status for each site_station_code
 #' @return Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
 
@@ -212,14 +212,16 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
       end_j <- gsub("\\D", "", end_j)
 
       # search for year folder, if does not exist, write new one
-      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+        if(!dir.exists(paste0(path_to_output_folder, year_j,"/processed/"))){dir.create(paste0(path_to_output_folder, year_j,"/processed/"))}
+
 
       # write csv for each year and site_station_code
-      # before save must recode timestamp as character so that excel does not ignore midnight "00:00:00"
-      site_year_j$timestamp<-as.character(format(site_year_j$timestamp))
 
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"), row.names = FALSE)
-      print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
+      # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
+      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
+
+       print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
 
       } #end of year level loop
 

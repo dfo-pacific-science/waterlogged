@@ -24,33 +24,46 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
 
     output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_do_mgl, paste0(var_do_mgl, "_adj"),
-                                          var_do_percsat, paste0(var_do_percsat, "_adj"),
-                                          var_watertemp_C, paste0(var_watertemp_C, "_adj"),
-                                          do_qaqc_code, do_qaqc_adj, do_qaqc_note))
+                                          all_of(var_do_mgl),
+                                          all_of(paste0(var_do_mgl, "_adj")),
+                                          all_of(var_do_percsat),
+                                          all_of(paste0(var_do_percsat, "_adj")),
+                                          all_of(var_watertemp_C),
+                                          all_of(paste0(var_watertemp_C, "_adj")),
+                                          do_qaqc_code,
+                                          do_qaqc_adj,
+                                          do_qaqc_note))
 
 
   }
   if(logger_type == "baro_U20"){
     logger_header <- "BARO"
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_airpress_kPa, paste0(var_airpress_kPa, "_adj"),
-                                          var_airtemp_C, paste0(var_airtemp_C, "_adj"),
-                                          baro_qaqc_code, baro_qaqc_adj, baro_qaqc_note))
+                                          all_of(var_airpress_kPa),
+                                          all_of(paste0(var_airpress_kPa, "_adj")),
+                                          all_of(var_airtemp_C),
+                                          all_of(paste0(var_airtemp_C, "_adj")),
+                                          baro_qaqc_code,
+                                          baro_qaqc_adj,
+                                          baro_qaqc_note))
 
 
   }
   if(logger_type == "waterlevel_U20"){
     logger_header <- "WL"
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_waterlevel_m, paste0(var_waterlevel_m, "_adj"),
-                                          var_watertemp_C, paste0(var_watertemp_C, "_adj"),
+                                          all_of(var_waterlevel_m),
+                                          all_of(paste0(var_waterlevel_m, "_adj")),
+                                          all_of(var_watertemp_C),
+                                          all_of(paste0(var_watertemp_C, "_adj")),
                                           waterlevel_reference,
-                                          wl_qaqc_code, wl_qaqc_adj, wl_qaqc_note))
+                                          wl_qaqc_code,
+                                          wl_qaqc_adj,
+                                          wl_qaqc_note))
   }
   if(logger_type == "watertemp_TidbiT"){
     logger_header <- "WT"
@@ -59,10 +72,13 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       var_watertemp_C <- "watertemp_C_TidbiT"
     }
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_watertemp_C, paste0(var_watertemp_C, "_adj"),
-                                          wt_qaqc_code, wt_qaqc_adj, wt_qaqc_note))
+                                          all_of(var_watertemp_C),
+                                          all_of(paste0(var_watertemp_C, "_adj")),
+                                          wt_qaqc_code,
+                                          wt_qaqc_adj,
+                                          wt_qaqc_note))
 
   }
 
@@ -73,10 +89,13 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       var_airtemp_C <- "airtemp_C_TidbiT"
     }
 
-    output_data <- output_data %>% select(c(site_station_code,
+    output_data <- input_data %>% select(c(site_station_code,
                                           timestamp,
-                                          var_airtemp_C, paste0(var_airtemp_C, "_adj"),
-                                          at_qaqc_code, at_qaqc_adj, at_qaqc_note))
+                                          all_of(var_airtemp_C),
+                                          all_of(paste0(var_airtemp_C, "_adj")),
+                                          at_qaqc_code,
+                                          at_qaqc_adj,
+                                          at_qaqc_note))
 
   }
 
@@ -104,14 +123,18 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       end_j <- gsub("\\D", "", end_j)
 
       # search for year folder, if does not exist, write new one
-      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      # if(!dir.exists(paste0(path_to_output_folder, year_j,))){dir.create(paste0(path_to_output_folder, year_j))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j,"/clean/"))){dir.create(paste0(path_to_output_folder, year_j, "/clean/"))}
 
       # write csv for each year and site_station_code
-      # before save must recode timestamp as character so that excel does not ignore midnight "00:00:00"
-      site_year_j$timestamp<-as.character(format(site_year_j$timestamp))
 
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
+      # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
+      # print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
+
+      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
       print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
+
+
 
     } #end of year level loop
 
