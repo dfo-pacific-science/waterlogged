@@ -42,7 +42,7 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
     data <- read.csv(file, header = TRUE,
                      stringsAsFactors = FALSE)
     # format time stamp
-    data$timestamp <-as.POSIXct(data$timestamp, tz = "UTC", format = "%Y-%m-%d %H:%M:%S")
+    data$timestamp <-as.POSIXct(data$timestamp, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
 
     # format factor variables
     try(data$sn <- as.factor(data$sn), silent = TRUE)
