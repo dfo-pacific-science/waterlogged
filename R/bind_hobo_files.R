@@ -3,7 +3,7 @@
 #' Merge dissolved oxygen data from multiple loggers by site_station_code and trim for install/removal dates
 #' @param path_to_raw_folder The folder containing raw dissolved oxygen in mg/L from HOBO as csv files
 #' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
-#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20
+#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, watertemp_TidbiT, airtemp_TidbiT
 #' @param  metadata File containing serial number, install date, install time and status for each site_station_code
 #' @return Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
 
