@@ -15,7 +15,7 @@ waterlevel_qaqc <- function(input_data, select_station, plot_only = FALSE, var_w
 
 
   # ensures user is only processing one station at a time
- output_data <- input_data
+  output_data <- input_data
   output_data <- output_data[output_data$site_station_code==select_station,]
   #remove rownumbers
   rownames(output_data) <- NULL
