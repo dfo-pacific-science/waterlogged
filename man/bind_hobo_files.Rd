@@ -16,7 +16,7 @@ bind_hobo_files(
 
 \item{path_to_output_folder}{The desired folder for output of bound dissolved oxygen and barometric pressure per station}
 
-\item{logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20}
+\item{logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, watertemp_TidbiT, airtemp_TidbiT}
 
 \item{metadata}{File containing serial number, install date, install time and status for each site_station_code}
 }

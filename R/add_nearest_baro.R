@@ -185,13 +185,13 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
       end_n <- gsub("\\D", "", end_n)
 
       # search for year folder, if does not exist, write new one
-      if(!dir.exists(paste0(path_to_output_folder, year_n))){dir.create(paste0(path_to_output_folder, year_n))}
+      # if(!dir.exists(paste0(path_to_output_folder, year_n))){dir.create(paste0(path_to_output_folder, year_n))}
+      if(!dir.exists(paste0(path_to_output_folder, year_n,"/processed/"))){dir.create(paste0(path_to_output_folder, year_n,"/processed/"))}
 
       # write csv for each year and site_station_code
-      # before save must recode timestamp as character so that excel does not ignore midnight "00:00:00"
-      site_year_n$timestamp<-as.character(format(site_year_n$timestamp))
 
-      write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"), row.names = FALSE)
+      # write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"), row.names = FALSE)
+      write_csv(site_year_n, paste0(path_to_output_folder, year_n,"/processed/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"))
       print(paste("Barometric pressure data (v0.2) from",site_i,"added to", year_n, "folder"))
 
     } #end of year level loop
