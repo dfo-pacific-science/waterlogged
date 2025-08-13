@@ -5,9 +5,11 @@
 #' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
 #' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, watertemp_TidbiT, airtemp_TidbiT
 #' @param  metadata File containing serial number, install date, install time and status for each site_station_code
+#' @param  timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "%m/%d/%Y %H:%M"
+#' @param  timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @return Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
 
-bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_type, metadata) {
+bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_type, metadata, timestamp_format = "%m/%d/%Y %H:%M", timestamp_timezone = "UTC") {
 
   ## GET DATA FROM HOBO CSV FILES####
   file_names <- list.files(path = path_to_raw_folder, pattern = "\\.csv$") # extract file names ending in csv
@@ -87,7 +89,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
   ## TIMESTAMPS ####
   # format timestamp
   # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
-  dat1$timestamp <-as.POSIXct(dat1$timestamp, format = "%m/%d/%y %I:%M:%S %p", tz = "UTC")
+  dat1$timestamp <-as.POSIXct(dat1$timestamp, format = timestamp_format, tz = timestamp_timezone)
 
   if(any(is.na(dat1$timestamp))) {
     missing_ts <- dat1 %>% filter(is.na(timestamp))
@@ -97,6 +99,18 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
 }
   # LABEL AND TRIM ####
   ## Loop to link site_station_code to logger data by serial number and trim data by install and retrieval dates in metadata
+  ## METADAT TIMESTAMPS ####
+  # format timestamp
+  # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
+  metadata$timestamp_deploy <-as.POSIXct(metadata$timestamp_deploy, format = timestamp_format, tz = timestamp_timezone)
+  metadata$timestamp_remove <-as.POSIXct(metadata$timestamp_remove, format = timestamp_format, tz = timestamp_timezone)
+
+  if(any(is.na(metadata$timestamp_deploy))) {
+    missing_ts <- dat1 %>% filter(is.na(timestamp_deploy))
+    missing_ts_sn <- unique(missing_ts$sn)
+
+    print(paste("WARNING: NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
+  }
 
   # link sn to site_station_code in metadata
   metadat_link <- metadata %>% filter(sn %in% unique(dat1$sn))
@@ -238,7 +252,8 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
                           facet_wrap(~site_station_code, scales = "free")+
                           theme_classic()+
                           theme(axis.text.x = element_text(angle = 90))+
-                          scale_x_datetime(date_labels = "%y-%m")
+                          scale_x_datetime(date_labels = "%y-%m")+
+                          labs(x = "Timestamp (YY-MM)", y = paste0(c(dat1_type, "(", dat1_unit, ")")))
 
 
   return(list(sites_compiled, file_summary, multi_plots))
