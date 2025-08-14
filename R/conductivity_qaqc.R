@@ -9,7 +9,6 @@
 #' @param var_watertemp_C Name of column for water temperature (in degrees Celcius) in input data
 #' @param var_ref_watertemp_C Name of column for reference water temperature (in degrees Celcius)
 #' @param var_conduct_uScm Name of column for reference conductivity (uScm)
-#' @example conductivity_qaqc(input_data = read_csv(here("Data", "conductivity", "2024", "OC", "intermediate", "DM_OC_2024_conductivity_all_RAW.csv"))
 #' @export
 
 conductivity_qaqc <- function(input_data,
