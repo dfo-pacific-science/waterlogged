@@ -7,20 +7,14 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-
-```{r setup, include = FALSE}
+```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>",
-  echo = TRUE, 
-  message = FALSE, 
-  warning = FALSE, 
-  fig.width=8, 
-  fig.height=8,
-  crop = NULL
+  comment = "#>"
 )
-options(digits = 15)
+```
 
+```{r setup}
 library(waterlogged)
 library(knitr)
 library(readr)
@@ -28,7 +22,6 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(plotly)
-library(kableExtra)
 library(purrr)
 library(lubridate)
 ```
@@ -65,7 +58,7 @@ Here is an example of what the raw file from HOBO should look like:
 
 $~$
 
-```{r raw-ex}
+```{r raw-ex, eval = FALSE}
 
 baro <- read.csv("data/baro/2024/raw/baro1.csv")
 baro
@@ -97,7 +90,7 @@ Our metadata file looks like this:
 
 $~$
 
-```{r meta-ex}
+```{r meta-ex, eval=FALSE}
 
 metadat <- read.csv("data/logger_manager.csv")
 metadat
@@ -119,7 +112,7 @@ Here is an example of running the function:
 
 $~$
 
-```{r bind-ex,  eval = TRUE}
+```{r bind-ex,  eval = FALSE}
 raw_dir <- "data/baro/2024/raw/"  # folder containing raw .csv files only
 
 out_dir <- "data/baro/"  # destination for files
@@ -696,5 +689,8 @@ $~$
 And that's it! Now you have a global dataset of clean DO data. You can see a complete QAQC for the North Thompson Wetland sites in 2022 in **DissolvedOxygen_WE_QAQC_2022.R**. I would recommend saving an R script of your QAQC for each year as a record. 
 
 Happy cleaning!
+
+
+
 
 
