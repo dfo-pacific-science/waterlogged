@@ -9,6 +9,7 @@
 #' @param var_airtemp_C The variable for air temperature in degrees Celsius from barometric logger
 #' @param var_airpress_kPa The variable for barometric pressure in kPa
 #' @return dataset with barometric data and adjustments added as new columns, as well as a saved csv
+#' @export
 
 add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folder, baro_data, var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20", metadata){
 

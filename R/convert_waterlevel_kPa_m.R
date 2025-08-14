@@ -13,6 +13,7 @@
 #' @param select_station site_station_code to ID station for qaqc
 #' @param select_measurement Numeric; Select which manual measurement will be used for correcting (default is first measurement, 1)
 #' @return List of 3 objects: 1. site_wl: dataframe of converted waterlevel for specified station, 2. ref_dat: dataframe of manual measurements for specified site, 3. plot of waterlevel data for specified site to aid in QAQC
+#' @export
 
 convert_waterlevel_kPa_m <- function(input_data,
                                      select_station,

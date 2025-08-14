@@ -7,6 +7,7 @@
 #' @param data_processing either raw or clean, clean data has been processed via QAQC protocols, raw data should not be summarized ie. set temporal_scale to hourly
 #' @param temporal_scale either hourly, daily or monthly, daily and monthly return mean values of selected variable
 #' @return dataframe
+#' @export
 
 get_logger_data <- function(path_to_data, logger_type, data_processing = "clean", select_station = "all", temporal_scale = "hourly") {
 

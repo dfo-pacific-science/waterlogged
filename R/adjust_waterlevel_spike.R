@@ -9,6 +9,7 @@
 #' @param var_waterlevel_m Name of variable column containing water level in meters
 #' @param reason_to_adjust Type of event that caused spike; Either "ice" or "disturbance"
 #' @return Dataset where waterlevel is flattened within the time period defined as a spike, and qaqc_adj notes AVERAGE
+#' @export
 
 adjust_waterlevel_spike <- function(input_data, select_station,  timestamp_start, timestamp_end, reason_to_adjust, var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20") {
 

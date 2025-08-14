@@ -11,6 +11,7 @@
 #' @param var_airpress_kPa Name of column for air pressure (in kPa) in input data
 #' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
 #' @return Clean water level data for station as csv
+#' @export
 
 write_clean_data <- function(input_data = site_data, path_to_output_folder, logger_type, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20") {
 

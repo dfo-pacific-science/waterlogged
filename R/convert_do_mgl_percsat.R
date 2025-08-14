@@ -6,6 +6,7 @@
 #' @param var_airpress_kPa The variable for barometric pressure in kPa
 #' @param var_do_mgl The variable for dissolved oxygen in mg per litre
 #' @return output_data: data frame with dissolved oxygen in percent air saturation as a new column "do_percsat_U26"
+#' @export
 
 convert_do_mgl_percsat <- function(input_data, var_watertemp_C = "watertemp_C_U26", var_airpress_kPa = "airpress_kPa_U20_adj", var_do_mgl = "do_mgl_U26") {
 

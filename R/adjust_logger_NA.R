@@ -14,6 +14,7 @@
 #' @param var_do_percsat Name of column for dissolved oxygen in percent air saturation in input data
 #' @param var_do_mgl Name of column for dissolved oxygen in mg per litre in input data
 #' @return Dataset where waterlevel_m below the dry waterlevel are flagged as dry
+#' @export
 
 adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_airtemp_C = "airtemp_C_U20") {
 

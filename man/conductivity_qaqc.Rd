@@ -18,6 +18,25 @@ conductivity_qaqc(
   var_ref_watertemp_C = "watertemp_C_ysi"
 )
 }
+\arguments{
+\item{input_data}{raw data csv from barometric U20 loggers}
+
+\item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, values out of range are removed and flagged}
+
+\item{var_conduct_uScm}{Name of column for reference conductivity (uScm)}
+
+\item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
+
+\item{var_airtemp_C}{The variable for air temperature in degrees Celsius}
+
+\item{var_waterlevel_m}{Name of variable column containing water level in meters}
+
+\item{var_ref_watertemp_C}{Name of column for reference water temperature (in degrees Celcius)}
+
+\item{select_station}{site_station_code for desired logger station, supplied barometric data will be filtered by this code}
+
+\item{ref_deploy_ofset}{Number of hours to search between deployment and YSI measurement (between 0 and 2)}
+}
 \description{
 CONDUCTIVITY LOGGER DRIFT CORRECTION & QA/QC
 }

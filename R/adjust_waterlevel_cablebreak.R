@@ -7,6 +7,7 @@
 #' @param select_station Unique identifier code for station
 #' @param var_waterlevel_m Name of variable column containing water level in meters
 #' @return Dataset where waterlevel values are shifted up or down after the cable break, qaqc_code set to LOGGER_DISTURBANCE, qaqc_adj shows the value adjusted
+#' @export
 
 adjust_waterlevel_cablebreak <- function(input_data, select_station, timestamp_start, timestamp_end, var_waterlevel_m = "waterlevel_m_U20") {
 

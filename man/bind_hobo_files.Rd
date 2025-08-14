@@ -8,7 +8,9 @@ bind_hobo_files(
   path_to_raw_folder,
   path_to_output_folder,
   logger_type,
-  metadata
+  metadata,
+  timestamp_format = "\%m/\%d/\%Y \%H:\%M",
+  timestamp_timezone = "UTC"
 )
 }
 \arguments{
@@ -19,6 +21,10 @@ bind_hobo_files(
 \item{logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, watertemp_TidbiT, airtemp_TidbiT}
 
 \item{metadata}{File containing serial number, install date, install time and status for each site_station_code}
+
+\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "\%m/\%d/\%Y \%H:\%M"}
+
+\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
 }
 \value{
 Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
