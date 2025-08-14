@@ -30,14 +30,3 @@ Applies temperature correction to conductivity measurements to calculate specifi
 standardized at 25°C. Uses a non-linear temperature compensation method for natural waters,
 equivalent to ISO 7888.
 }
-\examples{
-# Apply temperature compensation to a list of data frames and bind the results
-all_co_spc <- purrr::map(
-  list_co_qaqc,
-  \(df) conduct_temp_comp(
-    df,
-    comp_file = here("Code", "functions", "tempcomp27888.csv")
-  )
-) |>
-  purrr::list_rbind()
-}
