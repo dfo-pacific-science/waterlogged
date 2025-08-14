@@ -9,13 +9,7 @@
 #' @param var_watertemp_C Name of column for water temperature (in degrees Celcius) in input data
 #' @param var_ref_watertemp_C Name of column for reference water temperature (in degrees Celcius)
 #' @param var_conduct_uScm Name of column for reference conductivity (uScm)
-#' @return
-#' @example
-#' library(here)
-#' reference_file = here("Data", "site-attribute", "Deadman_YSI_waterchem_20241030.csv")
-#' input_data = read_csv(here("Data", "conductivity", "2024", "OC", "intermediate", "DM_OC_2024_conductivity_all_RAW.csv")) %>%
-#'   filter(site_station_code == "BROU_OC_30")
-#' conductivity_qaqc(input_data = read_csv(here("Data", "conductivity", "2024", "OC", "intermediate", "DM_OC_2024_conductivity_all_RAW.csv")) %>%
+#' @example conductivity_qaqc(input_data = read_csv(here("Data", "conductivity", "2024", "OC", "intermediate", "DM_OC_2024_conductivity_all_RAW.csv")) %>%
 #'                     filter(site_station_code == "BROU_OC_30"),
 #'                   reference_file = here("Data", "site-attribute", "Deadman_YSI_waterchem_20241030.csv"))
 #' @export
