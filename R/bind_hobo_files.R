@@ -228,7 +228,8 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
 
       # search for year folder, if does not exist, write new one
       # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
-        if(!dir.exists(paste0(path_to_output_folder, year_j,"/processed/"))){dir.create(paste0(path_to_output_folder, year_j,"/processed/"))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j,"/processed/"))){dir.create(paste0(path_to_output_folder, year_j,"/processed/"))}
 
 
       # write csv for each year and site_station_code
