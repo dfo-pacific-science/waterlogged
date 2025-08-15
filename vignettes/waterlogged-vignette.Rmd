@@ -17,7 +17,6 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(waterlogged)
 library(knitr)
-library(readr)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -62,6 +61,7 @@ $~$
 
 baro <- read.csv(system.file("extdata/ex-baro", "raw_data_hobo_u20_baro1.csv", package = "waterlogged"))
 
+baro[c(1:10),]
 ```
 $~$
 
@@ -93,6 +93,7 @@ $~$
 
 metadat <- read.csv(system.file("extdata/ex-site-attribute", "logger_manager.csv", package = "waterlogged"))
 
+metadat
 ```
 $~$
 
@@ -110,7 +111,7 @@ Here is an example of running the function:
 
 $~$
 
-```{r bind-ex, eval = false}
+```{r bind-ex}
 raw_dir <- system.file("extdata/ex-baro", package = "waterlogged")  # folder containing raw .csv files only
 
 out_dir <- "data/baro/"  # destination for files
