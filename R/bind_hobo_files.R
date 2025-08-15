@@ -263,7 +263,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
                           theme_classic()+
                           theme(axis.text.x = element_text(angle = 90))+
                           scale_x_datetime(date_labels = "%y-%m")+
-                          labs(x = "Timestamp (YY-MM)", y = paste0(c(dat1_type, "(", dat1_unit, ")")))
+                          labs(x = "Timestamp (YY-MM)", y = colnames(sites_compiled[3]))
 
 
   return(list(sites_compiled, file_summary, multi_plots))
