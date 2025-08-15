@@ -13,6 +13,14 @@
 bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_type, metadata, timestamp_format = "%m/%d/%Y %H:%M", timestamp_timezone = "UTC") {
 
   ## GET DATA FROM HOBO CSV FILES####
+  #make sure all paths have trailing slash
+  if (!endsWith(path_to_raw_folder, "/")) {
+    path_to_raw_folder <- paste0(path_to_raw_folder, "/")
+  }
+  if (!endsWith(path_to_output_folder, "/")) {
+    path_to_output_folder <- paste0(path_to_output_folder, "/")
+  }
+
   file_names <- list.files(path = path_to_raw_folder, pattern = "\\.csv$") # extract file names ending in csv
   path_to_files <- paste0(path_to_raw_folder, file_names) # makes string of full file path for all csv files
 
