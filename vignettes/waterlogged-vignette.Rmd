@@ -40,7 +40,7 @@ $~$
 $~$
 
 1. Connect shuttle to computer and load in HOBO
-2. Save file name as [SHORTHAND FOR VARIABLE]_[SITENAME]_[SERIALNUMBER]_[DATEDOWNLOADED YYYYMMDD]
+2. We recommend saving file name as [SHORTHAND For VARIABLE]_[SITENAME]_[SERIALNUMBER]_[DATEDOWNLOADED YYYYMMDD]
 3. Bulk export of csvs: HOBOWARE PRO > Tools > Bulk Export > Select folder containing hobo files
 
 Exported csvs will have this structure (not R-friendly)
@@ -49,7 +49,7 @@ Exported csvs will have this structure (not R-friendly)
    - row 2: headers
    - row 3: start of data
    - column 1: index
-   - column 2: DateTime, MUST be correctly formatted in excel as custom: mm/dd/yy hh:mm:ss
+   - column 2: DateTime in format mm/dd/yyyy hh:mm
    - column 3: Abs Pres
    - column 4: Temp
    - column 5+ additional logger outputs
@@ -58,10 +58,9 @@ Here is an example of what the raw file from HOBO should look like:
 
 $~$
 
-```{r raw-ex, eval = FALSE}
+```{r raw-ex, echo = FALSE}
 
-baro <- read.csv("data/baro/2024/raw/baro1.csv")
-baro
+baro <- read.csv(system.file("extdata/ex-baro", "raw_data_hobo_u20_baro1.csv", package = "waterlogged"))
 
 ```
 $~$
@@ -90,10 +89,9 @@ Our metadata file looks like this:
 
 $~$
 
-```{r meta-ex, eval=FALSE}
+```{r meta-ex, echo = FALSE}
 
-metadat <- read.csv("data/logger_manager.csv")
-metadat
+metadat <- read.csv(system.file("extdata/ex-site-attribute", "logger_manager.csv", package = "waterlogged"))
 
 ```
 $~$
@@ -112,8 +110,8 @@ Here is an example of running the function:
 
 $~$
 
-```{r bind-ex,  eval = FALSE}
-raw_dir <- "data/baro/2024/raw/"  # folder containing raw .csv files only
+```{r bind-ex, eval = false}
+raw_dir <- system.file("extdata/ex-baro", package = "waterlogged")  # folder containing raw .csv files only
 
 out_dir <- "data/baro/"  # destination for files
 
@@ -122,6 +120,7 @@ baro_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, path_to_output_folde
 baro_dat <- data.frame(baro_bound[1])
 baro_bound[2]
 baro_bound[3]
+
 ```
 
 $~$

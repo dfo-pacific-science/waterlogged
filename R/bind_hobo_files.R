@@ -146,7 +146,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
       remove_j<- metadat_i$timestamp_remove[j]
 
       # if logger is still logging it wont have a remove date so make it today
-      if(is.na(remove_j)){remove_j <- now(tzone="UTC")}
+      if(is.na(remove_j)){remove_j <- lubridate::now(tzone=timestamp_timezone)}
 
       # assign location based on matching timestamps in metadata
       for(k in 1:length(data_i$timestamp)){
@@ -166,7 +166,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
 
   # remove duplicate rows in case multiple downloads per logger results in overlapping dates
   sites_compiled <- sites_compiled %>%
-    distinct(site_station_code, sn, timestamp, .keep_all = TRUE)
+    dplyr::distinct(site_station_code, sn, timestamp, .keep_all = TRUE)
 
   # order by site and timestamp
   sites_compiled<- sites_compiled[order(sites_compiled$site_station_code, sites_compiled$timestamp), ]
@@ -222,16 +222,16 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
     site_dat <- sites_compiled %>% filter(site_station_code==site_i)
 
     # split by year
-    years_i <- unique(year(site_dat$timestamp))
+    years_i <- unique(lubridate::year(site_dat$timestamp))
 
     for(j in 1:length(years_i)){
       year_j <- years_i[j]
-      site_year_j <- site_dat %>% filter(year(timestamp)==year_j)
+      site_year_j <- site_dat %>% filter(lubridate::year(timestamp)==year_j)
 
       #name by timestamp range
-      start_j <- as.character(min(date(site_year_j$timestamp)))
+      start_j <- as.character(min(lubridate::date(site_year_j$timestamp)))
       start_j <- gsub("\\D", "", start_j)
-      end_j <- as.character(max(date(site_year_j$timestamp)))
+      end_j <- as.character(max(lubridate::date(site_year_j$timestamp)))
       end_j <- gsub("\\D", "", end_j)
 
       # search for year folder, if does not exist, write new one
@@ -243,7 +243,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
       # write csv for each year and site_station_code
 
       # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
-      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
+      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
 
        print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
 
