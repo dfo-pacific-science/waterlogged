@@ -242,8 +242,11 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
 
       # write csv for each year and site_station_code
 
+      # correct missing midnight timestamps
+      site_year_j$timestamp <- as.character(format(site_year_j$timestamp))
+
       # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
+      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"), row.names = FALSE)
 
        print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
 

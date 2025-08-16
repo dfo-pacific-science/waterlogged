@@ -69,7 +69,7 @@ $~$
 
 $~$
 
-In most cases, there will be data for multiple loggers or downloads for a single station. These need to be bound together to create a single DO data file for each station. 
+In most cases, there will be data for multiple loggers or downloads for a single station. These need to be bound together to create a single data file for each station. 
 
 Also, data needs to be trimmed to the install and removal dates in case loggers were activated prior to install, or if they were removed before downloading the data (which is typically the case). 
 
@@ -78,11 +78,9 @@ To do this, you will need 2 things:
 1. Folder containing raw .csv files exported from HOBOware.  
 2.  A .csv of metadata (NorthThompson_logger_deployments.csv) containing:
     - *sn* serial number of logger
-    - *site_station_name* of where the logger was deployed, must match those of raw DO file names
-    - *date_deployment* date of logger deployment
-    - *time_deployment* time of logger deployment
-    - *date_removed* date of logger deployment
-    - *time_removed* time of logger deployment
+    - *site_station_code* A unique ID for the station where the logger was deployed
+    - *timestamp_deployed* timestamp of logger deployment
+    - *timestamp_removed* timestamp of logger removal
     - *status* status of logger (logging, lost, removed)
     
 Our metadata file looks like this:
@@ -97,17 +95,14 @@ metadat
 ```
 $~$
 
-The function **bind_hobo_files** will load all .csv files in the *raw_folder*, match loggers with the status and install/removal dates from the *metadata_file*, and bind data from loggers by each station. 
+The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. 
 
-*site_type_code* should be specified as either "ST" for stream or "WE" for wetland
+*path_to_output_folder* is where you would like the bound files to be saved
 
-*output_folder* is where you would like the bound files to be saved
+*logger_type* The type of HOBO logger that produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, and temperature_TidbiT
 
-*logger_type* Tis the type of HOBO logger the produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, and temperature_TidbiT
 
-*project_name* is the desired name of the project that will be used for labeling output file of bound data, ie. NorthThompson 
-
-Here is an example of running the function:
+Here is an example of running the function on barometric data from a HOBO U20 logger:
 
 $~$
 
@@ -126,71 +121,44 @@ baro_bound[3]
 
 $~$
 
-Now we have both individual files for dissolved oxygen at each station and year, and a global database for all files in the *raw_folder* for the specified *site_type_code* and each year
+Now we have individual files for barometric data at each station and year saved in their respective folders, and a trimmed dataset of all input baro files saved in the environment as **baro_bound**.
 
-This is what the individual station data looks like (Compare it to the raw hobo file output from above)
+This is what the individual station data looks like (Compare it to the raw hobo file output from above).
 
 $~$
 
-```{r raw-ind, eval=FALSE}
+```{r raw-ind}
 
-read_csv("data/dissolved-oxygen/processed/2021/BARR_WE_30_DO_RAW_2021.csv") %>%
+read.csv("data/baro/2024/processed/SLUG_ST_01_BARO_20240101_20241010_v0.1.csv") %>%
   head()
 
 
 ```
-$~$
 
-And here is what a summary of the global dataset looks like:
-
-$~$
-
-
-```{r raw-glob, eval = FALSE}
-
-read_csv("data/dissolved-oxygen/processed/2021/NorthThompson_WE_dissox_RAW_2021_20230607.csv") %>%
-  mutate(site_station_code = as.factor(site_station_code)) %>%
-  summary()
-
-
-```
-*Note: -888.88 is a HOBO logger error code - we can remove these erroneous values later*
+Use the same function for all other logger types. Let's look at the output of *bind_hobo_files* for a waterlevel logger at a site with the *site_station_code* FROG_WE_01.
 
 $~$
 
-```{r raw-glob-sum, eval = FALSE}
-do <- read_csv("data/dissolved-oxygen/processed/2021/NorthThompson_WE_dissox_RAW_2021_20230607.csv")
+```{r wl-ex, echo = FALSE}
+wl_dat <- read.csv(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.1.csv", package = "waterlogged"))
 
-do %>% head()
+head(wl_dat)
 ```
 
+$~$
 
-# Retrieve barometric pressure data for each logger observation
+# Step 2: Convert Raw Measurements
 
 $~$
 
- 1. NorthThompson_WE_dissox_RAW.csv (created previously)
+Hobo water level loggers are not vented meaning they read both the pressure of the water above them and the atmospheric pressure; this is why waterlevel is currently recorded as "Absolute Pressure", rather than a more useful metric, such as metres. In order to correct for this, we must apply a barometric compensation equation to each timestamp of waterlevel data. Barometric data can be obtained from a U20 installed above water (ie. in a nearby tree) at a nearby location as the waterlevel logger. Or hourly barometric pressure can be obtained from nearby weather stations. Regardless, the barometric data used must contain the following columns and formatting:
+
+
    - *site_station_code* used to index to metadata for closest baro logger
-   - *timestamp* is in PDT, used to join DO data to Baro data for each date/time
-   - *do_mgl_U26* dissolved oxygen is in mg/L, used to calculate percent saturation
-   - *watertemp_C_U26* temperature is in degrees celcius, used to calculate percent saturation
-
- 2. NorthThompson_barometric_RAW.csv
-   - *timestamp* is in PDT, used to join DO data to Baro data for each date/time
+   - *timestamp*  used to join waterlevel or dissolved oxygen data to baro data for each timestamp
    - *airpress_kPa_U20* barometric pressure is in kPa, used to calculate percent saturation
 
-$~$
 
-Our baro data looks like this:
-
-$~$
-
-```{r baro-file, eval = FALSE}
-
-read_csv("data/baro/NorthThompson_baro_RAW_2021_20230607.csv") %>%
-  head()
-
-```
 $~$
 
 We have barometric loggers for some sites, but not all. If a site does not have it's own barometric logger, we want to use the closest one that has data for the DO time range. In our metadata, we have 3 columns named *nearest_baro*, *secondary_baro*, *tertiary_baro* with the *site_station_code* for the respective logger. 
