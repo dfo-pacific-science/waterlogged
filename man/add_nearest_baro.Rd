@@ -27,7 +27,7 @@ add_nearest_baro(
 
 \item{var_airtemp_C}{The variable for air temperature in degrees Celsius from barometric logger}
 
-\item{metadata}{File containing site_station_code, logger_type, latitude, and longitude}
+\item{metadata}{File containing site_station_code, latitude, and longitude}
 }
 \value{
 dataset with barometric data and adjustments added as new columns, as well as a saved csv

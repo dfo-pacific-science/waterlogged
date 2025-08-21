@@ -161,10 +161,44 @@ Hobo water level loggers are not vented meaning they read both the pressure of t
 
 $~$
 
-We have barometric loggers for some sites, but not all. If a site does not have it's own barometric logger, we want to use the closest one that has data for the DO time range. In our metadata, we have 3 columns named *nearest_baro*, *secondary_baro*, *tertiary_baro* with the *site_station_code* for the respective logger. 
+We have barometric loggers for some sites, but not all. If a site with a water level logger or dissolved oxygen logger does not have it's own barometric logger, we want to use the closest one that has data for the water level or dissolved oxygen time range.
 
-**add_nearest_baro** binds the closest barometric logger to the dissolved oxygen logger at each station
+**add_nearest_baro** performs three tasks
 
+1. Binds the closest barometric logger to the target logger at each station using metadata provided by the user
+2. Fills in gaps in barometric data from
+one station with baro data from the
+next closest station
+3. Corrects for jumps in pressure due to differences in altitude between logger locations
+
+The input data with barometric data added as additional coluns is then exported with suffix of v0.2.
+
+The metadata must include the following columns:
+
+- *site_station_code* unique identifier for site/station of loggers, must match header and code in input_data
+- *logger_type* type of logger located at each site_station_code. Accepted types are **baro_U20**, **waterlevel_U20**, **dissolvedoxygen_U26**. 
+- *latitude* in decimal degrees
+- *longitude* in decimal degrees
+
+Here is an example of putting together the required metadata
+
+$~$
+
+```{r baro-meta}
+baro_metadat <- read.csv(system.file("extdata/ex-site-attribute", "site_station_manager.csv", package = "waterlogged"))
+
+head(baro_metadat)
+
+```
+
+This metadata needs an additional column that tells *add_nearest_baro* what loggers are at what site/stations. Lets add that column using the *logger_manager* metadata from the previous step. 
+
+```{r baro-meta-add}
+
+
+```
+
+$~$
 
 This is an example of running the function:
 
