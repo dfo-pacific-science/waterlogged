@@ -9,6 +9,8 @@ add_nearest_baro(
   input_logger_type,
   path_to_output_folder,
   baro_data,
+  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
+  timestamp_timezone = "UTC",
   var_airpress_kPa = "airpress_kPa_U20",
   var_airtemp_C = "airtemp_C_U20",
   metadata

@@ -8,6 +8,8 @@
 #' @param baro_data File containing barometric pressure in kPa for barometric stations as site_code that match with those in the metadata_file under nearest_baro, secondary_baro, tertiary_baro
 #' @param var_airtemp_C The variable for air temperature in degrees Celsius from barometric logger
 #' @param var_airpress_kPa The variable for barometric pressure in kPa
+#' @param  timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "%m/%d/%Y %H:%M"
+#' @param  timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @return dataset with barometric data and adjustments added as new columns, as well as a saved csv
 #' @export
 
