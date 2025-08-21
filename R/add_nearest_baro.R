@@ -4,7 +4,7 @@
 #' @param input_data The dataset containing raw dissolved oxygen in mg/L or waterlevel in kPa
 #' @param input_logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20
 #' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
-#' @param metadata File containing site_station_code, logger_type, latitude, and longitude
+#' @param metadata File containing site_station_code, latitude, and longitude
 #' @param baro_data File containing barometric pressure in kPa for barometric stations as site_code that match with those in the metadata_file under nearest_baro, secondary_baro, tertiary_baro
 #' @param var_airtemp_C The variable for air temperature in degrees Celsius from barometric logger
 #' @param var_airpress_kPa The variable for barometric pressure in kPa
@@ -16,7 +16,7 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
 
   ## Bind Data ####
   ## get baro list
-  baro_link <- filter(metadata, logger_type == "baro_U20") %>% drop_na(latitude)
+  baro_link <- metadata %>% drop_na(site_station_code, latitude, longitude)
 
   # user input baro data names to local names
   names(baro_data)[names(baro_data) == var_airpress_kPa ] <- "airpress_kPa"
@@ -43,7 +43,7 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
     # order by timestamp
     dat_i <- dat_i[order(dat_i$timestamp),]
 
-    coords_i <- filter(metadata, site_station_code == site_i & logger_type == input_logger_type)
+    coords_i <- filter(metadata, site_station_code == site_i)
 
     # make error message for missing metadata
     if(length(coords_i$site_station_code)==0){
