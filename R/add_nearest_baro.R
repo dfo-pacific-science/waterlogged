@@ -11,19 +11,30 @@
 #' @return dataset with barometric data and adjustments added as new columns, as well as a saved csv
 #' @export
 
-add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folder, baro_data, var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20", metadata){
+add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folder, baro_data, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20", metadata){
 
+  ## SETUP ####
+  # format timestamp
+  # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
+  input_data$timestamp <-as.POSIXct(input_data$timestamp, format = timestamp_format, tz = timestamp_timezone)
+  baro_data$timestamp <-as.POSIXct(baro_data$timestamp, format = timestamp_format, tz = timestamp_timezone)
 
-  ## Bind Data ####
-  ## get baro list
-  baro_link <- metadata %>% drop_na(site_station_code, latitude, longitude)
+  #make sure all paths have trailing slash
+  if (!endsWith(path_to_output_folder, "/")) {
+    path_to_output_folder <- paste0(path_to_output_folder, "/")
+  }
 
   # user input baro data names to local names
   names(baro_data)[names(baro_data) == var_airpress_kPa ] <- "airpress_kPa"
   names(baro_data)[names(baro_data) == var_airtemp_C ] <- "airtemp_C"
   baro_data$site_station_code <- as.character(baro_data$site_station_code)
 
-  output_data <- input_data
+
+  ## Bind Data ####
+  ## get baro list
+  baro_link <- metadata %>% drop_na(site_station_code, latitude, longitude)
+
+   output_data <- input_data
   # make empty columns in input data to fill with baro data
   output_data$baro_code <- NA
   output_data$airpress_kPa <- NA
@@ -32,7 +43,6 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
 
   ## create empty datasets for loop
   do_baro_compiled <- data.frame()
-
 
   ## start site level loop
   for(i in 1:length(unique(output_data$site_station_code))){
