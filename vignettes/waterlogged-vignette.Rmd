@@ -34,7 +34,7 @@ This version of the package was built for data from Onset HOBO barometric pressu
 
 $~$
 
-# Download data from HOBO loggers
+# Prep: Download data from HOBO loggers
 
 $~$
 
@@ -61,11 +61,11 @@ $~$
 
 baro <- read.csv(system.file("extdata/ex-baro", "raw_data_hobo_u20_baro1.csv", package = "waterlogged"))
 
-baro[c(1:10),]
+head(baro)
 ```
 $~$
 
-# Bind logger data for each logging station
+# Step 1: Bind logger data for each logging station
 
 $~$
 
@@ -91,7 +91,7 @@ $~$
 
 metadat <- read.csv(system.file("extdata/ex-site-attribute", "logger_manager.csv", package = "waterlogged"))
 
-metadat
+head(metadat)
 ```
 $~$
 
@@ -148,7 +148,7 @@ head(wl_dat)
 
 $~$
 
-# Step 2: Convert Raw Measurements
+# Step 2: Convert Raw Measurements to Usable Metrics
 
 $~$
 
@@ -207,15 +207,15 @@ wl_baro_dat <- add_nearest_baro(input_data = wl_dat,
 ```
 $~$
 
+This is what the dataset output now looks like:
+
 ```{r baro-dat-added, eval = FALSE}
 
-do_baro <- read_csv("data/dissolved-oxygen/processed/2021/NorthThompson_DO_BARO_RAW_20230608.csv")
-
-do_baro %>% head()
+head(wl_baro_dat)
 
 ```
 
-Our dissolved oxygen dataset now has a few extra columns: 
+Our water level dataset now has a few extra columns: 
 
   + *baro_code* shows the nearest barometric logger with available data for that timestamp
   + *airpress_kPa_U20* shows the air pressure recorded at the barometric logger
@@ -227,104 +227,15 @@ If the nearest barometric logger does not cover the entire observation period of
 
 The plot that pops up after running **add_nearest_baro** should show a continuous line of varying air pressure values - any breaks or gaps in the line would indicate that an adjustment in pressure between sites of different elevations should be made..
 
-*Note: the air temperature is taken from the barometric logger location, which is not neccessarily the same site as the dissolved oxygen logger - care should be taken for analyses attributing air temperature to a specific location*
+*Note: the air temperature is taken from the barometric logger location, which is not neccessarily the same site as the dissolved oxygen logger - care should be taken for analyses attributing air temperature to a specific location when the baro_code is not the same as site_station_code*
 
-## 
-
-```{r baro-corr, eval = FALSE}
-## example of barometric pressure correction
-pal4<- NTSERP_palette(n_groups = 4)
-
-# show unadjusted baro values
-baro_plot<- ggplot(data = do_baro_dat %>% filter(site_station_code=="MILE_WE_40"), aes(x = timestamp))+
-  scale_color_manual(values = pal4)+
-  theme_basic
-
-baro_plot_noadj <- baro_plot+
-  geom_line(aes( y = airpress_kPa_U20), color = "darkgrey", linetype= "dashed")+
-  geom_point(aes(y = airpress_kPa_U20, color = baro_code), shape = 1)
-
-ggplotly(baro_plot_noadj)  
-
-# add in adjusted values
-# zoom into sections - I know it looks wild, trust me
-ggplotly(baro_plot_noadj +
-           geom_line(aes( y = airpress_kPa_U20_adj), color = "black")+
-           geom_point(aes(y = airpress_kPa_U20_adj, color = baro_code)))
-
-# show only adjusted values - ahh much better
-ggplotly(baro_plot +
-           geom_line(aes( y = airpress_kPa_U20_adj), color = "black")+
-           geom_point(aes(y = airpress_kPa_U20_adj, color = baro_code)))
-
+```{r baro-plot, echo = FALSE}
+knitr::include_graphics("figures/step2_add_nearest_baro.png")
 ```
-
-
-
-$~$ 
-
-## Dissolved oxygen: Apply barometric compensation to get DO in % air sat.
-
-
-Now that we have barometric pressure values for each of our dissolved oxygen values, we can compute the percent air saturation of dissolved oxygen using the function **convert_do_mgl_percsat**
-
-$~$
-```{r do-mgl-percsat, eval = FALSE}
-
-do_baro_sat <- convert_do_mgl_percsat(site_df = do_baro)
-
-do_baro_sat %>% head()
-
-do_baro_sat %>% mutate(site_station_code = factor(site_station_code)) %>% summary()
-
-```
-$~$
-
-Now we have complete DO data for all stations this year. Save this as a processed csv or continue on for QAQC processing.
-
-$~$
-
-```{r baro-out, eval = FALSE}
-write_csv(do_baro_sat, file = paste0(out_dir, "NorthThompson_WE_DO_BARO_SAT_RAW_2021_20230607.csv"))
-
-```
-$~$
-
-This same process can be done for waterlevel data from HOBO U20 loggers.
-
-$~$
-
-
 ## Waterlevel: Apply barometric compensation to get water level in metres
 
-To show how quickly raw data can be bound and paired with barometric data, I'll repeat the above steps on water level data
 
-```{r wl, eval = FALSE}
-wl <- bind_hobo_files(raw_folder = "data/water-level/raw/2021/", 
-                      site_type_code = "WE",
-                      output_folder = "data/water-level/processed/", 
-                      metadata_file = metadat_in,
-                      logger_type = "waterlevel_U20",
-                      project_name = "NorthThompson")
-
-wl_dat <- data.frame(wl[1])
-wl[2] # show water level in pressure
-wl[3] # show water temperature
-
-wl_dat <- add_nearest_baro(input_file = wl_dat, 
-                                    output_folder = "data/water-level/processed/2021/",
-                                    baro_file = baro,
-                                    metadata_file = metadat_in,
-                                    site_type_code = "WE",
-                                    project_name = "NorthThompson",
-                                    logger_type = "waterlevel_U20")
-
-wl_dat %>% head()
-```
-
-$~$
-
-Now we need to convert water level from kPa into metres. This can be done using the **convert_waterlevel_kPa_m** function. To do this, we need at least one manual measurement of water level (either true depth or stage) taken within the data collection period. 
+We need to convert water level from kPa (water pressure + air pressure) into metres (the height of water at your site). This can be done using the **convert_waterlevel_kPa_m** function. To do this, we need at least one manual measurement of water level (either true depth or stage) taken within the data collection period. 
 
 We keep our manual stage measurements in a separate file. The required columns are:
  - *site_station_code* the name of the logger station, must match with the ID in the waterlevel dataset made previously
@@ -366,6 +277,43 @@ site_wl <- convert_waterlevel_kPa_m(waterlevel_df = wl_raw, manualhydro_df = man
 
 
 ```
+
+
+
+
+
+$~$ 
+
+## Dissolved oxygen: Apply barometric compensation to get DO in % air sat.
+
+
+Now that we have barometric pressure values for each of our dissolved oxygen values, we can compute the percent air saturation of dissolved oxygen using the function **convert_do_mgl_percsat**
+
+$~$
+```{r do-mgl-percsat, eval = FALSE}
+
+do_baro_sat <- convert_do_mgl_percsat(site_df = do_baro)
+
+do_baro_sat %>% head()
+
+do_baro_sat %>% mutate(site_station_code = factor(site_station_code)) %>% summary()
+
+```
+$~$
+
+Now we have complete DO data for all stations this year. Save this as a processed csv or continue on for QAQC processing.
+
+$~$
+
+```{r baro-out, eval = FALSE}
+write_csv(do_baro_sat, file = paste0(out_dir, "NorthThompson_WE_DO_BARO_SAT_RAW_2021_20230607.csv"))
+
+```
+$~$
+
+This same process can be done for waterlevel data from HOBO U20 loggers.
+
+$~$
 
 
 

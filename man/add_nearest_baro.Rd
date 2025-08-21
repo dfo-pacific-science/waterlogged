@@ -25,6 +25,10 @@ add_nearest_baro(
 
 \item{baro_data}{File containing barometric pressure in kPa for barometric stations as site_code that match with those in the metadata_file under nearest_baro, secondary_baro, tertiary_baro}
 
+\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "\%m/\%d/\%Y \%H:\%M"}
+
+\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
+
 \item{var_airpress_kPa}{The variable for barometric pressure in kPa}
 
 \item{var_airtemp_C}{The variable for air temperature in degrees Celsius from barometric logger}
