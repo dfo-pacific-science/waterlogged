@@ -143,6 +143,7 @@ $~$
 wl_dat <- read.csv(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.1.csv", package = "waterlogged"))
 
 head(wl_dat)
+
 ```
 
 $~$
@@ -191,42 +192,17 @@ head(baro_metadat)
 
 ```
 
-This metadata needs an additional column that tells *add_nearest_baro* what loggers are at what site/stations. Lets add that column using the *logger_manager* metadata from the previous step. 
-
-```{r baro-meta-add}
-
-
-```
-
 $~$
 
-This is an example of running the function:
-
+This is an example of running the function, using the bound baro and waterlevel datasets we made in Step 1
 $~$
 
-```{r baro-ex, eval = FALSE}
-# the baro file is the only new file
-baro <- read_csv("data/baro/NorthThompson_baro_RAW_2021_20230607.csv")
-# we just have to make sure R reads the timestamp in properly
-baro$timestamp <- as.POSIXct(baro$timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
-
-# these inputs we've seen before
-out_dir <- "data/dissolved-oxygen/processed/2021/"  # destination for bound files
-
-dissox <- read_csv("data/dissolved-oxygen/processed/2021/NorthThompson_WE_dissox_RAW_2021_20230607.csv") # what we just made in the previous step
-
-metadat_in <- read_csv("data/site-attribute/NorthThompson_logger_deployments_20230323.csv")
-metadat_in$timestamp_deploy <- as.POSIXct(metadat_in$timestamp_deploy, format = "%m/%d/%Y %H:%M", tz = "UTC")
-metadat_in$timestamp_remove <- as.POSIXct(metadat_in$timestamp_remove, format = "%m/%d/%Y %H:%M", tz = "UTC")
-
-
-do_baro <- add_nearest_baro(input_file = dissox, 
-                            output_folder = out_dir,
-                            logger_type = "dissolvedoxygen_U26",
-                            baro_file = baro,
-                            metadata_file = metadat_in,
-                            site_type_code = "WE",
-                            project_name = "NorthThompson")
+```{r baro-ex}
+wl_baro_dat <- add_nearest_baro(input_data = wl_dat, 
+                                input_logger_type = "waterlevel_U20",
+                                path_to_output_folder = "data/waterlevel/",
+                                baro_data = baro_dat,
+                                metadata = baro_metadat)
 
 ```
 $~$
