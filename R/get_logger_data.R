@@ -23,14 +23,20 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
   # the processed folder contains output of several stages of data processed.
   # For processed data that is the output of bind_hobo_files
   # extract ONLY file names ending in "v0.1.csv"
-  if(data_processing=="processed_bound") {
+  if(data_processing=="v0.1") {
     file_names <- list.files(path = path_to_data, pattern = "v0.1.csv$")
   }
   # For processed data that is the output of add_nearest_baro
   # extract ONLY file names ending in "v0.2.csv"
-  if(data_processing=="processed_withbaro") {
+  if(data_processing=="v0.2") {
     file_names <- list.files(path = path_to_data, pattern = "v0.2.csv$")
   }
+  # For processed data that is the output of convert_waterlevel_m
+  # extract ONLY file names ending in "v0.3.csv"
+  if(data_processing=="v0.3") {
+    file_names <- list.files(path = path_to_data, pattern = "v0.3.csv$")
+  }
+
   # For processed data that is the output of write_clean_data
   # extract ONLY file names ending in "v1.0.csv"
   if(data_processing=="clean") {
@@ -43,7 +49,7 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
     data <- read.csv(file, header = TRUE,
                      stringsAsFactors = FALSE)
     # format time stamp
-    data$timestamp <-as.POSIXct(data$timestamp, tz = "UTC", format = "%Y-%m-%dT%H:%M:%SZ")
+    data$timestamp <-as.POSIXct(data$timestamp, tz = "UTC", format = "%Y-%m-%d %H:%M:%S")
 
     # format factor variables
     try(data$sn <- as.factor(data$sn), silent = TRUE)
