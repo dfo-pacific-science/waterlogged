@@ -207,8 +207,7 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
 
       # write csv for each year and site_station_code
 
-      # write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"), row.names = FALSE)
-      write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/processed/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"))
+      write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/processed/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"), row.names = FALSE)
       print(paste("Barometric pressure data (v0.2) from",site_i,"added to", year_n, "folder"))
 
     } #end of year level loop
