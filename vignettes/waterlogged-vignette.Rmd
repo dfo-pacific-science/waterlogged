@@ -232,6 +232,7 @@ The plot that pops up after running **add_nearest_baro** should show a continuou
 ```{r baro-plot, echo = FALSE}
 knitr::include_graphics("figures/step2_add_nearest_baro.png")
 ```
+
 ## Waterlevel: Apply barometric compensation to get water level in metres
 
 
@@ -239,52 +240,93 @@ We need to convert water level from kPa (water pressure + air pressure) into met
 
 We keep our manual stage measurements in a separate file. The required columns are:
  - *site_station_code* the name of the logger station, must match with the ID in the waterlevel dataset made previously
- - *stage_timestamp* the time the stage was taken
- - Either *depth_m* or *stage_m*, the manual measurement of water level taken at the logger location, in metres
+ - *timestamp* the time the stage or depth measurement was taken
+ - A column containing the manual measurement of water level taken at the logger location, in metres. Default column name is *stage_m*. 
 
 $~$
 
-```{r wl-manual, eval = FALSE}
+```{r wl-manual}
 
-manual_in <- read_csv("data/site-attribute/NorthThompson_manual_hydro_measurements_20230424.csv")
+wl_metadat <- read.csv(system.file("extdata/ex-site-attribute", "site_station_measurements.csv", package = "waterlogged"))
 
 # correctly format time stamps
-manual_in$timestamp <- as.POSIXct(manual_in$timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
-manual_in$stage_timestamp <- as.POSIXct(manual_in$stage_timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
+wl_metadat$timestamp <- as.POSIXct(wl_metadat$timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
 
-manual_in %>% head()
+wl_metadat%>% head()
 
 ```
 
 $~$
 
 **convert_waterlevel_kPa_m** requires a few inputs:
- - *waterlevel_df* bound waterlevel data for a single site
- - *waterlevel_data_out* where you would like the new dataset to be saved 
- - *manualhydro_df* the manual water level measurements (the dataset shown above)
- - *manual_type* either "stage" or "depth", the method of manual water level measurement
- - *select_site* the site_station_code you are working on 
+ - input_data Dataframe containing timeseries of raw water level in kPa, water temperature
+ -  *var_watertemp_C* Name of column for water temperature (in degrees Celcius) in input data
+ -  *var_waterpress_kPa* Name of column for water pressure (in kPa) in input data
+ -  *var_airpress_kPa* Name of column for air pressure (in kPa) in input data
+ -  *var_airtemp_C* Name of column for air temperature (in degrees Celcius) in input data
+ -  *var_reference_waterlevel_m* Name of column for reference water level in metres
+ -  *var_reference_timestamp* Name of column for reference waterlevel timestamp (as.POSIXct)
+ -  *reference_type* Type of manual measurement used for correcting water level; Either stage or depth
+ -  *reference_data* File containing manual measurements of water level: required variables site_station_code, stage_timestamp, stage_m or depth_m
+ - *select_station* site_station_code to ID station for qaqc
+ -*select_measurement* Numeric; Select which manual measurement will be used for correcting (default is first measurement, 1)
 
 There are a few other inputs, but we will explain them later on. Let's run this function and see how it works.
 
-We run this function once for each site. 
+We run this function once for each site separately. 
 
 $~$
 
-```{r convert-wl, eval = FALSE}
-site_wl <- convert_waterlevel_kPa_m(waterlevel_df = wl_raw, manualhydro_df = manual_hydro, manual_type = "depth", select_site = "LO09_WE_30")
-
-
+```{r convert-wl}
+station_wl <- convert_waterlevel_kPa_m(input_data = wl_baro_dat, reference_data = wl_metadat, reference_type = "depth", select_station = "FROG_WE_01", var_reference_waterlevel_m = "waterlevel_m_depth", path_to_output_folder = "data/waterlevel/")
 
 ```
+$~$ 
+
+The output is a list saved under *station_wl*. We can access the outputs in the list like this:
+
+$~$ 
+```{r get-wl-m-dat}
+
+station_wl_dat <- data.frame(station_wl[1])
+
+station_wl_dat %>% head()
+```
+$~$ 
+
+You can see we have a bunch of extra columns created in the compensation equation. The only one we really care about is the new *waterlevel_m_U20* which shows waterlevel now in metres.
 
 
-
-
+The second item in the list *station_wl* is a new dataset that shows all available reference datapoints for the selected station. If you would like to use a different reference measurement for waterlevel, you can re-run the previous function with the input for *select_measurement* to be 2 or 3 (the second or third measurement under *ref_m* in the reference dataset). 
 
 $~$ 
 
-## Dissolved oxygen: Apply barometric compensation to get DO in % air sat.
+```{r get-wl-reference-points}
+station_wl[2]
+
+```
+
+$~$ 
+
+Lets look at the plot of waterlevel in metres over time for this station.
+
+$~$ 
+
+```{r get-wl-plot}
+
+station_wl[3]
+```
+
+$~$ 
+
+The dark blue line is the freshly converted waterlevel in metres, using the first reference value for water depth taken in April 2024 (orange dot). We can see that the first and the last orange dot both align well with the recorded waterlevel. The second dot is way off the waterlevel trendline, and indicates potential drift or measurement error. If we look at the waterlevel metadata file, we can see that under *fieldnote* there is a note indicating "MEASUREMENT_ERROR". This tells us we should ignore the 2nd reference point, and go with the first or second reference values. 
+
+Once you're happy with your waterlevel conversion at this station, you can move onto the next step. If you have more than one waterlevel station that needs to be converted into metres, re-run the previous function with a new input for *select_station* ie. "SLUG_ST_01". If you only have one station, and your happy with the conversion, move onto Step 3: QAQC. 
+
+$~$ 
+
+
+## NEEDS UPDATE: Dissolved oxygen: Apply barometric compensation to get DO in % air sat.
 
 
 Now that we have barometric pressure values for each of our dissolved oxygen values, we can compute the percent air saturation of dissolved oxygen using the function **convert_do_mgl_percsat**
@@ -317,71 +359,48 @@ $~$
 
 
 
-# QAQC
+# Step 3: QAQC
 
 $~$
 
 This section describes the process for quality assurance and quality control of data from HOBO loggers. 
 
-
 $~$
 
-## Step 1: Input paths to data and functions
+## Waterlevel
 
-$~$
+If you came here straight from step 2, you may already have the waterlevel data with barometric compensation loaded in your environment (ie. station_wl_dat). If not, you can grab it from your computer, wherever you selected as *path_to_output_folder*. The waterlevel with barometric compensation is saved as a file ending with *v0.3*.
 
-Two datasets are required to run QAQC of dissox data:
+```{r load-wl-comp-dat}
 
-1. Clean waterlevel data (output of WaterLevel_QAQC_YYYY.R)
-2. Raw dissolved oxygen data with barometric compensation applied for % air saturation (output of previous section)
-
-$~$
-
-* Required **water level** input variables:
-  + *site_station_code* Identifier of station and site for logger deployment
-  + *timestamp*	Date and time of measurement in Pacific Daylight Time (note: logger time is not adjusted for daylight savings time)
-  + *waterlevel_adj* Adjusted water level value, in metres
-
-* Optional input variables (recommended):
-  + *qaqc_code*	Code for reason adjustment was made, useful for identifying periods where logger was dry or in ice
-
-$~$
-
-* Required **dissolved oxygen** input variables:
-  + *site_station_code* Identifier of station and site for logger deployment
-  + *timestamp*	Date and time of measurement in Pacific Daylight Time (note: logger time is not adjusted for daylight savings time)
-  + *do_mg_l* Raw dissolved oxygen in mg per litre
-  + *temp_C_U26* Raw water temperature in degrees celcius
-  
-* Optional input variables (recommended):
-  + *do_perc_sat*	Raw dissolved oxygen in percent air saturation
-  + *temp_C_baro* Air temperature of nearest barometric logger
-
-$~$
-
-```{r load-data, eval = FALSE}
-
-## load waterlevel data
-wl <- read_csv("data/water-level/clean/NorthThompson_WE_waterlevel_CLEAN_example.csv") 
-head(wl)
-
-#make time stamps the same format
-wl$timestamp <- as.POSIXct(wl$timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
-
-#load dissox data
-do <- read_csv("data/dissolved-oxygen/processed/NorthThompson_WE_dissolvedoxygen_baro_RAW_example.csv") %>%
-  select(-c(qaqc_code, qaqc_adj, qaqc_note))
-
-
-head(do)
+station_wl_dat <- read.csv("data/waterlevel/2024/processed/FROG_WE_01_WL_20240101_20241009_v0.3.csv")
 
 ```
 
 $~$
 
-Set desired output folder for clean dissolved oxygen data.
+Or, if you have waterlevel data from multiple stations to clean, you can load them all using the function *get_logger_data*
 
 $~$
+
+```{r get-all-wl-dat}
+wl_dat <- get_logger_data(path_to_data = "data/waterlevel/2024/processed/", logger_type = "waterlevel_U20", data_processing = "v0.3")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+## NEEDS UPDATE: DO
 
 ```{r set-path, eval = FALSE}
 # desired path to data output
