@@ -12,6 +12,7 @@
 #' @param reference_data File containing manual measurements of water level: required variables site_station_code, stage_timestamp, stage_m or depth_m
 #' @param select_station site_station_code to ID station for qaqc
 #' @param select_measurement Numeric; Select which manual measurement will be used for correcting (default is first measurement, 1)
+#' @param path_to_output_folder The desired folder for output of baro compensation
 #' @return List of 3 objects: 1. site_wl: dataframe of converted waterlevel for specified station, 2. ref_dat: dataframe of manual measurements for specified site, 3. plot of waterlevel data for specified site to aid in QAQC
 #' @export
 
@@ -25,9 +26,14 @@ convert_waterlevel_kPa_m <- function(input_data,
                                      var_waterpress_kPa = "waterpress_kPa_U20",
                                      var_watertemp_C = "watertemp_C_U20",
                                      var_airpress_kPa = "airpress_kPa_U20_adj",
-                                     var_airtemp_C = "airtemp_C_U20_adj"
+                                     var_airtemp_C = "airtemp_C_U20_adj",
+                                     path_to_output_folder
                                      ) {
 
+  #make sure all paths have trailing slash
+  if (!endsWith(path_to_output_folder, "/")) {
+    path_to_output_folder <- paste0(path_to_output_folder, "/")
+  }
 
   ## metric conversions
   FEET_TO_METERS  <-  0.3048
@@ -183,9 +189,6 @@ convert_waterlevel_kPa_m <- function(input_data,
          x = "Timestamp") +
     theme_classic()
 
-  print("Results returned as list: select [1] for waterlevel data in metres, [2] for reference waterlevel dataset, [3] for waterlevel plot to visually check reference values")
-
-  print("Tip: Do reference water levels observed (orange points) align with the predicted water level (solid black line)? If so, great work! Continue onto QAQC. If not, try choosing a different reference water level (ie. select_measurement = 2, etc)")
 
   # reverse local name changes
   names(output_data)[names(output_data) == "waterpress_kPa_U20" ] <- var_waterpress_kPa
@@ -197,6 +200,37 @@ convert_waterlevel_kPa_m <- function(input_data,
     names(output_data)[names(output_data) == "waterlevel_m_U20" ] <- paste0(var_waterpress_kPa, "_m")
 
      }
+# save as new version
+   # split by year
+  years_i <- unique(lubridate::year(output_data$timestamp))
+
+  for(n in 1:length(years_i)){
+    year_n <- years_i[n]
+    site_year_n <- output_data %>% filter(lubridate::year(timestamp)==year_n)
+
+    #name by timestamp range
+    start_n <- as.character(min(lubridate::date(site_year_n$timestamp)))
+    start_n <- gsub("\\D", "", start_n)
+    end_n <- as.character(max(lubridate::date(site_year_n$timestamp)))
+    end_n <- gsub("\\D", "", end_n)
+
+    # search for year folder, if does not exist, write new one
+    # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+    if(!dir.exists(paste0(path_to_output_folder, year_n))){dir.create(paste0(path_to_output_folder, year_n))}
+    if(!dir.exists(paste0(path_to_output_folder, year_n,"/processed/"))){dir.create(paste0(path_to_output_folder, year_n,"/processed/"))}
+
+    # correct missing midnight timestamps
+    site_year_n$timestamp <- as.character(format(site_year_n$timestamp))
+
+    # write csv for each year and site_station_code
+    write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/processed/", select_station,"_WL_", start_n,"_", end_n, "_v0.3", ".csv"), row.names = FALSE)
+    print(paste("Barometric compensation applied to waterlevel (v0.3) from",select_station,"added to", year_n, "folder"))
+
+  } #end of year level loop
+
+  print("Results returned as list: select [1] for waterlevel data in metres, [2] for reference waterlevel dataset, [3] for waterlevel plot to visually check reference values")
+
+  print("Tip: Do reference water levels observed (orange points) align with the predicted water level (navy line)? If so, great work! Continue onto QAQC. If not, try choosing a different reference water level (ie. select_measurement = 2, etc)")
 
   return(list(output_data, ref_dat, suppressWarnings(ggplotly(p))))
 
