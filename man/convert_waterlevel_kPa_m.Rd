@@ -15,7 +15,8 @@ convert_waterlevel_kPa_m(
   var_waterpress_kPa = "waterpress_kPa_U20",
   var_watertemp_C = "watertemp_C_U20",
   var_airpress_kPa = "airpress_kPa_U20_adj",
-  var_airtemp_C = "airtemp_C_U20_adj"
+  var_airtemp_C = "airtemp_C_U20_adj",
+  path_to_output_folder
 )
 }
 \arguments{
@@ -40,6 +41,8 @@ convert_waterlevel_kPa_m(
 \item{var_airpress_kPa}{Name of column for air pressure (in kPa) in input data}
 
 \item{var_airtemp_C}{Name of column for air temperature (in degrees Celcius) in input data}
+
+\item{path_to_output_folder}{The desired folder for output of baro compensation}
 }
 \value{
 List of 3 objects: 1. site_wl: dataframe of converted waterlevel for specified station, 2. ref_dat: dataframe of manual measurements for specified site, 3. plot of waterlevel data for specified site to aid in QAQC
