@@ -75,7 +75,8 @@ Also, data needs to be trimmed to the install and removal dates in case loggers 
 
 To do this, you will need 2 things:
 
-1. Folder containing raw .csv files exported from HOBOware.  
+1. Folder containing raw .csv files exported from HOBOware. 
+    - we recommend keeping csv files from different loggers separate in different folders, and organizing logger folders by year and processing-stage. ie. a file path to the raw water-level logger data would be: "data/waterlevel/2024/raw"
 2.  A .csv of metadata (NorthThompson_logger_deployments.csv) containing:
     - *sn* serial number of logger
     - *site_station_code* A unique ID for the station where the logger was deployed
@@ -97,7 +98,7 @@ $~$
 
 The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. 
 
-*path_to_output_folder* is where you would like the bound files to be saved
+*path_to_output_folder* is where you would like the bound files to be saved. 
 
 *logger_type* The type of HOBO logger that produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, and temperature_TidbiT
 
@@ -106,32 +107,67 @@ Here is an example of running the function on barometric data from a HOBO U20 lo
 
 $~$
 
-```{r bind-ex}
-raw_dir <- system.file("extdata/ex-baro", package = "waterlogged")  # folder containing raw .csv files only
+```{r bind-ex, eval = FALSE}
 
-out_dir <- "data/baro/"  # destination for files
+raw_dir <- "REPLACE WITH DESIRED RAW BARO FOLDER PATH"  #the folder where you've stored your raw csv's (ie. "data/baro/2024/raw")
 
-baro_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, path_to_output_folder = out_dir, logger_type = "baro_U20", metadata = metadat)
+# to run this example using our data, you can access raw hobo files here:
+raw_dir <- system.file("extdata/ex-baro/raw", package = "waterlogged")
 
+out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR BARO DATA"  #from this folder (ie. "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
+
+baro_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, 
+                              path_to_output_folder = out_dir, 
+                              logger_type = "baro_U20", 
+                              metadata = metadat)
+
+```
+
+After you run bind_hobo_files, messages will appear telling you what files were saved where. For our example data, this looks like:
+[1] "Data (v0.1) from FROG_WE_01 added to 2024 folder"
+[1] "Data (v0.1) from SLUG_ST_01 added to 2023 folder"
+[1] "Data (v0.1) from SLUG_ST_01 added to 2024 folder"
+[1] "List returned: [1] trimmed and compiled dataset of csvs in raw folder [2] file summary of csvs in raw folder [3] summary plots of data by site_station_code and timestamp"
+[[1]]
+
+**Note: the suffix v0.1 indicated that this is the first version of processed data, where raw data has been trimmed, variables renamed, and data saved by calender year. Other suffixes will be introduced later. The suffixes are useful for tracking down errors in data processing steps.**
+
+Now we have individual files for barometric data at each station and year saved in their respective folders, and a trimmed dataset of all input baro files saved in the environment as **baro_bound**.
+
+To see the trimmed and re-bound baro dataset, save the first element of the list as a dataframe:
+
+```{r bind-hidden, echo=FALSE}
+baro_bound <- readRDS(system.file("extdata/ex-baro/baro_bound.rds", package = "waterlogged"))
+
+```
+
+```{r bind-ex2}
 baro_dat <- data.frame(baro_bound[1])
-baro_bound[2]
-baro_bound[3]
 
+```
+A summary of all raw logger files, their SN and variables are saved as the 2nd object of the list.
+
+```{r bind-ex3}
+baro_bound[2]
+
+```
+
+To view a summary plot of the trimmed data, select the third object in the list.
+
+```{r bind-ex4}
+baro_bound[3]
 ```
 
 $~$
 
-Now we have individual files for barometric data at each station and year saved in their respective folders, and a trimmed dataset of all input baro files saved in the environment as **baro_bound**.
-
-This is what the individual station data looks like (Compare it to the raw hobo file output from above).
+This is what the output csvs (individual station data) look like (Compare it to the raw hobo file output from above).
 
 $~$
 
-```{r raw-ind}
+```{r raw-ind, echo=FALSE}
 
-read.csv("data/baro/2024/processed/SLUG_ST_01_BARO_20240101_20241010_v0.1.csv") %>%
+readRDS(system.file("extdata/ex-baro/SLUG_ST_01_BARO_20240101_20241010_v0.1.rds", package = "waterlogged")) %>%
   head()
-
 
 ```
 
@@ -140,7 +176,7 @@ Use the same function for all other logger types. Let's look at the output of *b
 $~$
 
 ```{r wl-ex, echo = FALSE}
-wl_dat <- read.csv(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.1.csv", package = "waterlogged"))
+wl_dat <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.1.rds", package = "waterlogged"))
 
 head(wl_dat)
 
@@ -185,7 +221,7 @@ Here is an example of putting together the required metadata
 
 $~$
 
-```{r baro-meta}
+```{r baro-meta, echo = FALSE}
 baro_metadat <- read.csv(system.file("extdata/ex-site-attribute", "site_station_manager.csv", package = "waterlogged"))
 
 head(baro_metadat)
@@ -197,19 +233,26 @@ $~$
 This is an example of running the function, using the bound baro and waterlevel datasets we made in Step 1
 $~$
 
-```{r baro-ex}
+```{r baro-ex, eval = FALSE}
+out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR WATERLEVEL DATA"
+
 wl_baro_dat <- add_nearest_baro(input_data = wl_dat, 
                                 input_logger_type = "waterlevel_U20",
-                                path_to_output_folder = "data/waterlevel/",
+                                path_to_output_folder = out_dir,
                                 baro_data = baro_dat,
                                 metadata = baro_metadat)
 
 ```
 $~$
+The following message will appear, indicating that barometric data was successfully added to your waterlevel data:
+[1] "Barometric pressure data (v0.2) from FROG_WE_01 added to 2024 folder"
+
+**Note: the suffix "v0.2" indicates that this is the second version of processed data, where now barometric data has been added as new columns**
 
 This is what the dataset output now looks like:
 
-```{r baro-dat-added, eval = FALSE}
+```{r baro-dat-added, echo = FALSE}
+wl_baro_dat <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.2.rds", package = "waterlogged"))
 
 head(wl_baro_dat)
 
@@ -245,7 +288,7 @@ We keep our manual stage measurements in a separate file. The required columns a
 
 $~$
 
-```{r wl-manual}
+```{r wl-manual, echo = FALSE}
 
 wl_metadat <- read.csv(system.file("extdata/ex-site-attribute", "site_station_measurements.csv", package = "waterlogged"))
 
@@ -260,10 +303,6 @@ $~$
 
 **convert_waterlevel_kPa_m** requires a few inputs:
  - input_data Dataframe containing timeseries of raw water level in kPa, water temperature
- -  *var_watertemp_C* Name of column for water temperature (in degrees Celcius) in input data
- -  *var_waterpress_kPa* Name of column for water pressure (in kPa) in input data
- -  *var_airpress_kPa* Name of column for air pressure (in kPa) in input data
- -  *var_airtemp_C* Name of column for air temperature (in degrees Celcius) in input data
  -  *var_reference_waterlevel_m* Name of column for reference water level in metres
  -  *var_reference_timestamp* Name of column for reference waterlevel timestamp (as.POSIXct)
  -  *reference_type* Type of manual measurement used for correcting water level; Either stage or depth
@@ -271,21 +310,45 @@ $~$
  - *select_station* site_station_code to ID station for qaqc
  -*select_measurement* Numeric; Select which manual measurement will be used for correcting (default is first measurement, 1)
 
+If you are using HOBO loggers and have not changed the column naming convention, then the following default variable names will not need to be changed. If you have different column names for the following variables, you can enter them here:
+ -  *var_watertemp_C* Name of column for water temperature (in degrees Celcius) in input data
+ -  *var_waterpress_kPa* Name of column for water pressure (in kPa) in input data
+ -  *var_airpress_kPa* Name of column for air pressure (in kPa) in input data
+ -  *var_airtemp_C* Name of column for air temperature (in degrees Celcius) in input data
+
 There are a few other inputs, but we will explain them later on. Let's run this function and see how it works.
 
 We run this function once for each site separately. 
 
 $~$
 
-```{r convert-wl}
-station_wl <- convert_waterlevel_kPa_m(input_data = wl_baro_dat, reference_data = wl_metadat, reference_type = "depth", select_station = "FROG_WE_01", var_reference_waterlevel_m = "waterlevel_m_depth", path_to_output_folder = "data/waterlevel/")
+```{r convert-wl, eval = FALSE}
+
+station_wl <- convert_waterlevel_kPa_m(input_data = wl_baro_dat, 
+                                       reference_data = wl_metadat, 
+                                       reference_type = "depth", 
+                                       select_station = "FROG_WE_01", 
+                                       var_reference_waterlevel_m = "waterlevel_m_depth", 
+                                       path_to_output_folder = out_dir)
 
 ```
 $~$ 
 
+The following messages will appear:
+[1] "Barometric compensation applied to waterlevel (v0.3) from FROG_WE_01 added to 2024 folder"
+[1] "Results returned as list: select [1] for waterlevel data in metres, [2] for reference waterlevel dataset, [3] for waterlevel plot to visually check reference values"
+[1] "Tip: Do reference water levels observed (orange points) align with the predicted water level (navy line)? If so, great work! Continue onto QAQC. If not, try choosing a different reference water level (ie. select_measurement = 2, etc)"
+
 The output is a list saved under *station_wl*. We can access the outputs in the list like this:
 
+```{r load-wl-m-dat, echo = FALSE}
+
+station_wl <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.3.rds", package = "waterlogged"))
+
+```
+
 $~$ 
+
 ```{r get-wl-m-dat}
 
 station_wl_dat <- data.frame(station_wl[1])
@@ -302,6 +365,7 @@ The second item in the list *station_wl* is a new dataset that shows all availab
 $~$ 
 
 ```{r get-wl-reference-points}
+
 station_wl[2]
 
 ```
@@ -369,35 +433,17 @@ $~$
 
 ## Waterlevel
 
-If you came here straight from step 2, you may already have the waterlevel data with barometric compensation loaded in your environment (ie. station_wl_dat). If not, you can grab it from your computer, wherever you selected as *path_to_output_folder*. The waterlevel with barometric compensation is saved as a file ending with *v0.3*.
-
-```{r load-wl-comp-dat}
-
-station_wl_dat <- read.csv("data/waterlevel/2024/processed/FROG_WE_01_WL_20240101_20241009_v0.3.csv")
-
-```
+If you came here straight from step 2, you may already have the waterlevel data with barometric compensation loaded in your environment (ie. station_wl_dat). If not, you can grab it from your computer, wherever you selected as *path_to_output_folder*. The waterlevel with barometric compensation is saved as a file ending with *v0.3*. Or, if you have waterlevel data from multiple stations to clean, you can load them all using the function *get_logger_data*
 
 $~$
 
-Or, if you have waterlevel data from multiple stations to clean, you can load them all using the function *get_logger_data*
+```{r get-all-wl-dat, eval = FALSE}
 
-$~$
-
-```{r get-all-wl-dat}
-wl_dat <- get_logger_data(path_to_data = "data/waterlevel/2024/processed/", logger_type = "waterlevel_U20", data_processing = "v0.3")
+wl_dat <- get_logger_data(path_to_data = paste0(out_dir, "/2024/processed/"),
+                          logger_type = "waterlevel_U20",
+                          data_processing = "v0.3")
 
 ```
-
-
-
-
-
-
-
-
-
-
-
 
 
 ## NEEDS UPDATE: DO
