@@ -425,9 +425,7 @@ $~$
 
 # Step 3: QAQC
 
-$~$
-
-This section describes the process for quality assurance and quality control of data from HOBO loggers. 
+From our experience with hydrology data, it is then necessary to investigate data from each station individually. This can be done efficiently by overlaying data from multiple loggers (if applicable) from the same station and time period. Visual investigation of data timeseries and automated flags allows the user to confirm periods where loggers were dry, frozen or disturbed by human/natural cause. All manual data processing is saved in an R script for tracking QAQC of each logger type each year, and recorded as additional qaqc columns in clean data files.
 
 $~$
 
@@ -445,6 +443,104 @@ wl_dat <- get_logger_data(path_to_data = paste0(out_dir, "/2024/processed/"),
 
 ```
 
+$~$
+
+The function *waterlevel_qaqc* will take your waterlevel data from step 2 (baro added, converted to metres ie. v0.3), automatically remove outliers and flag potential errors according to the following rules:
+
+- *NEGATIVE_WL* if waterlevel is a negative value, corrected to 0
+- *LOGGER_ICE* if water temperature is less than -1C, value is removed
+- *NEGATIVE_WT* if water temperature is between 0C and -1C, the value is corrected to 0C
+- *FLAG_DRY* if water pressure is equal to or less than air pressure and water temperature is greater than 19C
+- *FLAG_ICE* if water temperature is less than 0.3C
+- *FLAG_DISTURBANCE* if water level changes by more than 0.1m (10 cm) in 1 hour then add DISTURBANCE flag column (logger wire break or adjusted)
+
+Required inputs are:
+
+- *input_data* the waterlevel data v0.3 (can be data from a single site, or merged data across multiple sites)
+- *select_station* filters dataset to desired station; unique site_station_code that identified a site/station where a logger is located
+$~$
+
+```{r wl-qaqc}
+station_wl_dat2 <- waterlevel_qaqc(input_data = station_wl_dat,
+                select_station = "FROG_WE_01")
+
+```
+
+$~$ 
+
+Lets look at the data to see what QAQC flags were made. Plotly is used as an interactive plotting feature to allow the user to overlay water data from multiple loggers ie. compare water temperature from water level logger to air temperature from barometric logger at the same site) and zoom in on time periods of interest; this helps to identify data where a logger has gone dry, frozen or been disturbed. 
+$~$
+
+```{r wl-qaqc2}
+
+station_wl_dat2[2]
+
+```
+
+$~$
+
+The top plot shows the waterlevel in blue. The bottom plot shows air temperature (from barometric data) in orange, and water temperature overlayed in teal. 
+
+Many datapoints were flagged - a long section from Jan to Apr was flagged for *ICE*, and some periods in July and August were flagged as *DRY*. There are also a few points that were flagged as *DISTURBANCE*. Using your mouse, you can zoom in on the plotly graph to see the flagged sections more clearly. 
+
+Lets start with the ice flags. In January, you can see the air temperature drops, and the waterlevel appears to be increasing by nearly half a metre - in this system, we know this is not true, and is likely the result of snow and ice accumulation on top of the logger. We call this an ice spike. Hover your mouse over the blue line at the start and end of the peak to see the timestamp. It looks like this one starts "2024-01-11 08:00:00" and ends "2024-02-07 07:00:00". We can flatten this ice spike using the function *adjust_waterlevel_spike*.
+
+```{r wl-spike}
+# first, make sure you save the data output of waterlevel_qaqc as a dataframe 
+station_wl_dat2 <- data.frame(station_wl_dat2[1])
+
+#then enter the desired timestamp range into adjust_waterlevel_spike
+
+station_wl_dat3 <- adjust_waterlevel_spike(input_data = station_wl_dat2, 
+                                           select_station = "FROG_WE_01",
+                                           timestamp_start = "2024-01-11 08:00:00",
+                                           timestamp_end = "2024-02-07 07:00:00", 
+                                           reason_to_adjust = "ice")
+
+```
+
+$~$
+
+To see the change we made, run *waterlevel_qaqc* again, but this time with the input variable *plot_only* set to TRUE.
+
+$~$
+
+```{r wl-spike-fig}
+waterlevel_qaqc(input_data = station_wl_dat3,
+                select_station = "FROG_WE_01",
+                plot_only = TRUE)
+
+```
+
+$~$
+
+Now the ice spike in *waterlevel_m_adj* has been flattened (it fits a linear slope between the start and end points). The adjustment is noted in the new QAQC columns. 
+
+$~$
+
+```{r wl-spike2}
+
+data.frame(station_wl_dat3[c(245:255),c(20:24)] )
+
+```
+
+$~$
+
+There is another small ice spike in March, where the temperature drops again and snow accummulation is likely. We can repeat the same process again. 
+
+```{r wl-spike3}
+
+station_wl_dat4 <- adjust_waterlevel_spike(input_data = station_wl_dat3, 
+                                           select_station = "FROG_WE_01",
+                                           timestamp_start = "2024-03-24 05:00:00",
+                                           timestamp_end = "2024-03-24 11:00:00", 
+                                           reason_to_adjust = "ice")
+
+waterlevel_qaqc(input_data = station_wl_dat4,
+                select_station = "FROG_WE_01",
+                plot_only = TRUE)
+
+```
 
 ## NEEDS UPDATE: DO
 
