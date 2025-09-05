@@ -3,6 +3,8 @@
 #' Remove water level values within a spike, and add the average change in water level per timestamp between start and end
 #' @param timestamp_start Date and time at start of  spike; timestamp must be formatted the same as site_data
 #' @param timestamp_end date and time end of spike; timestamp must be formatted the same as site_data
+#' @param timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is "%Y-%m-%d %H:%M:%S"
+#' @param timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @param input_data The dataset with waterlevel in metres
 #' @param select_station Unique identifier code for station
 #' @param var_watertemp_C Name of column for water temperature (in degrees Celcius) in input data
@@ -11,10 +13,14 @@
 #' @return Dataset where waterlevel is flattened within the time period defined as a spike, and qaqc_adj notes AVERAGE
 #' @export
 
-adjust_waterlevel_spike <- function(input_data, select_station,  timestamp_start, timestamp_end, reason_to_adjust, var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20") {
+adjust_waterlevel_spike <- function(input_data, select_station,  timestamp_start, timestamp_end,  timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", reason_to_adjust, var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20") {
 
   waterlevel_data <- input_data
   waterlevel_data <- waterlevel_data[waterlevel_data$site_station_code==select_station,]
+
+  #format timestamp
+  timestamp_start <-as.POSIXct(timestamp_start, format = timestamp_format, tz = timestamp_timezone)
+  timestamp_end <-as.POSIXct(timestamp_end, format = timestamp_format, tz = timestamp_timezone)
 
   #user input naming
   names(waterlevel_data)[names(waterlevel_data) == var_waterlevel_m ] <- "waterlevel_m"

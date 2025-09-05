@@ -9,6 +9,8 @@ adjust_waterlevel_spike(
   select_station,
   timestamp_start,
   timestamp_end,
+  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
+  timestamp_timezone = "UTC",
   reason_to_adjust,
   var_waterlevel_m = "waterlevel_m_U20",
   var_watertemp_C = "watertemp_C_U20"
@@ -22,6 +24,10 @@ adjust_waterlevel_spike(
 \item{timestamp_start}{Date and time at start of  spike; timestamp must be formatted the same as site_data}
 
 \item{timestamp_end}{date and time end of spike; timestamp must be formatted the same as site_data}
+
+\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+
+\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
 
 \item{reason_to_adjust}{Type of event that caused spike; Either "ice" or "disturbance"}
 
