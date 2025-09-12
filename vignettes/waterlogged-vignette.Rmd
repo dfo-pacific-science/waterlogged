@@ -8,10 +8,11 @@ vignette: >
 ---
 
 ```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>"
-)
+knitr::opts_chunk$set(warning = FALSE, 
+                      message = FALSE,
+                      collapse = TRUE,
+                      comment = "#>",
+                      out.width = '100%')
 ```
 
 ```{r setup}
@@ -380,7 +381,7 @@ $~$
 
 ```{r get-wl-plot}
 
-station_wl[3]
+station_wl[[3]]
 ```
 
 $~$ 
@@ -391,16 +392,48 @@ Once you're happy with your waterlevel conversion at this station, you can move 
 
 $~$ 
 
+## Dissolved oxygen: Apply barometric compensation to get DO in % air sat.
 
-## NEEDS UPDATE: Dissolved oxygen: Apply barometric compensation to get DO in % air sat.
+If you're working with dissolved oxygen loggers, complete step 1 to get R-friendly DO data, and then run **add_nearest_baro** to add in barometric pressure data into your DO data. The workflow will look like this:
 
+```{r do-dat-step1-2, eval = FALSE}
+
+raw_dir <- "REPLACE WITH DESIRED RAW DISSOLVED OXYGEN FOLDER PATH"  #the folder where you've stored your raw csv's (ie. "data/dissox/2024/raw")
+
+out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR DISSOLVED OXYGEN DATA"  #from this folder (ie. "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
+
+do_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, 
+                              path_to_output_folder = out_dir, 
+                              logger_type = "dissolvedoxygen_U26", 
+                              metadata = metadat)
+
+do_baro_dat <- add_nearest_baro(input_data = do_bound, 
+                                input_logger_type = "dissolvedoxygen_U26",
+                                path_to_output_folder = out_dir,
+                                baro_data = baro_dat,
+                                metadata = baro_metadat)
+
+```
+
+Here is the output of bound DO and barometric pressure for one site, FROG_WE_01.
+
+```{r do-baro}
+
+do_baro_dat <- readRDS(system.file("extdata/ex-dissox/FROG_WE_01_DO_20240410_20241014_v0.2.rds", package = "waterlogged"))
+
+head(do_baro_dat)
+
+```
+
+$~$
 
 Now that we have barometric pressure values for each of our dissolved oxygen values, we can compute the percent air saturation of dissolved oxygen using the function **convert_do_mgl_percsat**
 
 $~$
-```{r do-mgl-percsat, eval = FALSE}
 
-do_baro_sat <- convert_do_mgl_percsat(site_df = do_baro)
+```{r do-mgl-percsat, eval = TRUE}
+
+do_baro_sat <- convert_do_mgl_percsat(input_data = do_baro_dat)
 
 do_baro_sat %>% head()
 
@@ -485,7 +518,7 @@ $~$
 
 ```{r wl-qaqc2}
 
-station_wl_dat2[2]
+station_wl_dat2[[2]]
 
 ```
 
