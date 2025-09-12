@@ -417,9 +417,12 @@ do_baro_dat <- add_nearest_baro(input_data = do_bound,
 
 Here is the output of bound DO and barometric pressure for one site, FROG_WE_01.
 
-```{r do-baro}
+```{r do-baro, echo=FALSE}
 
 do_baro_dat <- readRDS(system.file("extdata/ex-dissox/FROG_WE_01_DO_20240410_20241014_v0.2.rds", package = "waterlogged"))
+
+
+do_baro_dat$timestamp <- as.POSIXct(do_baro_dat$timestamp, format = "%Y-%m-%d  %H:%M:%S", tz = "UTC")
 
 head(do_baro_dat)
 
@@ -437,22 +440,10 @@ do_baro_sat <- convert_do_mgl_percsat(input_data = do_baro_dat)
 
 do_baro_sat %>% head()
 
-do_baro_sat %>% mutate(site_station_code = factor(site_station_code)) %>% summary()
-
 ```
 $~$
 
 Now we have complete DO data for all stations this year. Save this as a processed csv or continue on for QAQC processing.
-
-$~$
-
-```{r baro-out, eval = FALSE}
-write_csv(do_baro_sat, file = paste0(out_dir, "NorthThompson_WE_DO_BARO_SAT_RAW_2021_20230607.csv"))
-
-```
-$~$
-
-This same process can be done for waterlevel data from HOBO U20 loggers.
 
 $~$
 
@@ -609,24 +600,14 @@ waterlevel_qaqc(input_data = station_wl_dat5,
 
 $~$
 
-## NEEDS UPDATE: DO
+## Dissolved Oxygen
 
-```{r set-path, eval = FALSE}
-# desired path to data output
-dissox_out <- "data/dissolved-oxygen/clean/"
 
-# get todays date for file names
-sys_date <- format(Sys.Date(), format = "%Y%m%d")  
-
-```
+## Step 2: Run QAQC function
 
 $~$
 
-## Step 2: Run QAQC function on full dataset (all sites)
-
-$~$
-
-The function **dissox_qaqc** takes the raw dissolved oxygen data and the clean waterlevel data and merges them by *site_station_code* and *timestamp*. Then, the data is cleaned by the following rules:
+The function **dissox_qaqc** takes the raw dissolved oxygen data and removes outliers and flags data by the following rules:
 
   + If DO recorded an error code (-888.88), this value was set to *NA*, and *qaqc_note* as "DO_ERROR"
   + If water temperature recorded an error code (-888.88), this value was set to *NA*, and *qaqc_note* as "TEMP_ERROR"
@@ -636,11 +617,21 @@ The function **dissox_qaqc** takes the raw dissolved oxygen data and the clean w
   
 All adjustments made to the data are saved as new variables with the ending *_adj*
  
+Optional inputs are:
+
+- var_waterlevel_m: if the you have already QAQCd the waterlevel data for this site, you can join the datasets and input the variable name for waterlevel in metres here. This helps see mismatches in water temperature and to identify when the logger may be dry. If you are using our naming convention, this would be "waterlevel_m_U20_adj".
+- var_watertemp_C_2: if the you have already QAQCd the waterlevel data for this site, you can join the datasets and input the variable name for water temperature in degrees Celcius here. This helps see mismatches in water temperature and to identify when the logger may be dry. If you are using our naming convention, this would be "watertemp_C_U20_adj".
+
 $~$
 
 ```{r global-qaqc, eval = FALSE}
-# bind do and waterlevel and run qaqc
-all_dat <- dissox_qaqc(dissox_data = do, waterlevel_data = wl)
+# bind do and waterlevel 
+frog_wl_wt <- station_wl_dat5 %>% select(timestamp, waterlevel_m_U20_adj, watertemp_C_U20_adj)
+
+do_baro_sat_wl<- full_join(do_baro_sat, frog_wl_wt, by = "timestamp")
+
+do_baro_sat2 <- dissox_qaqc(input_data = do_baro_sat, 
+                            waterlevel_data = station_wl_dat5)
 
 ```
 
