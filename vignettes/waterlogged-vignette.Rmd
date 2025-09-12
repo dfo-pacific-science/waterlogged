@@ -274,6 +274,7 @@ The plot that pops up after running **add_nearest_baro** should show a continuou
 
 ```{r baro-plot, echo = FALSE}
 knitr::include_graphics("figures/step2_add_nearest_baro.png")
+
 ```
 
 ## Waterlevel: Apply barometric compensation to get water level in metres
@@ -344,6 +345,7 @@ The output is a list saved under *station_wl*. We can access the outputs in the 
 ```{r load-wl-m-dat, echo = FALSE}
 
 station_wl <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.3.rds", package = "waterlogged"))
+
 
 ```
 
@@ -431,6 +433,16 @@ $~$
 
 ## Waterlevel
 
+```{r get-ex-wl-b, echo=FALSE}
+
+# this file has aritificial errors in it to show qaqc examples
+#read in to overwrite station_wl_dat
+
+station_wl_dat <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.3b.rds", package = "waterlogged"))
+
+
+```
+
 If you came here straight from step 2, you may already have the waterlevel data with barometric compensation loaded in your environment (ie. station_wl_dat). If not, you can grab it from your computer, wherever you selected as *path_to_output_folder*. The waterlevel with barometric compensation is saved as a file ending with *v0.3*. Or, if you have waterlevel data from multiple stations to clean, you can load them all using the function *get_logger_data*
 
 $~$
@@ -483,6 +495,8 @@ The top plot shows the waterlevel in blue. The bottom plot shows air temperature
 
 Many datapoints were flagged - a long section from Jan to Apr was flagged for *ICE*, and some periods in July and August were flagged as *DRY*. There are also a few points that were flagged as *DISTURBANCE*. Using your mouse, you can zoom in on the plotly graph to see the flagged sections more clearly. 
 
+### Dealing with large swings in waterlevel overwinter: ice spikes
+
 Lets start with the ice flags. In January, you can see the air temperature drops, and the waterlevel appears to be increasing by nearly half a metre - in this system, we know this is not true, and is likely the result of snow and ice accumulation on top of the logger. We call this an ice spike. Hover your mouse over the blue line at the start and end of the peak to see the timestamp. It looks like this one starts "2024-01-11 08:00:00" and ends "2024-02-07 07:00:00". We can flatten this ice spike using the function *adjust_waterlevel_spike*.
 
 ```{r wl-spike}
@@ -526,7 +540,7 @@ data.frame(station_wl_dat3[c(245:255),c(20:24)] )
 
 $~$
 
-There is another small ice spike in March, where the temperature drops again and snow accummulation is likely. We can repeat the same process again. 
+There is another small ice spike in March, where the temperature drops again and snow accummulation is likely. We can repeat the same process again to flatten it. 
 
 ```{r wl-spike3}
 
@@ -541,6 +555,26 @@ waterlevel_qaqc(input_data = station_wl_dat4,
                 plot_only = TRUE)
 
 ```
+
+### Dealing with a sudden shift in waterlevel: cable break
+
+Moving onto the next QAQC flag: FLAG_DISTURBANCE (black triangle on plotly graph). This flag appears when the waterlevel drops or rises by over 0.1m in 1 hour. This may not always indicate a disturbance to the logger, as is the case in a sudden flood, or significant rainfall event. You can verify if this is a natural flood by zooming in on the time periods where disturbance was flagged for August 24th and September 29th. Although the waterlevel has risen quickly, you can see that each point is progressively increasing, and then decreases over time, signalling a flood event. We can ignore these flags. 
+
+Look at the disturbance flag on Oct 1st. Here, we see a sudden jump in waterlevel from 0.47m up to 0.95m in 1 hour. The waterlevel does not gradually come back down, but stays around 0.95 until the logger is removed on Oct 7th. If we check our field notes, it says "CABLE_BREAK", meaning that the cable was found broken upon station inspection. 
+
+We can use the function **adjust_waterlevel_cablebreak** to remove this jump in waterlevel. Indicate the timestamp when the jump starts, in this case, "2024-10-01 18:00:00", and the timestamp when the jump ends, in this case, it is just the next hour, "2024-10-01 19:00:00". 
+
+```{r cable-break}
+
+station_wl_dat5 <- adjust_waterlevel_cablebreak(station_wl_dat4, timestamp_start = "2024-10-01 18:00:00", timestamp_end = "2024-10-01 19:00:00", select_station = "FROG_WE_01")
+
+
+waterlevel_qaqc(input_data = station_wl_dat5,
+                select_station = "FROG_WE_01",
+                plot_only = TRUE)
+```
+
+$~$
 
 ## NEEDS UPDATE: DO
 

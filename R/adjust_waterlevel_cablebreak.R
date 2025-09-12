@@ -4,12 +4,14 @@
 #' @param input_data Data for desired site_station_code
 #' @param timestamp_end Date and time of first observation following cable break; timestamp must be formatted the same as site_data
 #' @param timestamp_start Date and time of first observation before cable break; timestamp must be formatted the same as site_data
+#' @param timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is "%Y-%m-%d %H:%M:%S"
+#' @param timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @param select_station Unique identifier code for station
 #' @param var_waterlevel_m Name of variable column containing water level in meters
 #' @return Dataset where waterlevel values are shifted up or down after the cable break, qaqc_code set to LOGGER_DISTURBANCE, qaqc_adj shows the value adjusted
 #' @export
 
-adjust_waterlevel_cablebreak <- function(input_data, select_station, timestamp_start, timestamp_end, var_waterlevel_m = "waterlevel_m_U20") {
+adjust_waterlevel_cablebreak <- function(input_data, select_station, timestamp_start, timestamp_end, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", var_waterlevel_m = "waterlevel_m_U20") {
 
   output_data<- input_data
   output_data <- output_data[output_data$site_station_code==select_station,]
@@ -17,6 +19,10 @@ adjust_waterlevel_cablebreak <- function(input_data, select_station, timestamp_s
   #user input naming
   names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
   names(output_data)[names(output_data) == paste0(var_waterlevel_m, "_adj") ] <- "waterlevel_m_adj"
+
+  #format timestamp
+  timestamp_start <-as.POSIXct(timestamp_start, format = timestamp_format, tz = timestamp_timezone)
+  timestamp_end <-as.POSIXct(timestamp_end, format = timestamp_format, tz = timestamp_timezone)
 
 
   #remove rownumbers

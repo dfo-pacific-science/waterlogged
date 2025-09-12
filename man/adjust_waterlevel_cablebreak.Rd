@@ -9,6 +9,8 @@ adjust_waterlevel_cablebreak(
   select_station,
   timestamp_start,
   timestamp_end,
+  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
+  timestamp_timezone = "UTC",
   var_waterlevel_m = "waterlevel_m_U20"
 )
 }
@@ -20,6 +22,10 @@ adjust_waterlevel_cablebreak(
 \item{timestamp_start}{Date and time of first observation before cable break; timestamp must be formatted the same as site_data}
 
 \item{timestamp_end}{Date and time of first observation following cable break; timestamp must be formatted the same as site_data}
+
+\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+
+\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
 
 \item{var_waterlevel_m}{Name of variable column containing water level in meters}
 }
