@@ -402,12 +402,12 @@ raw_dir <- "REPLACE WITH DESIRED RAW DISSOLVED OXYGEN FOLDER PATH"  #the folder 
 
 out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR DISSOLVED OXYGEN DATA"  #from this folder (ie. "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
 
-do_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, 
+do_dat <- bind_hobo_files(path_to_raw_folder = raw_dir, 
                               path_to_output_folder = out_dir, 
                               logger_type = "dissolvedoxygen_U26", 
                               metadata = metadat)
 
-do_baro_dat <- add_nearest_baro(input_data = do_bound, 
+do_baro_dat <- add_nearest_baro(input_data = do_dat, 
                                 input_logger_type = "dissolvedoxygen_U26",
                                 path_to_output_folder = out_dir,
                                 baro_data = baro_dat,
@@ -434,19 +434,27 @@ Now that we have barometric pressure values for each of our dissolved oxygen val
 
 $~$
 
-```{r do-mgl-percsat, eval = TRUE}
+```{r do-mgl-percsat, eval = FALSE}
 
-do_baro_sat <- convert_do_mgl_percsat(input_data = do_baro_dat)
+do_baro_sat <- convert_do_mgl_percsat(input_data = do_baro_dat, 
+                                      path_to_output_folder = out_dir)
 
 do_baro_sat %>% head()
 
 ```
+
+
+```{r do-percsat-load, echo = FALSE}
+
+do_baro_sat <- readRDS(system.file("extdata/ex-dissox", "FROG_WE_01_DO_20240420_20241009_v0.3.rds", package = "waterlogged"))
+
+do_baro_sat %>% head()
+
+```
+
+Dissolved oxygen is now available in percent air saturation in column *do_percsat_U26*. This file is automatically saved in the appropriate year folder in your designated *out_dir* with suffix *v0.3*.
+
 $~$
-
-Now we have complete DO data for all stations this year. Save this as a processed csv or continue on for QAQC processing.
-
-$~$
-
 
 
 # Step 3: QAQC
