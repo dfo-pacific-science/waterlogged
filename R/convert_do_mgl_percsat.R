@@ -5,6 +5,7 @@
 #' @param var_watertemp_C The variable for watertemperature in degrees Celcius
 #' @param var_airpress_kPa The variable for barometric pressure in kPa
 #' @param var_do_mgl The variable for dissolved oxygen in mg per litre
+#' @param path_to_output_folder The desired folder for output of dissolved oxygen conversion
 #' @return output_data: data frame with dissolved oxygen in percent air saturation as a new column "do_percsat_U26"
 #' @export
 
@@ -19,7 +20,7 @@ convert_do_mgl_percsat <- function(input_data, var_watertemp_C = "watertemp_C_U2
   output_data <- input_data
   output_data$do_percsat <- NA
 
-  for(i in 1:length(output_data$timestamp)){
+  for(i in 1:length(output_data$do_mgl)){
     if(!is.na(output_data$do_mgl[i])){
       # skip logger error
       if(output_data$do_mgl[i]== -888.88){
@@ -61,6 +62,39 @@ convert_do_mgl_percsat <- function(input_data, var_watertemp_C = "watertemp_C_U2
     names(output_data)[names(output_data) == "do_percsat" ] <- "do_percsat_U26"
   }
 
+  # save as new version
+  # split by site and year
+  years_i <- unique(lubridate::year(output_data$timestamp))
+
+  for(j in 1:length(years_i)){
+    year_j <- years_i[j]
+    year_j_dat <- output_data %>% filter(lubridate::year(timestamp)==year_j)
+    sites_j <- unique(year_j_dat$site_station_code)
+
+    for(k in 1:length(sites_j)){
+      site_k <- sites_j[k]
+      site_year_dat <- output_data %>% filter(year_j_dat$site_station_code==site_k)
+
+      #name by timestamp range
+      start_k <- as.character(min(lubridate::date(site_year_dat$timestamp)))
+      start_k <- gsub("\\D", "", start_k)
+      end_k <- as.character(max(lubridate::date(site_year_dat$timestamp)))
+      end_k <- gsub("\\D", "", end_k)
+
+      # search for year folder, if does not exist, write new one
+      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j,"/processed/"))){dir.create(paste0(path_to_output_folder, year_j,"/processed/"))}
+
+      # correct missing midnight timestamps
+      site_year_dat$timestamp <- as.character(format(site_year_dat$timestamp))
+
+      # write csv for each year and site_station_code
+      write.csv(site_year_dat, paste0(path_to_output_folder, year_j,"/processed/", site_k,"_DO_", start_k,"_", end_k, "_v0.3", ".csv"), row.names = FALSE)
+      print(paste("Dissolved oxygen conversion applied to dissox data (v0.3) from",site_k,"added to", year_j, "folder"))
+
+    } #end of site level loop
+
+  } #end of year level loop
 
   return(output_data)
 }
