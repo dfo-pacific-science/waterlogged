@@ -3,6 +3,8 @@
 #' Remove data for periods when logger was out of water or in ice
 #' @param input_data Data for desired site_station_code
 #' @param select_station Unique identifier code for station
+#' @param timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is "%Y-%m-%d %H:%M:%S"
+#' @param timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @param timestamp_start Date and time of start of dry period: must be formatted the same as timestamp in site_data
 #' @param timestamp_end Date and time of end of dry period: must be formatted the same as timestamp in site_data
 #' @param reason_to_adjust either ice, dry or disturbance
@@ -16,21 +18,26 @@
 #' @return Dataset where waterlevel_m below the dry waterlevel are flagged as dry
 #' @export
 
-adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_airtemp_C = "airtemp_C_U20") {
+adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "default", var_airtemp_C = "airtemp_C_U20") {
 
   # ensures user is only processing one station at a time
   output_data <- input_data[input_data$site_station_code==select_station,]
   rownames(output_data) <- NULL
+
+  #format timestamp
+  timestamp_start <-as.POSIXct(timestamp_start, format = timestamp_format, tz = timestamp_timezone)
+  timestamp_end <-as.POSIXct(timestamp_end, format = timestamp_format, tz = timestamp_timezone)
 
   if(logger_to_adjust == "waterlevel_U20"){
     # rename user input variables
     names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
     names(output_data)[names(output_data) == paste0(var_waterlevel_m, "_adj") ] <- "waterlevel_m_adj"
     names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
-    # correct user entry error
-    if(var_watertemp_C == "watertemp_C_U26"){
-      var_watertemp_C == "watertemp_C_U20"
+
+    if(var_watertemp_C == "default"){
+      var_watertemp_C <- "watertemp_C_U20"
     }
+
     names(output_data)[names(output_data) == var_watertemp_C ] <- "watertemp_C"
     names(output_data)[names(output_data) == paste0(var_watertemp_C, "_adj") ] <- "watertemp_C_adj"
 
@@ -101,15 +108,16 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
     names(output_data)[names(output_data) == var_do_percsat ] <- "do_percsat"
     names(output_data)[names(output_data) == paste0(var_do_percsat, "_adj") ] <- "do_percsat_adj"
     names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
-    # correct user entry error
-    if(var_watertemp_C=="watertemp_C_U20"){
+
+    if(var_watertemp_C == "default"){
       var_watertemp_C <- "watertemp_C_U26"
     }
+
     names(output_data)[names(output_data) ==  var_watertemp_C] <- "watertemp_C"
     names(output_data)[names(output_data) ==  paste0(var_watertemp_C, "_adj")] <- "watertemp_C_adj"
-    if(var_waterlevel_m!="none"){
-      names(output_data)[names(output_data) ==  var_waterlevel_m] <- "waterlevel_m"
-    }
+
+
+    try(names(output_data)[names(output_data) ==  var_waterlevel_m] <- "waterlevel_m")
 
     # note all values below dry water level as dry
     if(reason_to_adjust == "ice") {
@@ -183,10 +191,18 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
 
   if(logger_to_adjust == "watertemp_TidbiT"){
     # note all values below dry water level as dry
+
+    if(var_watertemp_C == "default"){
+      var_watertemp_C <- "watertemp_C_TidbiT"
+    }
+    names(output_data)[names(output_data) ==  var_watertemp_C] <- "watertemp_C"
+    names(output_data)[names(output_data) ==  paste0(var_watertemp_C, "_adj")] <- "watertemp_C_adj"
+
+
     if(reason_to_adjust == "ice") {
       for(i in 1:length(output_data$timestamp)) {
         if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
-          output_data$watertemp_C_TidbiT_adj[i] <- NA
+          output_data$watertemp_C_adj[i] <- NA
           output_data$qaqc_code[i] <- "LOGGER_ICE"
         }
       }
@@ -195,7 +211,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
     if(reason_to_adjust == "dry") {
       for(i in 1:length(output_data$timestamp)) {
         if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
-          output_data$watertemp_C_TidbiT_adj[i] <- NA
+          output_data$watertemp_C_adj[i] <- NA
           output_data$qaqc_code[i] <- "LOGGER_DRY"
         }
       }
@@ -205,7 +221,7 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_sta
     if(reason_to_adjust == "disturbance") {
       for(i in 1:length(output_data$timestamp)) {
         if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
-          output_data$watertemp_C_TidbiT_adj[i] <- NA
+          output_data$watertemp_C_adj[i] <- NA
           output_data$qaqc_code[i] <- "DISTURBANCE"
         }
       }
