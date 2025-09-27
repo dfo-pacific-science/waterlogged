@@ -454,6 +454,8 @@ do_baro_sat %>% head()
 
 Dissolved oxygen is now available in percent air saturation in column *do_percsat_U26*. This file is automatically saved in the appropriate year folder in your designated *out_dir* with suffix *v0.3*.
 
+If we look at the range of DO in % sat, we can see there are some high values greater than 100% air sat and some low values that are less than zero...this indicates we need to do some QAQC and clean up the data. Time for Step 3 (you can jump straight to the Dissolved Oxygen section)!
+
 $~$
 
 
@@ -523,7 +525,12 @@ station_wl_dat2[[2]]
 
 $~$
 
-The top plot shows the waterlevel in blue. The bottom plot shows air temperature (from barometric data) in orange, and water temperature overlayed in teal. 
+The top plot shows the waterlevel in blue. The lighter blue is the raw values, and the darker blue shows the automatically adjusted values from QAQC.
+
+The bottom plot shows air temperature (from barometric data) in orange, and water temperature overlayed in teal. 
+
+You can zoom in on sections of the plot by clicking and dragging with your mouse. You can see data point values by hovering your mouse over the data point on the graph. You can also toggle data sources on and off by clicking on the data type in the legend. 
+
 
 Many datapoints were flagged - a long section from Jan to Apr was flagged for *ICE*, and some periods in July and August were flagged as *DRY*. There are also a few points that were flagged as *DISTURBANCE*. Using your mouse, you can zoom in on the plotly graph to see the flagged sections more clearly. 
 
@@ -594,7 +601,7 @@ Moving onto the next QAQC flag: FLAG_DISTURBANCE (black triangle on plotly graph
 
 Look at the disturbance flag on Oct 1st. Here, we see a sudden jump in waterlevel from 0.47m up to 0.95m in 1 hour. The waterlevel does not gradually come back down, but stays around 0.95 until the logger is removed on Oct 7th. If we check our field notes, it says "CABLE_BREAK", meaning that the cable was found broken upon station inspection. 
 
-We can use the function **adjust_waterlevel_cablebreak** to remove this jump in waterlevel. Indicate the timestamp when the jump starts, in this case, "2024-10-01 18:00:00", and the timestamp when the jump ends, in this case, it is just the next hour, "2024-10-01 19:00:00". 
+We can use the function **adjust_waterlevel_cablebreak** to remove this jump in waterlevel. Indicate the timestamp when the jump starts, in this case, "2024-10-01 18:00:00 UTC", and the timestamp when the jump ends, in this case, it is just the next hour, "2024-10-01 19:00:00 UTC". 
 
 ```{r cable-break}
 
@@ -610,128 +617,150 @@ $~$
 
 ## Dissolved Oxygen
 
-
-## Step 2: Run QAQC function
-
-$~$
-
 The function **dissox_qaqc** takes the raw dissolved oxygen data and removes outliers and flags data by the following rules:
 
   + If DO recorded an error code (-888.88), this value was set to *NA*, and *qaqc_note* as "DO_ERROR"
   + If water temperature recorded an error code (-888.88), this value was set to *NA*, and *qaqc_note* as "TEMP_ERROR"
   + If DO measurement was between 0 and -1 mg/L, DO was set to 0 mg/L and 0% saturation
   + If DO measurement was less than -1, DO values was removed (*NA*) and *qaqc_code* set to "NEGATIVE_DO"
+  + If DO greater than 21 mg/L, DO value removed and *qaqc_code* set to "OUTLIER_DO"
   + If water temperature measurement was less than 0, both temperature and DO values were removed (*NA*) and *qaqc_code* set to "LOGGER_ICE"
+  
+Suspicious data is flagged for user confirmation:
+
+  + if water temp within 2 degrees of air temp and over 100% air sat for 12 consecutive hours *qaqc_flag* "FLAG_DRY"
+  + if water temp is less than 0.3C then *qaqc_flag* set to "FLAG_ICE"
   
 All adjustments made to the data are saved as new variables with the ending *_adj*
  
 Optional inputs are:
 
-- var_waterlevel_m: if the you have already QAQCd the waterlevel data for this site, you can join the datasets and input the variable name for waterlevel in metres here. This helps see mismatches in water temperature and to identify when the logger may be dry. If you are using our naming convention, this would be "waterlevel_m_U20_adj".
-- var_watertemp_C_2: if the you have already QAQCd the waterlevel data for this site, you can join the datasets and input the variable name for water temperature in degrees Celcius here. This helps see mismatches in water temperature and to identify when the logger may be dry. If you are using our naming convention, this would be "watertemp_C_U20_adj".
+- *var_waterlevel_m*: if the you have already QAQC'd the waterlevel data for this site, you can join the datasets and input the variable name for waterlevel in metres here. This helps see mismatches in water temperature and to identify when the logger may be dry. If you are using our naming convention, this would be *waterlevel_m_U20_adj*.
+- *var_watertemp_C_2*: if the you have already QAQC'd the waterlevel data for this site, you can join the datasets and input the variable name for water temperature in degrees Celcius here. This helps see mismatches in water temperature and to identify when the logger may be dry. If you are using our naming convention, this would be "watertemp_C_U20_adj".
 
 $~$
 
-```{r global-qaqc, eval = FALSE}
-# bind do and waterlevel 
+If you have waterlevel data that you'd like to add in, join the WL and DO dataset by timestamp. If you dont want to add in any waterlevel data, you can skip this chunk.
+
+```{r bind-wl-do, eval = TRUE}
+
+# Here I am inputting the final QAQC'd waterlevel data made previously in Step 3: Waterlevel: station_wl_dat5. If you are using another dataset, enter the object name of your clean waterlevel data instead. I filtered to only the columns I need for QAQC: waterlevel and watertemp. 
+
 frog_wl_wt <- station_wl_dat5 %>% select(timestamp, waterlevel_m_U20_adj, watertemp_C_U20_adj)
 
-do_baro_sat_wl<- full_join(do_baro_sat, frog_wl_wt, by = "timestamp")
+do_baro_sat_wl<- left_join(do_baro_sat, frog_wl_wt, by = "timestamp")
 
-do_baro_sat2 <- dissox_qaqc(input_data = do_baro_sat, 
-                            waterlevel_data = station_wl_dat5)
+do_baro_sat_wl %>% head()
 
 ```
 
 $~$
 
-## Step 3: Visually assess data for each logger station
+```{r run-do-qaqc, eval = TRUE}
+
+station_do_dat<- dissox_qaqc(input_data = do_baro_sat_wl, 
+                               select_station = "FROG_WE_01",
+                               var_waterlevel_m = "waterlevel_m_U20_adj",
+                               var_watertemp_C_2 = "watertemp_C_U20_adj")
+
+```
 
 $~$
 
-The function **dissox_qaqc_siteplot** takes the global dataset from the last step, filters by the selected input site (*site_list*[#], or can type in desired *site_station_code*). In this tutorial we are using station "LO09_WE_30", the 8th item in our list of sites created earlier.
+Lets look at the data to see what QAQC flags were made. Plotly is used as an interactive plotting feature to allow the user to overlay water data from multiple loggers ie. compare water temperature from dissolved oxygen logger to air temperature from barometric logger at the same site) and zoom in on time periods of interest; this helps to identify data where a logger has gone dry, frozen or been disturbed. 
 
-The output is a list of 2 objects. [1] is the individual site data, and [2] is the plot. You can toggle lines on and off by clicking them in the legend, and hover your mouse over data points to get values. Click and drag a section of the graph to zoom closer. 
+$~$
 
-  + do_mg_l (blue) is the raw dissolved oxygen data
-  + do_mgl_adj (lightblue) is the adjusted dissolved oxygen data after the previous QAQC (error and ice removed)
-  + temp_U26_adj (orange) is the adjusted water temperature
-  + temp_C_baro (red) is the air temperature from the nearest barometer station
-  + waterlevel_adj (black) is the clean waterlevel at that site (NOTE: not available for all stations/years)
-  + red x's along waterlevel_adj indicate U20 logger is dry or in ice
+```{r do-qaqc2}
+
+station_do_dat[[2]]
+
+#save the output dataframe 
+station_do_dat2 <- data.frame(station_do_dat[[1]])
+```
+
+$~$
+
+The top plot shows the dissolved oxygen in green. The lighter green is the raw values, and the darker green shows the automatically adjusted values from QAQC. Notice that in May there were many error readings of "-888.88" that have been adjusted to "NA". You can zoom in to see the gaps in the dark green line, while the light green line drops down to -888.88 mg/L (beyond the range shown on the plot).
+
+The black X's indicate a data point flagged as dry, and the black O's indicate a datapoint flagged as ice. 
+
+The middle plot (if you included waterlevel logger data) shows water level in navy blue. 
+
+The bottom plot shows air temperature (from barometric data) in orange, with water temperature from the dissolved oxygen logger (watertemp_C_1) overlayed in teal, and (if you included waterlevel logger data) water temperature from the waterlevel logger in yellow.
+
+You can zoom in on sections of the plot by clicking and dragging with your mouse. You can see data point values by hovering your mouse over the data point on the graph. You can also toggle data sources on and off by clicking on the data type in the legend. 
+
+Many datapoints were flagged - a long section from April to May  was flagged for *ICE* and *DRY*, and some periods in May, July and August were flagged as *DRY*. There is also a stretch in Sept that was flagged as *DRY*. Using your mouse, you can zoom in on the plotly graph to see the flagged sections more clearly. 
 
 $~$
 
 Look for sections in the graph where:
 
-  + red x's are present on the water level line (black). This indicates that the water level logger is dry or in ice, and it is very likely the DO logger is also dry or in ice.
   + water temperature (orange) variation overlaps completely with air temperature variation (red). This suggests that the DO logger is dry. 
-  + When air temperature is > OC, and DO (light blue) jumps up to >100% air sat. suddenly. This indicates the DO logger is dry. 
+  + When air temperature is > OC, and DO (light blue) jumps up to >100% air sat. suddenly. This indicates the DO logger may be dry. 
   + When air temperature is < OC, and DO (light blue) jumps up to >100% air sat. suddenly. This indicates the DO logger is in ice. 
 
 $~$
 
-```{r get-site-data, fig.height=5, eval = FALSE}
+### Dealing with ice
 
-site_data <- dissox_qaqc_siteplot(data = all_dat, select_site = "LO09_WE_30")
+$~$
 
-# save & unlist the plot
-site_plot <- site_data[2][[1]]
+From the beginning of the dataset to "2024-05-06 21:00:00" DO shows large swings each day (dense green patch of lines in top plot). This coincides with the dissolved oxygen logger water temp overlapping competely with air temperature (dense teal and orange  patches of lines in bottom plot), but NOT with the water temperature recorded on the waterlevel logger (yellow line, bottom plot). This is clearly a time when the DO logger was frozen in ice, while the waterlevel logger was not. We should remove this section of DO data. 
 
-# save site data
-site_data <- as.data.frame(site_data[1]) 
+The function **adjust_logger_NA** takes the inputs of your station data (*input_data*), the timestamp for the start of the dry period (*timestamp_start*) and the timestamp for the end of the dry period (*timestamp_end*). The timestamps must be formatted correctly as POSIXct objects in the same timezone as your dataset using the variables *timestamp_format* and *timestamp_timezone* (Note: by default we force the UTC timezone so that R doesnt automatically correct for daylight saving since our loggers don't correct for daylight savings - they just stay in Pacific Standard Time all year round). 
+You need to tell the function why you are removing the data (ie. reason_to_adjust = "ice"  )
 
-# view plot
-site_plot
+```{r adjust-do-ice,  eval = TRUE}
+
+station_do_dat3 <- adjust_logger_NA(input_data = station_do_dat2, select_station = "FROG_WE_01", 
+                            timestamp_start = "2024-04-10 13:00:00",
+                            timestamp_end = "2024-05-06 21:00:00", 
+                            logger_to_adjust = "dissolvedoxygen_U26",
+                            reason_to_adjust = "ice" )
+
+
 ```
 
 $~$
 
-Zooming into the plot in late October, we can see that there is a streak of red x's indicating that the water level logger was dry as of 2022-10-09 08:00:00. There is a rapid rise of DO (light blue) from 0 to 12.42 mg/L (>100% air sat.) on 2022-10-05 22:00:00 and water temperature (orange) becomes highly variable, matching with the variation in air temperature (red). 
-
-Let's set the dry period to start when DO rises rapidly. It looks like the logger stays dry until it was removed. We can double check that in the field notes for this station - it does indeed say that the logger was dry at removal (Oct 19). Nice one!
-
-The function **adjust_dissox_dry** takes the inputs of your site data (*site_data*), the timestamp for the start of the dry period (*dry_ts_start*) and the timestamp for the end of the dry period (*dry_ts_end*). The timestamps must be formatted correctly as POSIXct objects in the same timezone as your dataset (Note: we force the UTC timezone so that R doesnt automatically correct for daylight savings, since our loggers don't correct for daylight savings - they just stay in Pacific Standard Time all year round). 
+Call dissox_qaqc again with the variable plot_only set to TRUE to show the changes we made. Note that now only the raw do data (light green) is shown during the ice period, and the do_mgl_adj values have been removed.
 
 $~$
+```{r do-ice-plot}
+dissox_qaqc(input_data = station_do_dat3, 
+                               select_station = "FROG_WE_01",
+                               var_waterlevel_m = "waterlevel_m_U20_adj",
+                               var_watertemp_C_2 = "watertemp_C_U20_adj",
+                               plot_only = TRUE)
 
-```{r identify-dry-period, eval = FALSE}
-# time stamps must be formatted correctly
-dry_ts_start = as.POSIXct("2022-10-05 22:00:00", tz = "UTC")
-dry_ts_end = as.POSIXct("2022-10-19 17:00:00", tz = "UTC")
-
-site_data <- adjust_dissox_dry(site_df = site_data, dry_ts_start = dry_ts_start, dry_ts_end = dry_ts_end)
 ```
 
-$~$
+### Dealing with dry periods
 
-If we look at the dataset, we can see that all the *do_mgl_adj*, *do_percsat_adj* and *temp_U26_adj* values during the dry period are set to *NA* (since the logger was out of the water), and the *qaqc_code* reads *LOGGER_DRY*.
+Next, lets look at the other dry flags. If we zoom into the first one on May 14th, we can see that water temperature on both loggers is very similar to air temperature. While this should flag a potential dry spot, the water level does not appear to drop during this time. There also isn't large fluctuation in DO or water temperature during this period. We can ignore this flag. The other flags in June and August also dont show waterlevel dropping during this time, so we can ignore them as well. 
 
-$~$
+However, in the long stretch of dry flags in Sept., there is a clear stretch of time where waterlevel dropped, DO rose to >10 mg/L amd stayed high, while water temperature swings in alignment with air temperature - these are all clues that the logger is indeed dry. We can remove this dry period with the same function as above, but with the *reason_to_adjust* set to "dry".
 
-```{r view-corr-site-data, eval = FALSE}
+```{r adjust-do-dry,  eval = TRUE}
 
-site_data %>% 
-  select(site_station_code, timestamp, do_mgl_adj, do_percsat_adj, temp_U26_adj, qaqc_code) %>% # select columns of interest
-  filter(timestamp > (dry_ts_start - 60*60*4)) %>% # add 4 days to see change
-  head()
+station_do_dat4 <- adjust_logger_NA(input_data = station_do_dat3, 
+                                    select_station = "FROG_WE_01", 
+                                    timestamp_start = "2024-09-09 06:00:00", 
+                                    timestamp_end = "2024-09-25 21:00:00", 
+                                    logger_to_adjust = "dissolvedoxygen_U26",
+                                    reason_to_adjust = "dry" )
 
 
-```
-$~$
-
-To view the plot with the changes we made, run the **dissox_qaqc_siteplot** function again with the parameter *plot_only* == *TRUE*. You should see that the *do_mgl_adj* and *temp_U26_adj* values are removed during the dry period.
-
-$~$
-
-```{r view-corr-site-plot, results='asis', fig.height=5, eval = FALSE}
-
-dissox_qaqc_siteplot(data = site_data, select_site = "LO09_WE_30", plot_only = TRUE)
+dissox_qaqc(input_data = station_do_dat4, 
+                               select_station = "FROG_WE_01",
+                               var_waterlevel_m = "waterlevel_m_U20_adj",
+                               var_watertemp_C_2 = "watertemp_C_U20_adj",
+                               plot_only = TRUE)
 
 ```
-$~$
 
-If there are multiple dry or ice periods, you can run **adjust_dissox_dry** or **adjust_dissox_ice** again with different start and end times. 
 
 ## Step 4: save clean site data
 
