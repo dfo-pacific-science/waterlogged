@@ -13,7 +13,7 @@
 #' @return Dataset of dissolved oxygen and waterlevel filtered for error values and flagged for ice, dry and disturbance
 #' @export
 
-dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_watertemp_C_1 = "watertemp_C_U26", var_waterlevel_m = "none", var_watertemp_C_2 = "none", var_airtemp_C = "airtemp_C_U20") {
+dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_watertemp_C_1 = "watertemp_C_U26", var_waterlevel_m = "none", var_watertemp_C_2 = "none", var_airtemp_C = "airtemp_C_U20_adj") {
 
   # ensures user is only processing one station at a time
   output_data <- input_data
@@ -49,7 +49,7 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
     if(length(output_data$watertemp_C_1_adj)==0) {
       output_data$watertemp_C_1_adj <- output_data$watertemp_C_1
     }
-    # if qaqc_code column does not already exist, make a new one
+    # if do_qaqc_code column does not already exist, make a new one
     if(length(output_data$do_qaqc_code)==0) {
       output_data$do_qaqc_code <- NA
     }
@@ -163,13 +163,13 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
     geom_point(data = output_data %>% drop_na(do_qaqc_code) %>% filter(grepl("FLAG", do_qaqc_code)),
                aes(y = 0, shape = as.factor(do_qaqc_code)),
                color = "black")+
+    coord_cartesian(ylim = c(-1,22))+
     scale_color_manual(values = c("do_mgl" = "#a1c181",
                                   "do_mgl_adj" = "#a1c181"))+
     scale_shape_manual(values = c("FLAG_ICE" = 1,
                                   "FLAG_DISTURBANCE" = 2,
                                   "FLAG_DRY" = 4))+
-    labs(title = paste("QAQC for:", select_station),
-         y = "Dissolved Oxygen (mg/L)",
+    labs(y = "Dissolved Oxygen (mg/L)",
          x = "Timestamp",
          color = "",
          shape = "") +
@@ -178,20 +178,14 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
   if(var_waterlevel_m != "none"){
     p <- ggplot(data=output_data, aes(x = timestamp))+
       geom_line(aes(y = waterlevel_m, color = "waterlevel_m"))+
-      geom_point(data = output_data %>% drop_na(wl_qaqc_code) %>% filter(grepl("FLAG", wl_qaqc_code)),
-                 aes(y = 0, shape = as.factor(wl_qaqc_code)),
-                 color = "black")+
       scale_color_manual(values = c("waterlevel_m" = "#233d4d"))+
-      scale_shape_manual(values = c("FLAG_ICE" = 1,
-                                    "FLAG_DISTURBANCE" = 2,
-                                    "FLAG_DRY" = 4))+
-      labs(title = paste("QAQC for:", select_station),
-           y = "Water level (m)",
+      labs(y = "Water level (m)",
            x = "Timestamp",
            color = "",
            shape = "") +
       theme_classic()
   }
+
 
   q <- ggplot(data=output_data, aes(x = timestamp))+
     geom_line(aes(y = airtemp_C, color = "airtemp_C"), alpha = 0.5) +
@@ -200,13 +194,21 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
     scale_color_manual(values = c("watertemp_C_1" = "#619b8a" ,
                                   "watertemp_C_1_adj" = "#619b8a" ,
                                   "airtemp_C" = "#fe7f2d"))+
-    labs(title =select_station,
-         y = "Temperature (C)",
+    coord_cartesian(ylim = c(-10,40))+
+    labs(y = "Temperature (C)",
          x = "Timestamp",
          color = "",
          shape = "") +
     theme_classic()
 
+  if(var_watertemp_C_2 != "none") {
+    q <- q +
+      geom_line(aes(y = watertemp_C_2, color = "watertemp_C_2"), alpha = 0.5)+
+      scale_color_manual(values = c("watertemp_C_2" = "#FDB840",
+                                    "watertemp_C_1" = "#619b8a" ,
+                                    "watertemp_C_1_adj" = "#619b8a" ,
+                                    "airtemp_C" = "#fe7f2d"))
+                         }
   # return variables to user input naming
   names(output_data)[names(output_data) == "do_mgl" ] <-  var_do_mgl
   names(output_data)[names(output_data) == "do_mgl_adj" ] <-  paste0(var_do_mgl, "_adj")
