@@ -642,7 +642,7 @@ $~$
 
 If you have waterlevel data that you'd like to add in, join the WL and DO dataset by timestamp. If you dont want to add in any waterlevel data, you can skip this chunk.
 
-```{r bind-wl-do, eval = TRUE}
+```{r bind-wl-do}
 
 # Here I am inputting the final QAQC'd waterlevel data made previously in Step 3: Waterlevel: station_wl_dat5. If you are using another dataset, enter the object name of your clean waterlevel data instead. I filtered to only the columns I need for QAQC: waterlevel and watertemp. 
 
@@ -656,7 +656,7 @@ do_baro_sat_wl %>% head()
 
 $~$
 
-```{r run-do-qaqc, eval = TRUE}
+```{r run-do-qaqc}
 
 station_do_dat<- dissox_qaqc(input_data = do_baro_sat_wl, 
                                select_station = "FROG_WE_01",
@@ -712,7 +712,7 @@ From the beginning of the dataset to "2024-05-06 21:00:00" DO shows large swings
 The function **adjust_logger_NA** takes the inputs of your station data (*input_data*), the timestamp for the start of the dry period (*timestamp_start*) and the timestamp for the end of the dry period (*timestamp_end*). The timestamps must be formatted correctly as POSIXct objects in the same timezone as your dataset using the variables *timestamp_format* and *timestamp_timezone* (Note: by default we force the UTC timezone so that R doesnt automatically correct for daylight saving since our loggers don't correct for daylight savings - they just stay in Pacific Standard Time all year round). 
 You need to tell the function why you are removing the data (ie. reason_to_adjust = "ice"  )
 
-```{r adjust-do-ice,  eval = TRUE}
+```{r adjust-do-ice}
 
 station_do_dat3 <- adjust_logger_NA(input_data = station_do_dat2, select_station = "FROG_WE_01", 
                             timestamp_start = "2024-04-10 13:00:00",
@@ -743,7 +743,7 @@ Next, lets look at the other dry flags. If we zoom into the first one on May 14t
 
 However, in the long stretch of dry flags in Sept., there is a clear stretch of time where waterlevel dropped, DO rose to >10 mg/L amd stayed high, while water temperature swings in alignment with air temperature - these are all clues that the logger is indeed dry. We can remove this dry period with the same function as above, but with the *reason_to_adjust* set to "dry".
 
-```{r adjust-do-dry,  eval = TRUE}
+```{r adjust-do-dry}
 
 station_do_dat4 <- adjust_logger_NA(input_data = station_do_dat3, 
                                     select_station = "FROG_WE_01", 
@@ -761,118 +761,49 @@ dissox_qaqc(input_data = station_do_dat4,
 
 ```
 
+$~$
+
+Once you are happy with your QAQC adjustments, move onto saving your data for this station. 
 
 ## Step 4: save clean site data
 
-Once you are happy with your adjustments, save your data. Here, I've just selected the relevant columns for the final data set to include raw values of DO and water temperature, as well as the adjusted DO and water temperature values, and the qaqc code to specify why adjustments were made. 
+$~$
+
+*write_clean_data* drops unneccessary columns and saves the file to the output folder with a standardized naming convention ending with suffix *v1.0* to show this is the clean data. 
 
 $~$
 
-```{r write-clean-site-data, eval = FALSE}
+```{r write-clean-data, eval = FALSE}
 
-write_data <- site_data %>%
-  select(c(1:4,8, 14,16:18)) # select columns of interest
-
-write.csv(write_data, paste0(dissox_out, select_site,"_dissolvedoxygen_CLEAN_",sys_date,".csv"), row.names = FALSE) 
+write_clean_data(input_data = station_do_dat4,
+                 logger_type = "dissolvedoxygen_U26",
+                 path_to_output_folder = out_dir)
 
 ```
 
 $~$
 
-## Step 5: repeat for each site/logger station
-
-Repeat the previous steps for all sites/logger stations. Make sure all individual sites are saved in the clean output folder (*dissox_out*). 
+The clean data file looks likes this:
 
 $~$
 
-## Step 6: merge all clean site/stations into a global spreadsheet
+```{r ex-clean-dat}
 
-$~$
+do_clean <- readRDS(system.file("extdata/ex-dissox/FROG_WE_01_DO_20240410_20241014_v1.0.rds", package = "waterlogged"))
 
-Here, I call all csv files located in *dissox_out* and merge them into a dataset *wetland_data*. I can them write this as a global wetland dataset that contains clean DO data for all wetland sites. 
-
-$~$
-
-```{r bind-sites-into-clean-dataset, eval = FALSE}
-
-# load individual site files and bind as all wetlands
-wetland_data <-
-  list.files(path = dissox_out, pattern = "*.csv") %>% 
-  map_df(~read_csv(paste0(dissox_out, .)))
-
+head(do_clean)
 ```
 
+Repeat steps 3 and 4 for each logger/station you have.
 
-```{r save-global, eval = FALSE}
-# write wetland csv
-write_csv(wetland_data, paste0(dissox_out, "NorthThompson_WE_dissolvedoxygen_CLEAN_",sys_date,".csv"), row.names = FALSE)
+We recommend saving the R script with all function inputs as QAQC documentation for future reference and for transparency.
+
+$~$
+
+# Step 5: Summarizing data
+
+```{r data-sum}
+
+get_logger_data(path_to_data = "C:/Users/loscerbod/Desktop/2024/clean", logger_type = "dissolvedoxygen_U26", data_processing = "clean", temporal_scale = "monthly")
 
 ```
-$~$
-
-It's good practice to visualize the data again before you finish. Here you can go through all the stations at each site and make sure values align, and timeframes align. 
-
-$~$
-
-```{r view-global-plot1, eval = FALSE}
-
-ggplot(data=wetland_data%>% filter(lubridate::year(timestamp) == 2021))+
-  geom_point(aes(x = timestamp, y = do_percsat_adj, color = do_percsat_adj), shape = ".")+
-  facet_wrap(~site_station_code, ncol = 3) +
-  labs(title = "North Thompson Wetland 2021 Dissolved Oxygen",
-       y = "Dissolved oxygen (% air sat.)",
-       x = "Month") +
-  theme_classic()+
-    scale_color_gradient(low = do.low, high = do.high) +
-  theme(legend.position = "none") +
-  scale_x_datetime(date_labels = ("%m"), date_breaks = "1 month")
-
-```
-
-$~$
-
-
-```{r view-global-plot2,  eval = FALSE}
-
-ggplot(data=wetland_data %>% filter(lubridate::year(timestamp) == 2021))+
-  geom_point(aes(x = timestamp, y = do_mgl_adj, color = do_mgl_adj), shape = ".")+
-  facet_wrap(~site_station_code,  ncol = 3) +
-    labs(title = "North Thompson Wetland 2021 Dissolved Oxygen",
-    y = "Dissolved oxygen (mg/L)",
-       x = "Month") +
-  theme_classic()+
-    scale_color_gradient(low = do.low, high = do.high) +
-  theme(legend.position = "none") +
-  scale_x_datetime(date_labels = ("%m"), date_breaks = "1 month")
-
-```
-
-$~$
-
-
-```{r view-global-plot3,  eval = FALSE}
-
-ggplot(data=wetland_data %>% filter(lubridate::year(timestamp) == 2021))+
-  geom_point(aes(x = timestamp, y = temp_U26_adj, color = temp_U26_adj),shape = ".")+
-  facet_wrap(~site_station_code,  ncol = 3) +
-  labs(title = "North Thompson Wetland 2021 Temperature",
-       y = "Water temperature (C)",
-       x = "Month") +
-  theme_classic()+
-    scale_color_gradient(low = temp.low, high = temp.high) +
-  theme(legend.position = "none") +
-  scale_x_datetime(date_labels = ("%m"), date_breaks = "1 month")
-                   
-```
-
-
-$~$
-
-And that's it! Now you have a global dataset of clean DO data. You can see a complete QAQC for the North Thompson Wetland sites in 2022 in **DissolvedOxygen_WE_QAQC_2022.R**. I would recommend saving an R script of your QAQC for each year as a record. 
-
-Happy cleaning!
-
-
-
-
-

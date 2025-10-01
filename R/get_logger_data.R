@@ -6,10 +6,17 @@
 #' @param logger_type either dissolvedoxygen_U26, waterlevel_U20, or baro_U20
 #' @param data_processing either raw or clean, clean data has been processed via QAQC protocols, raw data should not be summarized ie. set temporal_scale to hourly
 #' @param temporal_scale either hourly, daily or monthly, daily and monthly return mean values of selected variable
+#' @param timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is "%Y-%m-%d %H:%M:%S"
+#' @param timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @return dataframe
 #' @export
 
-get_logger_data <- function(path_to_data, logger_type, data_processing = "clean", select_station = "all", temporal_scale = "hourly") {
+get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", data_processing = "clean", select_station = "all", temporal_scale = "hourly") {
+
+  #make sure all paths have trailing slash
+  if (!endsWith(path_to_data, "/")) {
+    path_to_data <- paste0(path_to_data, "/")
+  }
 
   # input errors
   if(logger_type != "baro_U20" & logger_type != "waterlevel_U20"& logger_type != "dissolvedoxygen_U26" & logger_type != "airtemp_TidbiT" & logger_type != "watertemp_TidbiT") {
@@ -31,7 +38,7 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
   if(data_processing=="v0.2") {
     file_names <- list.files(path = path_to_data, pattern = "v0.2.csv$")
   }
-  # For processed data that is the output of convert_waterlevel_m
+  # For processed data that is the output of convert_waterlevel_m or convert_dissox_mgl_percsat
   # extract ONLY file names ending in "v0.3.csv"
   if(data_processing=="v0.3") {
     file_names <- list.files(path = path_to_data, pattern = "v0.3.csv$")
@@ -48,8 +55,9 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
   extract_data_from_file <- function(file) {
     data <- read.csv(file, header = TRUE,
                      stringsAsFactors = FALSE)
-    # format time stamp
-    data$timestamp <-as.POSIXct(data$timestamp, tz = "UTC", format = "%Y-%m-%d %H:%M:%S")
+
+    #format timestamp
+    data$timestamp <-as.POSIXct(data$timestamp, format = timestamp_format, tz = timestamp_timezone)
 
     # format factor variables
     try(data$sn <- as.factor(data$sn), silent = TRUE)
@@ -74,26 +82,32 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
   }
 
   # optional select scale ONLY FOR CLEAN DATA
+  dat2<- dat1
 
   if(data_processing=="clean"&temporal_scale!="hourly") {
     # make new grouping_var column
-    dat1$grouping_var <- NA
+    dat2$grouping_var <- NA
     #group by selected scale
     if(temporal_scale == "daily") {
-      dat1$grouping_var <- date(dat1$timestamp)
+      dat2$grouping_var <- date(dat2$timestamp)
     }
     if(temporal_scale == "weekly") {
-      dat1$grouping_var <- week(dat1$timestamp)
+      dat2$grouping_var <- paste0(year(dat2$timestamp),"-", week(dat2$timestamp))
+
     }
     if(temporal_scale == "monthly") {
-      dat1$grouping_var <- month(dat1$timestamp)
+      dat2$grouping_var <- paste0(year(dat2$timestamp),"-", month(dat2$timestamp))
     }
     if(temporal_scale == "yearly") {
-      dat1$grouping_var <- year(dat1$timestamp)
+      dat2$grouping_var <- year(dat2$timestamp)
     }
     # columns differ by logger type
     if(logger_type=="dissolvedoxygen_U26"){
-      dat1 <- dat1 %>%
+      var_ylab1 <- bquote('Dissolved oxygen (mg·'~'L'^-1~')')
+      var_ylab3 <- "Water temperature (\u00b0C)"
+      var_ylab2 <- "Dissolved oxygen (% air sat.)"
+
+      dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
         dplyr::summarize(mean_do_mgl = mean(do_mgl_U26_adj, na.rm = TRUE),
                          mean_do_percsat = mean(do_percsat_U26_adj, na.rm = TRUE),
@@ -106,7 +120,10 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
                          max_watertemp_C = max(watertemp_C_U26_adj, na.rm = TRUE))
     }
     if(logger_type=="waterlevel_U20"){
-      dat1 <- dat1 %>%
+      var_ylab1 <- "Water level (m)"
+      var_ylab2 <- "Water temperature (\u00b0C)"
+
+      dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
         dplyr::summarize(mean_waterlevel_m = mean(waterlevel_m_U20_adj, na.rm = TRUE),
                          mean_watertemp_C = mean(watertemp_C_U20_adj, na.rm = TRUE),
@@ -116,7 +133,11 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
                          min_watertemp_C = min(watertemp_C_U20_adj, na.rm = TRUE))
     }
     if(logger_type=="baro_U20"){
-      dat1 <- dat1 %>%
+
+      var_ylab1 <- "Air pressure (kPa)"
+      var_ylab2 <- "Air temperature (\u00b0C)"
+
+      dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
         dplyr::summarize(mean_airpress_kPa = mean(airpress_kPa_U20, na.rm = TRUE),
                          mean_airtemp_C = mean(airtemp_C_U20_adj, na.rm = TRUE),
@@ -126,14 +147,18 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
                          max_airtemp_C = max(airtemp_C_U20_adj, na.rm = TRUE))
     }
     if(logger_type=="airtemp_TidbiT"){
-      dat1 <- dat1 %>%
+      var_ylab1 <- "Air temperature (\u00b0C)"
+
+      dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
         dplyr::summarize(mean_airtemp_C = mean(airtemp_C_TidbiT_adj, na.rm = TRUE),
                          min_airtemp_C = min(airtemp_C_TidbiT_adj, na.rm = TRUE),
                          max_airtemp_C = max(airtemp_C_TidbiT_adj, na.rm = TRUE))
     }
     if(logger_type=="watertemp_TidbiT"){
-      dat1 <- dat1 %>%
+      var_ylab1 <- "Water temperature (\u00b0C)"
+
+      dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
         dplyr::summarize(mean_watertemp_C = mean(watertemp_C_TidbiT_adj, na.rm = TRUE),
                          min_watertemp_C = min(watertemp_C_TidbiT_adj, na.rm = TRUE),
@@ -142,24 +167,71 @@ get_logger_data <- function(path_to_data, logger_type, data_processing = "clean"
 
     # rename columns
     if(temporal_scale == "daily") {
-      colnames(dat1)[colnames(dat1) == 'grouping_var'] <- 'date'
+      colnames(dat2)[colnames(dat2) == 'grouping_var'] <- 'date'
+      timescale_lab <- "Timestamp (YY-MM-DD)"
+      timescale_format <- "%y-%m-%d"
 
     }
     if(temporal_scale == "weekly") {
-      colnames(dat1)[colnames(dat1) == 'grouping_var'] <- 'week'
+      colnames(dat2)[colnames(dat2) == 'grouping_var'] <- 'week'
+      timescale_lab <- "Week"
+      timescale_format <- "%y-%v"
     }
     if(temporal_scale == "monthly") {
-      colnames(dat1)[colnames(dat1) == 'grouping_var'] <- 'month'
+      colnames(dat2)[colnames(dat2) == 'grouping_var'] <- 'month'
+      timescale_lab <- "Timestamp (YY-MM)"
+      timescale_format <- "%y-%m"
+
     }
     if(temporal_scale == "yearly") {
-      colnames(dat1)[colnames(dat1) == 'grouping_var'] <- 'year'
+      colnames(dat2)[colnames(dat2) == 'grouping_var'] <- 'year'
+      timescale_lab <- "Year"
+      timescale_format <- "%Y"
+
     }
 
-    dat1 <- dat1 %>% mutate(across(where(is.numeric), round, 2))
+    dat2 <- dat2 %>% mutate(across(where(is.numeric), round, 2))
+    dat2 <- as.data.frame(dat2)
+    dat2[sapply(dat2, is.infinite)] <- NA
+    dat2[sapply(dat2, is.nan)] <- NA
 
-  } # end of select_temporal_scale loop
+    # return requested dataset
+    print("List returned: [1] clean data summarized by selected temporal scale [2] summary plots of data by site_station_code and timestamp")
 
-  # return requested dataset
-  return(dat1)
+    ## Graph Data ####
+
+    plot1 <- ggplot(data=dat2, aes(x = dat2[,2])) +
+      geom_ribbon(alpha = 0.1, aes(ymin = dat2[,6], ymax = dat2[,9])) +
+      geom_line(aes(y = dat2[,3]), size = 1)+
+      facet_wrap(~site_station_code, scales = "free")+
+      theme_classic()+
+      theme(axis.text.x = element_text(angle = 90))+
+     # scale_x_datetime(date_labels = timescale_format)+
+      labs(x = timescale_lab, y = var_ylab1)
+
+   try(plot2 <- ggplot(data=dat2, aes(x = dat2[,2])) +
+      geom_ribbon(alpha = 0.1, aes(ymin = dat2[,7], ymax = dat2[,10])) +
+      geom_line(aes(y = dat2[,4]), size = 1)+
+      facet_wrap(~site_station_code, scales = "free")+
+      theme_classic()+
+      theme(axis.text.x = element_text(angle = 90))+
+      # scale_x_datetime(date_labels = timescale_format)+
+      labs(x = timescale_lab, y = var_ylab2))
+
+    try(plot3 <- ggplot(data=dat2, aes(x = dat2[,2])) +
+      geom_ribbon(alpha = 0.1, aes(ymin = dat2[,8], ymax = dat2[,11])) +
+      geom_line(aes(y = dat2[,5]), size = 1)+
+      facet_wrap(~site_station_code, scales = "free")+
+      theme_classic()+
+      theme(axis.text.x = element_text(angle = 90))+
+      # scale_x_datetime(date_labels = timescale_format)+
+      labs(x = timescale_lab, y = var_ylab3))
+
+    return(list(dat2, plot1, try(plot2), try(plot3)))
+
+
+  } # end of clean data select_temporal_scale loop
+
+    return(dat2)
 
 } # end of get_logger_data loop
