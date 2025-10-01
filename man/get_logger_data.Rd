@@ -7,6 +7,8 @@
 get_logger_data(
   path_to_data,
   logger_type,
+  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
+  timestamp_timezone = "UTC",
   data_processing = "clean",
   select_station = "all",
   temporal_scale = "hourly"
@@ -16,6 +18,10 @@ get_logger_data(
 \item{path_to_data}{path to location of desired files encased in quotations}
 
 \item{logger_type}{either dissolvedoxygen_U26, waterlevel_U20, or baro_U20}
+
+\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+
+\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
 
 \item{data_processing}{either raw or clean, clean data has been processed via QAQC protocols, raw data should not be summarized ie. set temporal_scale to hourly}
 

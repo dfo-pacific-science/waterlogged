@@ -19,6 +19,8 @@ convert_do_mgl_percsat(
 \item{var_airpress_kPa}{The variable for barometric pressure in kPa}
 
 \item{var_do_mgl}{The variable for dissolved oxygen in mg per litre}
+
+\item{path_to_output_folder}{The desired folder for output of dissolved oxygen conversion}
 }
 \value{
 output_data: data frame with dissolved oxygen in percent air saturation as a new column "do_percsat_U26"

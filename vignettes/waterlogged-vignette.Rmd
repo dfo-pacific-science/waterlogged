@@ -13,6 +13,9 @@ knitr::opts_chunk$set(warning = FALSE,
                       collapse = TRUE,
                       comment = "#>",
                       out.width = '100%')
+
+options(knitr.table.format = "latex")
+
 ```
 
 ```{r setup}
@@ -802,8 +805,38 @@ $~$
 
 # Step 5: Summarizing data
 
-```{r data-sum}
+*get_logger_data* is a function to help collate or find specific logger data. Specific loggers/stations can be selected by the unique ID (ie. site_station_code) using *select_station* (default is "all", which will grab files from all stations in folder). 
+
+By default, this function will look for clean data (ie. files with suffix ending in v1.0). If you would like to call in data from a specific processing stage, like where you left off after step 2, you can adjust the input for *data_processing* to "v0.1" for raw data, "v0.2" for data that has been bound with baro data, and "v0.3" for data that has had barometric compensation applied.
+
+This function can also be used to provide summaries of data by year, site_station_code, and logger_type. For example, if we wanted to get a monthly summary of DO values for all sites and all clean data we could execute the following:
+
+$~$
+
+```{r data-sum, eval = FALSE}
 
 get_logger_data(path_to_data = "C:/Users/loscerbod/Desktop/2024/clean", logger_type = "dissolvedoxygen_U26", data_processing = "clean", temporal_scale = "monthly")
+
+```
+
+$~$
+
+The output looks like this:
+
+$~$
+
+```{r get-sum, echo = FALSE}
+datsum <- readRDS(system.file("extdata/ex-dissox", "FROG_WE_01_DO_2024_monthly.rds", package = "waterlogged"))
+
+head(datsum[c(2:7),])
+
+```
+
+$~$
+
+```{r sum-plots, echo = FALSE}
+knitr::include_graphics("figures/step5_get_logger_data_plot1.jpeg")
+knitr::include_graphics("figures/step5_get_logger_data_plot2.jpeg")
+knitr::include_graphics("figures/step5_get_logger_data_plot3.jpeg")
 
 ```

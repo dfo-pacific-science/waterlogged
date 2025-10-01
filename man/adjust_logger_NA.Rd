@@ -7,6 +7,8 @@
 adjust_logger_NA(
   input_data = site_data,
   select_station,
+  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
+  timestamp_timezone = "UTC",
   timestamp_start,
   timestamp_end,
   logger_to_adjust,
@@ -15,7 +17,7 @@ adjust_logger_NA(
   var_do_mgl = "do_mgl_U26",
   var_do_percsat = "do_percsat_U26",
   var_waterlevel_m = "waterlevel_m_U20",
-  var_watertemp_C = "watertemp_C_U20",
+  var_watertemp_C = "default",
   var_airtemp_C = "airtemp_C_U20"
 )
 }
@@ -23,6 +25,10 @@ adjust_logger_NA(
 \item{input_data}{Data for desired site_station_code}
 
 \item{select_station}{Unique identifier code for station}
+
+\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+
+\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
 
 \item{timestamp_start}{Date and time of start of dry period: must be formatted the same as timestamp in site_data}
 
