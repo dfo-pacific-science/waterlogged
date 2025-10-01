@@ -15,6 +15,11 @@
 
 write_clean_data <- function(input_data = site_data, path_to_output_folder, logger_type, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20") {
 
+  #make sure all paths have trailing slash
+  if (!endsWith(path_to_output_folder, "/")) {
+    path_to_output_folder <- paste0(path_to_output_folder, "/")
+  }
+
   if(logger_type == "dissolvedoxygen_U26"){
     logger_header <- "DO"
 
@@ -111,31 +116,29 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
     site_dat <- output_data %>% filter(site_station_code==site_i)
 
     # split by year
-    years_i <- unique(year(site_dat$timestamp))
+    years_i <- unique(lubridate::year(site_dat$timestamp))
 
     for(j in 1:length(years_i)){
       year_j <- years_i[j]
-      site_year_j <- site_dat %>% filter(year(timestamp)==year_j)
+      site_year_j <- site_dat %>% filter(lubridate::year(timestamp)==year_j)
 
       #name by timestamp range
-      start_j <- as.character(min(date(site_year_j$timestamp)))
+      start_j <- as.character(min(lubridate::date(site_year_j$timestamp)))
       start_j <- gsub("\\D", "", start_j)
-      end_j <- as.character(max(date(site_year_j$timestamp)))
+      end_j <- as.character(max(lubridate::date(site_year_j$timestamp)))
       end_j <- gsub("\\D", "", end_j)
 
       # search for year folder, if does not exist, write new one
-      # if(!dir.exists(paste0(path_to_output_folder, year_j,))){dir.create(paste0(path_to_output_folder, year_j))}
-      if(!dir.exists(paste0(path_to_output_folder, year_j,"/clean/"))){dir.create(paste0(path_to_output_folder, year_j, "/clean/"))}
+      # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
+      if(!dir.exists(paste0(path_to_output_folder, year_j,"/clean/"))){dir.create(paste0(path_to_output_folder, year_j,"/clean/"))}
+
+      # correct missing midnight timestamps
+      site_year_j$timestamp <- as.character(format(site_year_j$timestamp))
 
       # write csv for each year and site_station_code
-
-      # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
-      # print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
-
-      write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v1.0", ".csv"))
-      print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
-
-
+      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", select_station,"_",logger_header ,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
+      print(paste("Clean data (v1.0) from",select_station,"added to", year_j, "folder"))
 
     } #end of year level loop
 
