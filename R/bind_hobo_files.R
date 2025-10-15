@@ -3,7 +3,7 @@
 #' Merge dissolved oxygen data from multiple loggers by site_station_code and trim for install/removal dates
 #' @param path_to_raw_folder The folder containing raw dissolved oxygen in mg/L from HOBO as csv files
 #' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
-#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, watertemp_TidbiT, airtemp_TidbiT
+#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, conductivity_U24, watertemp_TidbiT, airtemp_TidbiT
 #' @param  metadata File containing serial number, install date, install time and status for each site_station_code
 #' @param  timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "%m/%d/%Y %H:%M"
 #' @param  timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
@@ -48,7 +48,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
     data$V3 <- as.numeric(data$V3)
     data <- data[complete.cases(data), ]
 
-    #write new headers
+    # write new headers
     colnames(data) <- c("sn", "timestamp", paste(dat1_type,dat1_unit), paste(dat2_type, dat2_unit))
 
     return(data)
@@ -196,6 +196,14 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
 
     if(colnames(sites_compiled)[4]=="Temp °C"){
       colnames(sites_compiled)[4]<- "watertemp_C_U20"
+    }
+  }
+  if(colnames(sites_compiled)[3]=="Low Range μS/cm" | colnames(sites_compiled)[3]=="Full Range μS/cm"){
+    colnames(sites_compiled)[3]<- "conduct_uScm_U24"
+    logger_header <- "CO"
+
+    if(colnames(sites_compiled)[4]=="Temp °C"){
+      colnames(sites_compiled)[4]<- "watertemp_C_U24"
     }
   }
   if(colnames(sites_compiled)[3]=="Temp °C" & logger_type == "watertemp_TidbiT"){
