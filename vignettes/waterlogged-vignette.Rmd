@@ -31,9 +31,9 @@ library(lubridate)
 
 # Welcome 
 
-water-logged is a data processing package for water data from continuous water data loggers. The goal of water-logged is to streamline the process from raw data to clean data, document QAQC processing via r scripts, and do so without relying on proprietal software. 
+water-logged is a data processing package for water data from continuous water data loggers. The goal of water-logged is to streamline the process from raw data to clean data, document QAQC processing via r scripts, and do so without relying on proprietary software. 
 
-This version of the package was built for data from Onset HOBO barometric pressure (U20), dissolved oxygen (U26), and TibiT loggers. Future versions will test this package on data from other types of loggers to try to make it a more universal package. 
+This version of the package was built for data from Onset® HOBO® barometric pressure (U20), dissolved oxygen (U26), conductivity (U24) and TidbiT loggers. Future versions will test this package on data from other types of loggers to try to make it a more universal package. 
 
 
 $~$
@@ -104,7 +104,7 @@ The function **bind_hobo_files** will load all .csv files in the *path_to_raw_fo
 
 *path_to_output_folder* is where you would like the bound files to be saved. 
 
-*logger_type* The type of HOBO logger that produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, and temperature_TidbiT
+*logger_type* The type of HOBO logger that produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, conductivity_U24, and temperature_TidbiT
 
 
 Here is an example of running the function on barometric data from a HOBO U20 logger:
@@ -115,10 +115,12 @@ $~$
 
 raw_dir <- "REPLACE WITH DESIRED RAW BARO FOLDER PATH"  #the folder where you've stored your raw csv's (ie. "data/baro/2024/raw")
 
-# to run this example using our data, you can access raw hobo files here:
-raw_dir <- system.file("extdata/ex-baro/raw", package = "waterlogged")
+out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR BARO DATA"  #from this folder (e.g., "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
 
-out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR BARO DATA"  #from this folder (ie. "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
+# to run this example using our data, you can access raw hobo files here:
+raw_dir <- system.file("extdata","ex-baro",package = "waterlogged")
+# and save output files to a temporary folder:
+out_dir <- tempdir()
 
 baro_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, 
                               path_to_output_folder = out_dir, 
@@ -160,6 +162,7 @@ To view a summary plot of the trimmed data, select the third object in the list.
 
 ```{r bind-ex4}
 baro_bound[3]
+
 ```
 
 $~$
