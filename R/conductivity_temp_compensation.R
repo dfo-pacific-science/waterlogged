@@ -22,7 +22,7 @@ conduct_temp_comp <- function(input_data,
 
   # Obtain temperature correction coefficients from Mettler Toledo (2022)
   path_tcomp_tbl <- system.file("extdata", "tempcomp27888.csv", package = "waterlogged")
-  tcomp <- as.data.frame(readr::read_csv(path_tcomp_tbl))
+  tcomp <- as.data.frame(read.csv(path_tcomp_tbl))
 
   # Tidy data frame
   rownames(tcomp) <- tcomp[,1]
