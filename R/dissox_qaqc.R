@@ -13,15 +13,17 @@
 #' @return Dataset of dissolved oxygen and waterlevel filtered for error values and flagged for ice, dry and disturbance
 #' @export
 
-dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_watertemp_C_1 = "watertemp_C_U26", var_waterlevel_m = "none", var_watertemp_C_2 = "none", var_airtemp_C = "airtemp_C_U20_adj") {
+dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_watertemp_C_1 = "watertemp_C_U26", var_waterlevel_m = "none", var_watertemp_C_2 = "none", var_airtemp_C = "airtemp_C_U20") {
 
   # ensures user is only processing one station at a time
   output_data <- input_data
   output_data <- output_data[output_data$site_station_code==select_station,]
   #remove rownumbers
   rownames(output_data) <- NULL
-  # ensure qaqc columns are writtable
-  output_data <- output_data %>% mutate(across(c(do_qaqc_adj, do_qaqc_code, do_qaqc_note), as.character))
+  # make qaqc columns are
+  output_data$do_qaqc_adj <- NA
+  output_data$do_qaqc_note <- NA
+  output_data$do_qaqc_code <- NA
 
   names(output_data)[names(output_data) == var_do_mgl ] <- "do_mgl"
   names(output_data)[names(output_data) == var_watertemp_C_1 ] <- "watertemp_C_1"
