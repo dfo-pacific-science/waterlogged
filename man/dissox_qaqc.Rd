@@ -13,7 +13,7 @@ dissox_qaqc(
   var_watertemp_C_1 = "watertemp_C_U26",
   var_waterlevel_m = "none",
   var_watertemp_C_2 = "none",
-  var_airtemp_C = "airtemp_C_U20_adj"
+  var_airtemp_C = "airtemp_C_U20"
 )
 }
 \arguments{

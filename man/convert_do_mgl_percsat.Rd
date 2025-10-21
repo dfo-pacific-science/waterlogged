@@ -8,7 +8,8 @@ convert_do_mgl_percsat(
   input_data,
   var_watertemp_C = "watertemp_C_U26",
   var_airpress_kPa = "airpress_kPa_U20_adj",
-  var_do_mgl = "do_mgl_U26"
+  var_do_mgl = "do_mgl_U26",
+  path_to_output_folder
 )
 }
 \arguments{
