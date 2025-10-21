@@ -137,8 +137,8 @@ write_clean_data <- function(input_data = site_data, path_to_output_folder, logg
       site_year_j$timestamp <- as.character(format(site_year_j$timestamp))
 
       # write csv for each year and site_station_code
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", select_station,"_",logger_header ,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
-      print(paste("Clean data (v1.0) from",select_station,"added to", year_j, "folder"))
+      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_i,"_",logger_header ,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
+      print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
 
     } #end of year level loop
 
