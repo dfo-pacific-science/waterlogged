@@ -10,6 +10,11 @@
 #' @param var_ref_watertemp_C Name of column for reference water temperature (in degrees Celcius)
 #' @param var_conduct_uScm Name of column for reference conductivity (uScm)
 #' @export
+#' @import dplyr
+#' @import tidyr
+#' @import ggplot2
+#' @import plotly
+
 
 conductivity_qaqc <- function(input_data,
                               plot_only = FALSE,

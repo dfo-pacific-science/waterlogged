@@ -13,6 +13,8 @@
 #'
 #' @returns A data frame with an additional column containing the corrected specific conductance.
 #' @export
+#' @import dplyr
+
 
 conduct_temp_comp <- function(input_data,
                               comp_file,

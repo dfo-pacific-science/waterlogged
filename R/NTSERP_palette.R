@@ -4,7 +4,8 @@
 #' @param n_groups the number of colors (groups) required
 #' @param full_palette logical; if TRUE, the full palette is returned (not recommended for plots)
 #' @return list of colors suitable for colorblind viewing
-
+#' @export
+#'
 ## EXAMPLES
 # NTSERP_palette(n_groups = 3)
 # NTSERP_palette(full_palette = TRUE)

@@ -9,6 +9,10 @@
 #' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, barometric and temperature values out of range are removed and flagged
 #' @return list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
 #' @export
+#' @import dplyr
+#' @import tidyr
+#' @import ggplot2
+#' @import plotly
 
 barometric_qaqc <- function(input_data, select_station,  var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20", climate_station = "BLUE RIVER", plot_only = FALSE) {
 

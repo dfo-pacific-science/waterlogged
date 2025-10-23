@@ -12,6 +12,10 @@
 #' @param var_do_mgl Name of column for dissolved oxygen in mg per litre in input data
 #' @return Dataset of dissolved oxygen and waterlevel filtered for error values and flagged for ice, dry and disturbance
 #' @export
+#' @import dplyr
+#' @import tidyr
+#' @import ggplot2
+#' @import plotly
 
 dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_watertemp_C_1 = "watertemp_C_U26", var_waterlevel_m = "none", var_watertemp_C_2 = "none", var_airtemp_C = "airtemp_C_U20") {
 

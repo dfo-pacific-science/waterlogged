@@ -9,6 +9,10 @@
 #' @param  timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @return Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
 #' @export
+#' @import dplyr
+#' @import tidyr
+#' @import ggplot2
+#' @import purrr
 
 bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_type, metadata, timestamp_format = "%m/%d/%Y %H:%M", timestamp_timezone = "UTC") {
 

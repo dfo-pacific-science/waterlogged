@@ -8,7 +8,10 @@
 #' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged
 #' @return list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
 #' @export
-
+#' @import ggplot2
+#' @import dplyr
+#' @import plotly
+#'
 watertemp_qaqc <- function(input_data, select_station, var_airtemp_C ="airtemp_C_U20", var_watertemp_C = "watertemp_C_U20", plot_only = FALSE) {
 
   # ensures user is only processing one station at a time

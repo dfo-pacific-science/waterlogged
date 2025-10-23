@@ -8,6 +8,8 @@
 #' @param var_waterlevel_m Name of variable column containing water level in meters
 #' @param shift_up_or_down Use up to add the average water level between timestamp_start and timestamp_end to all data points. Us down to subtract the average water level between timestamp_start and timestamp_end to all data points.
 #' @return Dataset where waterlevel_m_adj are shifted up or down to desired correction, qaqca_code set to MANUAL_ERROR, and qaqc_adj states numerical change to raw value
+#' @import dplyr
+#' @export
 
 adjust_waterlevel_zero <- function(input_data, select_station, timestamp_start, timestamp_end, shift_up_or_down, var_waterlevel_m = "waterlevel_m_U20") {
 
