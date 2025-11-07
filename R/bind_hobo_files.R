@@ -119,7 +119,7 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
   metadata$timestamp_remove <-as.POSIXct(metadata$timestamp_remove, format = timestamp_format, tz = timestamp_timezone)
 
   if(any(is.na(metadata$timestamp_deploy))) {
-    missing_ts <- dat1 %>% filter(is.na(timestamp_deploy))
+    missing_ts <- metadata %>% filter(is.na(timestamp_deploy))
     missing_ts_sn <- unique(missing_ts$sn)
 
     print(paste("WARNING: NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
