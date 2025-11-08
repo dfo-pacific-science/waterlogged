@@ -8,8 +8,15 @@
 #' @param path_to_output_folder The desired folder for output of dissolved oxygen conversion
 #' @return output_data: data frame with dissolved oxygen in percent air saturation as a new column "do_percsat_U26"
 #' @export
+#' @import dplyr
+#' @import ggplot2
+#' @import plotly
 
-convert_do_mgl_percsat <- function(input_data, var_watertemp_C = "watertemp_C_U26", var_airpress_kPa = "airpress_kPa_U20_adj", var_do_mgl = "do_mgl_U26") {
+convert_do_mgl_percsat <- function(input_data, var_watertemp_C = "watertemp_C_U26", var_airpress_kPa = "airpress_kPa_U20_adj", var_do_mgl = "do_mgl_U26", path_to_output_folder) {
+  #make sure all paths have trailing slash
+  if (!endsWith(path_to_output_folder, "/")) {
+    path_to_output_folder <- paste0(path_to_output_folder, "/")
+  }
 
   # change user input columns to local names
   names(input_data)[names(input_data) == var_do_mgl ] <- "do_mgl"

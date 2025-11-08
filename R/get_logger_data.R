@@ -10,6 +10,10 @@
 #' @param timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
 #' @return dataframe
 #' @export
+#' @import dplyr
+#' @import ggplot2
+#' @import lubridate
+#' @import purrr
 
 get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", data_processing = "clean", select_station = "all", temporal_scale = "hourly") {
 
@@ -46,7 +50,7 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
 
   # For processed data that is the output of write_clean_data
   # extract ONLY file names ending in "v1.0.csv"
-  if(data_processing=="clean") {
+  if(data_processing=="clean"|data_processing=="v1.0") {
     file_names <- list.files(path = path_to_data, pattern = "v1.0.csv$")
   }
 
@@ -103,9 +107,9 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
     }
     # columns differ by logger type
     if(logger_type=="dissolvedoxygen_U26"){
-      var_ylab1 <- bquote('Dissolved oxygen (mg·'~'L'^-1~')')
-      var_ylab3 <- "Water temperature (\u00b0C)"
-      var_ylab2 <- "Dissolved oxygen (% air sat.)"
+      var_ylab2 <- bquote('Dissolved oxygen (mg·'~'L'^-1~')')
+      var_ylab1 <- "Water temperature (\u00b0C)"
+      var_ylab3 <- "Dissolved oxygen (% air sat.)"
 
       dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
@@ -120,8 +124,8 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
                          max_watertemp_C = max(watertemp_C_U26_adj, na.rm = TRUE))
     }
     if(logger_type=="waterlevel_U20"){
-      var_ylab1 <- "Water level (m)"
-      var_ylab2 <- "Water temperature (\u00b0C)"
+      var_ylab2 <- "Water level (m)"
+      var_ylab1 <- "Water temperature (\u00b0C)"
 
       dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
@@ -134,8 +138,8 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
     }
     if(logger_type=="baro_U20"){
 
-      var_ylab1 <- "Air pressure (kPa)"
-      var_ylab2 <- "Air temperature (\u00b0C)"
+      var_ylab2 <- "Air pressure (kPa)"
+      var_ylab1 <- "Air temperature (\u00b0C)"
 
       dat2 <- dat2 %>%
         dplyr::group_by(site_station_code, grouping_var) %>%
@@ -168,7 +172,7 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
     # rename columns
     if(temporal_scale == "daily") {
       colnames(dat2)[colnames(dat2) == 'grouping_var'] <- 'date'
-      timescale_lab <- "Timestamp (YY-MM-DD)"
+      timescale_lab <- "Date"
       timescale_format <- "%y-%m-%d"
 
     }
@@ -200,34 +204,43 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
 
     ## Graph Data ####
 
-    plot1 <- ggplot(data=dat2, aes(x = dat2[,2])) +
-      geom_ribbon(alpha = 0.1, aes(ymin = dat2[,6], ymax = dat2[,9])) +
-      geom_line(aes(y = dat2[,3]), size = 1)+
-      facet_wrap(~site_station_code, scales = "free")+
+    try(plot1 <- ggplot(data=dat2, aes(x = dat2[,2])) +
+      geom_line(aes(y = mean_watertemp_C), size = 1)+
+      geom_ribbon(alpha = 0.3, aes(ymin = min_watertemp_C, ymax = max_watertemp_C))+
+      facet_wrap(~site_station_code)+
       theme_classic()+
       theme(axis.text.x = element_text(angle = 90))+
-     # scale_x_datetime(date_labels = timescale_format)+
-      labs(x = timescale_lab, y = var_ylab1)
+      # scale_x_datetime(date_labels = timescale_format)+
+      labs(x = timescale_lab, y = var_ylab1))
 
    try(plot2 <- ggplot(data=dat2, aes(x = dat2[,2])) +
-      geom_ribbon(alpha = 0.1, aes(ymin = dat2[,7], ymax = dat2[,10])) +
-      geom_line(aes(y = dat2[,4]), size = 1)+
-      facet_wrap(~site_station_code, scales = "free")+
-      theme_classic()+
-      theme(axis.text.x = element_text(angle = 90))+
-      # scale_x_datetime(date_labels = timescale_format)+
-      labs(x = timescale_lab, y = var_ylab2))
+         geom_line(aes(y = dat2[,3]), size = 1)+
+         facet_wrap(~site_station_code)+
+         theme_classic()+
+         theme(axis.text.x = element_text(angle = 90))+
+         #scale_x_datetime(date_labels = timescale_format)+
+         labs(x = timescale_lab, y = var_ylab2))
 
-    try(plot3 <- ggplot(data=dat2, aes(x = dat2[,2])) +
-      geom_ribbon(alpha = 0.1, aes(ymin = dat2[,8], ymax = dat2[,11])) +
-      geom_line(aes(y = dat2[,5]), size = 1)+
-      facet_wrap(~site_station_code, scales = "free")+
-      theme_classic()+
-      theme(axis.text.x = element_text(angle = 90))+
-      # scale_x_datetime(date_labels = timescale_format)+
-      labs(x = timescale_lab, y = var_ylab3))
+# add ribbons separately
+    if(logger_type=="dissolvedoxygen_U26"){
 
-    return(list(dat2, plot1, try(plot2), try(plot3)))
+      plot2<- plot2+geom_ribbon(alpha = 0.3, aes(ymin = min_do_mgl, ymax = max_do_mgl))
+
+      plot3 <- ggplot(data=dat2, aes(x = dat2[,2])) +
+        geom_line(aes(y = mean_do_percsat), size = 1)+
+        geom_ribbon(alpha = 0.3, aes(ymin = min_do_percsat, ymax = max_do_percsat))+
+        facet_wrap(~site_station_code)+
+        theme_classic()+
+        theme(axis.text.x = element_text(angle = 90))+
+        # scale_x_datetime(date_labels = timescale_format)+
+        labs(x = timescale_lab, y = var_ylab3)
+    }
+
+    if(logger_type=="waterlevel_U20"){
+      plot2<- plot2 + geom_ribbon(alpha = 0.3, aes(ymin = min_waterlevel_m, ymax = max_waterlevel_m))
+      }
+
+    return(list(dat2, try(plot1), try(plot2), try(plot3)))
 
 
   } # end of clean data select_temporal_scale loop

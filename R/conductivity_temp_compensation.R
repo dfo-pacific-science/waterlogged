@@ -15,6 +15,8 @@
 #' \url{https://www.mt.com/us/en/home/library/guides/lab-analytical-instruments/Conductivity-Measurement-Theory-Guide.html}
 #'
 #' @export
+#' @import dplyr
+
 
 conduct_temp_comp <- function(input_data,
                               var_conduct_uScm = "conduct_uScm_U24_adj",

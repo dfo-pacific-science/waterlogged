@@ -9,6 +9,11 @@
 #' @param var_airtemp_C Optional. Name of column for air temperature in degrees Celsius in input data.
 #' @param var_waterlevel_m Optional. Name of variable column containing water level in meters in input data.
 #' @export
+#' @import dplyr
+#' @import tidyr
+#' @import ggplot2
+#' @import plotly
+
 
 conductivity_qaqc <- function(input_data,
                               select_station,

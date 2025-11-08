@@ -15,6 +15,10 @@
 #' @param path_to_output_folder The desired folder for output of baro compensation
 #' @return List of 3 objects: 1. site_wl: dataframe of converted waterlevel for specified station, 2. ref_dat: dataframe of manual measurements for specified site, 3. plot of waterlevel data for specified site to aid in QAQC
 #' @export
+#' @import dplyr
+#' @import ggplot2
+#' @import plotly
+#' @import lubridate
 
 convert_waterlevel_kPa_m <- function(input_data,
                                      select_station,

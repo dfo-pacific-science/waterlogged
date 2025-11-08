@@ -14,6 +14,10 @@
 #' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
 #' @return Clean water level data for station as csv
 #' @export
+#' @import dplyr
+#' @import tidyr
+#' @import lubridate
+
 
 write_clean_data <- function(input_data, path_to_output_folder, logger_type, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_conduct_uScm = "conduct_uScm_U24", var_spc_uScm = "spc_uScm_U24", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20") {
 
@@ -173,8 +177,8 @@ write_clean_data <- function(input_data, path_to_output_folder, logger_type, var
       site_year_j$timestamp <- as.character(format(site_year_j$timestamp))
 
       # write csv for each year and site_station_code
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_station_code,"_",logger_header ,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
-      print(paste("Clean data (v1.0) from",site_station_code,"added to", year_j, "folder"))
+      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_i,"_",logger_header ,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
+      print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
 
     } #end of year level loop
 
