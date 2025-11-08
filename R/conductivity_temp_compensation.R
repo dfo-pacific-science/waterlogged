@@ -27,9 +27,10 @@ conduct_temp_comp <- function(input_data,
   # Tidy data frame
   rownames(tcomp) <- tcomp[,1]
   tcomp <- tcomp %>%
-    pivot_longer(cols = `0`:`0.9`,
+    pivot_longer(cols = `X0`:`X0.9`,
                  names_to = "Tsub",
                  values_to = "coef")
+  tcomp$Tsub <- str_remove_all(tcomp$Tsub, "X")
   tcomp <- tcomp %>%
     mutate(temp = Temp_C + as.numeric(as.character(Tsub))) %>%
     select(temp, coef) %>%
@@ -56,7 +57,7 @@ conduct_temp_comp <- function(input_data,
 
   # apply temperature correction model coefficients to data
   output_data <- input_data %>%
-    mutate(spc_uScm = tempcomp(watertemp_C) * conduct_uScm)
+    mutate(spc_uScm_U24 = tempcomp(watertemp_C) * conduct_uScm)
 
   # return variables to user input naming
   names(output_data)[names(output_data) == "conduct_uScm"] <- var_conduct_uScm

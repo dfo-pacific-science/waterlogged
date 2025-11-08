@@ -6,17 +6,12 @@
 \usage{
 conduct_temp_comp(
   input_data,
-  comp_file,
   var_conduct_uScm = "conduct_uScm_U24_adj",
   var_watertemp_C = "watertemp_C_U24_adj"
 )
 }
 \arguments{
-\item{input_data}{Data frame. Contains the conductivity and temperature data.}
-
-\item{comp_file}{File path. Path to the temperature compensation table (e.g.,
-\code{inst/extdata/tempcomp27888.csv}). This argument may be deprecated once the function is fully packaged,
-as the compensation data should be accessed internally via \code{system.file()}.}
+\item{input_data}{Data frame. The dataset containing the conductivity and temperature data.}
 
 \item{var_conduct_uScm}{Character. Name of the column containing conductivity values (in µS/cm).}
 
@@ -29,4 +24,9 @@ A data frame with an additional column containing the corrected specific conduct
 Applies temperature correction to conductivity measurements to calculate specific conductance
 standardized at 25°C. Uses a non-linear temperature compensation method for natural waters,
 equivalent to ISO 7888.
+}
+\references{
+Mettler Toledo. (2022). \emph{Conductivity Measurement Theory Guide}.
+Nänikon, Switzerland. Retrieved from
+\url{https://www.mt.com/us/en/home/library/guides/lab-analytical-instruments/Conductivity-Measurement-Theory-Guide.html}
 }

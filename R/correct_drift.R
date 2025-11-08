@@ -15,8 +15,8 @@
 #'   input_data = readr::read_csv("inst/extdata/ex-conductivity/CO_FROG_WE_01_20240420_20240921_v0.1.csv"),
 #'   ref_data = readr::read_csv("inst/extdata/ex-site-attribute/site_station_waterquality.csv"),
 #'   select_station = "FROG_WE_01",
-#'   var_watertemp_C = "watertemp_C_U24",
-#'   var_conduct_uScm = "conduct_uScm_U24",
+#'   var_watertemp_C = "watertemp_C_U24_adj",
+#'   var_conduct_uScm = "conduct_uScm_U24_adj",
 #'   var_ref_watertemp_C = "ysi_watertemp_C",
 #'   var_ref_conduct_uScm = "ysi_conduct_uScm",
 #'   var_ref_timestamp = "ysi_timestamp"
@@ -26,8 +26,8 @@
 correct_drift <- function(input_data,
                           ref_data,
                           select_station,
-                          var_watertemp_C = "watertemp_C_U24",
-                          var_conduct_uScm = "conduct_uScm_U24",
+                          var_watertemp_C = "watertemp_C_U24_adj",
+                          var_conduct_uScm = "conduct_uScm_U24_adj",
                           var_ref_watertemp_C,
                           var_ref_conduct_uScm,
                           var_ref_timestamp) {
@@ -93,18 +93,18 @@ correct_drift <- function(input_data,
   # 1. join on reference measurements taken within 29 mins of logger timestamp
   joined_refs <- fuzzyjoin::difference_left_join(logger_data, ref_data_site,
                                                  by = c("timestamp" = "ref_timestamp"),
-                                                 max_dist = 29) %>%
+                                                 max_dist = 29*60) %>%
     mutate(difftime = difftime(timestamp, ref_timestamp))
 
   # 2. ID unmatched reference measurements (usually pre-post deployment)
   refs_unmatched <- difference_anti_join(ref_data_site, logger_data,
                                                     by = c("ref_timestamp" = "timestamp"),
-                                                    max_dist = 29)
+                                                    max_dist = 29*60)
 
   # 3. join within a 1-hour tolerance window
   joined_remainder <- difference_left_join(logger_data, refs_unmatched,
                                                       by = c("timestamp" = "ref_timestamp"),
-                                                      max_dist = 1) %>%
+                                                      max_dist = 60*60) %>%
     mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
     filter(!is.na(ref_timestamp))
 
@@ -112,7 +112,7 @@ correct_drift <- function(input_data,
   if(nrow(joined_remainder) == 0){
     joined_remainder <- difference_left_join(logger_data, refs_unmatched,
                                                         by = c("timestamp" = "ref_timestamp"),
-                                                        max_dist = 2) %>%
+                                                        max_dist = 2*60*60) %>%
       mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
       filter(!is.na(ref_timestamp))
   }
@@ -174,24 +174,50 @@ correct_drift <- function(input_data,
     mutate(c_drift = per_c_offset + c_offset_diff * time_ratio,
            t_drift = per_t_offset + t_offset_diff * time_ratio) %>%
     fill(c_drift, t_drift, .direction = "down") %>%
-    mutate(conduct_uScm_adj = conduct_uScm * c_drift,
-           watertemp_C_adj  = watertemp_C * t_drift) %>%
-    select(sn:site_station_code, ref_conduct_uScm, ref_watertemp_C, ends_with("_adj"))
+    mutate(conduct_uScm_dc = conduct_uScm * c_drift,
+           watertemp_C_dc  = watertemp_C * t_drift)
 
+  # 5. update qa/qc columns
+  append_qaqc <- function(existing, new) {
+    ifelse(is.na(existing) | existing == "", new, paste(existing, new, sep = "; "))
+  }
+
+  output_data <- output_data %>%
+    mutate(co_qaqc_code = if_else(conduct_uScm_dc != conduct_uScm & !is.na(conduct_uScm_dc),
+                                  append_qaqc(co_qaqc_code, "DRIFT_CORR"),
+                                  co_qaqc_code),
+           co_qaqc_note = if_else(conduct_uScm_dc != conduct_uScm & !is.na(conduct_uScm_dc),
+                                  append_qaqc(co_qaqc_note, "Applied drift correction"),
+                                  co_qaqc_note),
+           co_qaqc_adj = if_else(conduct_uScm_dc != conduct_uScm & !is.na(conduct_uScm_dc),
+                                 append_qaqc(co_qaqc_adj, paste0("Multiplied conductivity by ", round(c_drift,3),
+                                                                 " and temperature by ", round(t_drift,3))),
+                                 co_qaqc_adj)
+           ) %>%
+    select(sn, timestamp, site_station_code,
+           starts_with("conduct"), starts_with("watertemp"),
+           ref_conduct_uScm, ref_watertemp_C,
+           starts_with("co_qaqc"))
 
   ## Plot the data to compare drift results ----
   p <- ggplot(output_data, aes(x = timestamp)) +
-    geom_line(aes(y = conduct_uScm, colour = "Raw")) +
-    geom_line(aes(y = conduct_uScm_adj, colour = "Drift-corrected")) +
-    geom_point(aes(y = ref_conduct_uScm, colour = "Reference")) +
+    geom_line(aes(y = conduct_uScm, colour = "Uncorrected")) +
+    geom_line(aes(y = conduct_uScm_dc, colour = "Drift-corrected")) +
+    geom_point(aes(y = ref_conduct_uScm, colour = "Reference"), size = 4) +
     scale_color_manual(name = "Measurement type",
-                       values = c("Raw" = "cyan",
+                       values = c("Uncorrected" = "cyan",
                                   "Drift-corrected" = "darkblue",
-                                  "Reference" = "black")) +
+                                  "Reference" = "green")) +
     labs(title = paste("Conductivity drift correction for:", select_station),
          y = "Conductivity (µS/cm)",
          x = "Timestamp") +
     theme_classic()
+
+  # return variables to user input naming
+  names(output_data)[names(output_data) == "conduct_uScm"] <- var_conduct_uScm
+  names(output_data)[names(output_data) == "watertemp_C"] <- var_watertemp_C
+  names(output_data)[names(output_data) == "conduct_uScm_dc"] <- paste0(var_conduct_uScm, "_dc")
+  names(output_data)[names(output_data) == "watertemp_C_dc"] <- paste0(var_watertemp_C, "_dc")
 
   print("Results returned as list: select [1] for drift-corrected conductivity data, [2] reference measurements, [3] plot of raw and drift-corrected data")
   return(list(output_data, ref_data_site, suppressWarnings(plotly::ggplotly(p))))

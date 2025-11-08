@@ -11,6 +11,7 @@
 #' @export
 
 conductivity_qaqc <- function(input_data,
+                              select_station,
                               plot_only = FALSE,
                               var_conduct_uScm = "conduct_uScm_U24",
                               var_watertemp_C = "watertemp_C_U24",
@@ -22,14 +23,17 @@ conductivity_qaqc <- function(input_data,
   output_data <- output_data[output_data$site_station_code==select_station,]
   # remove rownumbers
   rownames(output_data) <- NULL
-  # ensure qaqc columns are writeable
-  output_data <- output_data %>% mutate(across(c(co_qaqc_adj, co_qaqc_code, co_qaqc_note), as.character))
+  # # ensure qaqc columns are writeable
+  # output_data <- output_data %>% mutate(across(c(co_qaqc_adj, co_qaqc_code, co_qaqc_note), as.character))
 
   # rename input columns to local columns
   names(output_data)[names(output_data) == var_conduct_uScm ] <- "conduct_uScm"
   names(output_data)[names(output_data) == var_watertemp_C ] <- "watertemp_C"
   names(output_data)[names(output_data) == paste0(var_conduct_uScm, "_adj") ] <- "conduct_uScm_adj"
   names(output_data)[names(output_data) == paste0(var_watertemp_C, "_adj" )] <- "watertemp_C_adj"
+
+  # ensure timestamp column is properly formatted
+  output_data$timestamp <- as.POSIXct(output_data$timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
 
   if(var_airtemp_C != "none"){
     names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
@@ -40,6 +44,20 @@ conductivity_qaqc <- function(input_data,
   }
 
   if(plot_only == FALSE){
+
+    # if co_qaqc_code column does not already exist, make a new one
+    if(length(output_data$co_qaqc_code)==0) {
+      output_data$co_qaqc_code <- NA
+    }
+    if(length(output_data$co_qaqc_adj)==0) {
+      output_data$co_qaqc_adj <- NA
+    }
+    if(length(output_data$co_qaqc_note)==0) {
+      output_data$co_qaqc_note <- NA
+    }
+
+    output_data$conduct_uScm_adj <- output_data$conduct_uScm
+    output_data$watertemp_C_adj <- output_data$watertemp_C
 
     # Disturbance flag if conductivity changes by more than 200 uS/cm in an hour
     for(i in 1:(length(output_data$timestamp)-1)) {
@@ -91,10 +109,10 @@ conductivity_qaqc <- function(input_data,
       # calculate air to water temp diff
       output_data$air_watertemp_diff <- abs(output_data$airtemp_C - output_data$watertemp_C)
 
-      # if water temp within 2 degrees of air temp and < 10 uS/cm for 12 consecutive hours:
+      # if water temp within 2 degrees of air temp and < 10 uS/cm for 6 consecutive hours:
       print("Determining dry periods...")
       counter <- 0
-      threshold <- 12
+      threshold <- 6
 
       for (i in 1:length(output_data$timestamp)) {
         if (output_data$air_watertemp_diff[i] <= 2 && output_data$conduct_uScm[i] < 10) {
@@ -113,16 +131,50 @@ conductivity_qaqc <- function(input_data,
 
 
   ## PLOT DATA
+  ## Conductivity
   p <- ggplot(output_data, aes(x = timestamp)) +
     geom_line(aes(y = conduct_uScm, colour = "conduct_uScm"), alpha = 0.5)+
-    geom_line(aes(y = conduct_uScm_adj, colour = "conduct_uScm_adj"))+
-    geom_point(aes(y = ref_conduct_uScm, colour = "ref_conduct"), alpha = 0.5) +
-    labs(title = paste("QAQC for:", site),
+    geom_line(aes(y = conduct_uScm_adj, colour = "conduct_uScm_adj")) +
+    geom_point(data = output_data %>% drop_na(co_qaqc_code) %>% filter(grepl("FLAG", co_qaqc_code)),
+               aes(y = 0, shape = as.factor(co_qaqc_code)),
+               color = "black") +
+    scale_colour_manual(values = c("conduct_uScm" = "#00008B",
+                                   "conduct_uScm_adj" = "#00008B")) +
+    scale_shape_manual(values = c("FLAG_ICE" = 1,
+                                  "FLAG_DISTURBANCE" = 2,
+                                  "FLAG_DRY" = 4)) +
+    labs(title = paste("QAQC for:", select_station),
          y = "Conductivity (uS/cm)",
          x = "Timestamp",
-         color = "",
+         colour = "",
          shape = "") +
     theme_classic()
+
+  ## Temperature
+  q <- ggplot(output_data, aes(x = timestamp)) +
+    geom_line(aes(y = watertemp_C, colour = "watertemp_C"), alpha = 0.5)+
+    geom_line(aes(y = watertemp_C_adj, colour = "watertemp_C_adj"))+
+    # geom_point(aes(y = ref_watertemp_C, colour = "ref_watertemp"))+
+    labs(title = select_station,
+         y = "Temperature (C)",
+         x = "Timestamp",
+         colour = "") +
+    theme_classic()
+
+  # Plot if the data contain air temperature
+  if(var_airtemp_C != "none"){
+    q <- q +
+      geom_line(aes(y = airtemp_C, colour = "airtemp_C"), linewidth = 0.3, alpha = 0.5)+
+      scale_colour_manual(values = c("watertemp_C" = "#619b8a",
+                                     "watertemp_C_adj" = "#619b8a",
+                                     "airtemp_C" = "lightblue"))
+  }
+  else {
+    q <- q +
+      scale_colour_manual(values = c("watertemp_C" = "#619b8a",
+                                     "watertemp_C_adj" = "#619b8a"))
+  }
+
 
   # Plot if data contains water level
   # Use the QAQC codes from the water level data instead of the conductivity data
@@ -130,63 +182,22 @@ conductivity_qaqc <- function(input_data,
 
     names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
 
-    p <- p +
-      geom_line(data = output_data, aes(y = waterlevel_m*100, colour = "waterlevel_m"), linewidth = 0.3) +
+    r <- ggplot(output_data, aes(x = timestamp)) +
+      geom_line(data = output_data, aes(y = waterlevel_m), colour = "black", linewidth = 0.3) +
       geom_point(data = output_data %>% drop_na(wl_qaqc_code) %>% filter(grepl("FLAG|LOGGER", wl_qaqc_code)),
                  aes(y = 0, shape = as.factor(wl_qaqc_code)),
                  color = "black") +
-      scale_colour_manual(values = c("conduct_uScm" = "#00008B",
-                                     "conduct_uScm_adj" = "#00008B",
-                                     "ref_conduct" = "darkred",
-                                     "waterlevel_m" = "black")) +
       scale_shape_manual(values = c("FLAG_ICE" = 1,
                                     "LOGGER_ICE" = 1,
                                     "FLAG_DISTURBANCE" = 2,
                                     "LOGGER_DISTURBANCE" = 2,
                                     "FLAG_DRY" = 4,
-                                    "LOGGER_DRY" = 4))
-  }
-
-  # No water level data
-  # Use QAQC codes for conductivity
-  else {
-    p <- p +
-      geom_point(data = output_data %>% drop_na(co_qaqc_code) %>% filter(grepl("FLAG", co_qaqc_code)),
-                 aes(y = 0, shape = as.factor(co_qaqc_code)),
-                 color = "black") +
-      scale_colour_manual(values = c("conduct_uScm" = "#00008B",
-                                     "conduct_uScm_adj" = "#00008B",
-                                     "ref_conduct" = "darkred")) +
-      scale_shape_manual(values = c("FLAG_ICE" = 1,
-                                    "FLAG_DISTURBANCE" = 2,
-                                    "FLAG_DRY" = 4))
-  }
-
-  q <- ggplot(output_data, aes(x = timestamp)) +
-    geom_line(aes(y = watertemp_C, colour = "watertemp_C"), alpha = 0.5)+
-    geom_line(aes(y = watertemp_C_adj, colour = "watertemp_C_adj"))+
-    geom_point(aes(y = ref_watertemp_C, colour = "ref_watertemp"))+
-    labs(title = site,
-         y = "Temperature (C)",
-         x = "Timestamp",
-         color = "",
-         shape = "") +
-    theme_classic()
-
-  # Plot if the data contain air temperature
-  if(!is.na(var_airtemp_C)){
-    q <- q +
-      geom_line(aes(y = airtemp_C, colour = "airtemp_C"), linewidth = 0.3, alpha = 0.5)+
-      scale_colour_manual(values = c("watertemp_C" = "#619b8a",
-                                     "watertemp_C_adj" = "#619b8a",
-                                     "airtemp_C" = "lightblue",
-                                     "ref_watertemp" = "green"))
-  }
-  else {
-    q <- q +
-      scale_colour_manual(values = c("watertemp_C" = "#619b8a",
-                                     "watertemp_C_adj" = "#619b8a",
-                                     "ref_watertemp" = "green"))
+                                    "LOGGER_DRY" = 4)) +
+      labs(title = select_station,
+           y = "Waterl level (m)",
+           x = "Timestamp",
+           shape = "") +
+      theme_classic()
   }
 
   # return variables to user input naming
@@ -198,10 +209,31 @@ conductivity_qaqc <- function(input_data,
   if ("waterlevel_m" %in% names(output_data)) names(output_data)[names(output_data) == "waterlevel_m"] <- var_waterlevel_m
 
   if(plot_only == FALSE) {
-    print("Results returned as list: select [1] for conductivity data with QAQC flags, [2] reference YSI measurements, [3] conductivity data to visually assess for dry/ice/disturbance periods")
-    return(list(output_data, ref_dat, plotly::subplot(suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05)))
+    print("Results returned as list: select [1] for conductivity data with QAQC flags, [2] conductivity data to visually assess for dry/ice/disturbance periods")
+    if (var_waterlevel_m != "none"){
+      return(list(output_data,
+                  plotly::subplot(suppressWarnings(ggplotly(p)),
+                                  suppressWarnings(ggplotly(q)),
+                                  suppressWarnings(ggplotly(r)),
+                                  heights = c(0.4, 0.4, 0.2), nrows = 3, shareX = TRUE, margin = 0.05)))
+    }
+    else{
+      return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(p)),
+                                               suppressWarnings(ggplotly(q)),
+                                               heights = c(0.5, 0.5), nrows = 2, shareX = TRUE, margin = 0.05)))
+    }
   }
   if(plot_only == TRUE){
-    return(plotly::subplot(suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05))
+    if (var_waterlevel_m != "none"){
+      return(plotly::subplot(suppressWarnings(ggplotly(p)),
+                             suppressWarnings(ggplotly(q)),
+                             suppressWarnings(ggplotly(r)),
+                             heights = c(0.4, 0.4, 0.2), nrows = 2, shareX = TRUE, margin = 0.05))
+    }
+    else{
+    return(plotly::subplot(suppressWarnings(ggplotly(p)),
+                           suppressWarnings(ggplotly(q)),
+                           heights = c(0.5, 0.5), nrows = 2, shareX = TRUE, margin = 0.05))
+    }
   }
 }
