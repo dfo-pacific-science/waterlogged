@@ -23,8 +23,8 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
   }
 
   # input errors
-  if(logger_type != "baro_U20" & logger_type != "waterlevel_U20"& logger_type != "dissolvedoxygen_U26" & logger_type != "airtemp_TidbiT" & logger_type != "watertemp_TidbiT") {
-    print("Uh oh! logger_type not recognized. Must be either dissolvedoxygen_U26, waterlevel_U20, baro_U20, airtemp_TidbiT or watertemp_TidbiT.")
+  if(logger_type != "baro_U20" & logger_type != "waterlevel_U20"& logger_type != "dissolvedoxygen_U26" & logger_type != "conductivity_U24" & logger_type != "airtemp_TidbiT" & logger_type != "watertemp_TidbiT") {
+    print("Uh oh! logger_type not recognized. Must be either dissolvedoxygen_U26, waterlevel_U20, conductivity_U24, baro_U20, airtemp_TidbiT or watertemp_TidbiT.")
   }
 
   # raw data
@@ -71,6 +71,7 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
     try(data$qaqc_code <- as.factor(data$qaqc_code), silent = TRUE)
     try(data$wl_qaqc_code <- as.factor(data$wl_qaqc_code), silent = TRUE)
     try(data$do_qaqc_code <- as.factor(data$do_qaqc_code), silent = TRUE)
+    try(data$co_qaqc_code <- as.factor(data$co_qaqc_code), silent = TRUE)
     try(data$wt_qaqc_code <- as.factor(data$wt_qaqc_code), silent = TRUE)
     try(data$at_qaqc_code <- as.factor(data$at_qaqc_code), silent = TRUE)
     try(data$baro_qaqc_code <- as.factor(data$baro_qaqc_code), silent = TRUE)
@@ -150,6 +151,21 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
                          max_airpress_kPa = max(airpress_kPa_U20, na.rm = TRUE),
                          max_airtemp_C = max(airtemp_C_U20_adj, na.rm = TRUE))
     }
+
+    if(logger_type=="conductivity_U24"){
+      var_ylab2 <- "bquote('Conductivity (muS·'~'cm'^-1~')')"
+      var_ylab1 <- "Water temperature (\u00b0C)"
+
+      dat2 <- dat2 %>%
+        dplyr::group_by(site_station_code, grouping_var) %>%
+        dplyr::summarize(mean_spc_uScm = mean(spc_uScm_U24, na.rm = TRUE),
+                         mean_watertemp_C = mean(watertemp_C_U24_adj, na.rm = TRUE),
+                         max_spc_uScm = max(spc_uScm_U24, na.rm = TRUE),
+                         max_watertemp_C = max(watertemp_C_U24_adj, na.rm = TRUE),
+                         min_spc_uScm = min(spc_uScm_U24, na.rm = TRUE),
+                         min_watertemp_C = min(watertemp_C_U24_adj, na.rm = TRUE))
+    }
+
     if(logger_type=="airtemp_TidbiT"){
       var_ylab1 <- "Air temperature (\u00b0C)"
 
@@ -234,6 +250,10 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
         theme(axis.text.x = element_text(angle = 90))+
         # scale_x_datetime(date_labels = timescale_format)+
         labs(x = timescale_lab, y = var_ylab3)
+    }
+
+    if(logger_type=="conductivity_U24"){
+      plot2<- plot2+geom_ribbon(alpha = 0.3, aes(ymin = min_spc_uScm, ymax = max_spc_uScm))
     }
 
     if(logger_type=="waterlevel_U20"){
