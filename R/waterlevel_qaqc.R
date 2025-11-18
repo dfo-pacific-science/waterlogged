@@ -61,7 +61,7 @@ waterlevel_qaqc <- function(input_data, select_station, plot_only = FALSE, var_w
         }
         if(!is.na(output_data$watertemp_C[i])){
           # if water pressure is equal to or less than air pressure add DRY flag column
-          if(output_data$watertemp_C[i] > 19 | output_data$waterpress_kPa[i] <= output_data$airpress_kPa[i]) {
+          if(output_data$watertemp_C[i] > 25 | output_data$waterpress_kPa[i] <= output_data$airpress_kPa[i]) {
             output_data$wl_qaqc_code[i] <- "FLAG_DRY"
           }
           if(output_data$watertemp_C[i]<0.3){
