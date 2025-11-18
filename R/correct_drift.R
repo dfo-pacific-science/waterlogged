@@ -93,18 +93,18 @@ correct_drift <- function(input_data,
   # 1. join on reference measurements taken within 29 mins of logger timestamp
   joined_refs <- fuzzyjoin::difference_left_join(logger_data, ref_data_site,
                                                  by = c("timestamp" = "ref_timestamp"),
-                                                 max_dist = 29*60) %>%
+                                                 max_dist = dminutes(29)) %>%
     mutate(difftime = difftime(timestamp, ref_timestamp))
 
   # 2. ID unmatched reference measurements (usually pre-post deployment)
   refs_unmatched <- difference_anti_join(ref_data_site, logger_data,
                                                     by = c("ref_timestamp" = "timestamp"),
-                                                    max_dist = 29*60)
+                                                    max_dist = dminutes(29))
 
   # 3. join within a 1-hour tolerance window
   joined_remainder <- difference_left_join(logger_data, refs_unmatched,
                                                       by = c("timestamp" = "ref_timestamp"),
-                                                      max_dist = 60*60) %>%
+                                                      max_dist = dminutes(60)) %>%
     mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
     filter(!is.na(ref_timestamp))
 
@@ -112,7 +112,7 @@ correct_drift <- function(input_data,
   if(nrow(joined_remainder) == 0){
     joined_remainder <- difference_left_join(logger_data, refs_unmatched,
                                                         by = c("timestamp" = "ref_timestamp"),
-                                                        max_dist = 2*60*60) %>%
+                                                        max_dist = dminutes(120)) %>%
       mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
       filter(!is.na(ref_timestamp))
   }
@@ -190,8 +190,7 @@ correct_drift <- function(input_data,
                                   append_qaqc(co_qaqc_note, "Applied drift correction"),
                                   co_qaqc_note),
            co_qaqc_adj = if_else(conduct_uScm_dc != conduct_uScm & !is.na(conduct_uScm_dc),
-                                 append_qaqc(co_qaqc_adj, paste0("Multiplied conductivity by ", round(c_drift,3),
-                                                                 " and temperature by ", round(t_drift,3))),
+                                 append_qaqc(co_qaqc_adj, paste0("Multiplied conductivity by ", round(c_drift,3))),
                                  co_qaqc_adj)
            ) %>%
     select(sn, timestamp, site_station_code,
