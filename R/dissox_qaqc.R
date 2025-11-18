@@ -75,53 +75,6 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
     }
 
     for(i in 1:length(output_data$timestamp)) {
-      #DO outliers
-      if(!is.na(output_data$do_mgl[i])) {
-        # drop error codes
-        if(output_data$do_mgl[i] == "-888.88") {
-          output_data$do_qaqc_code[i] <- "DO_ERROR"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "Logger error code"
-          output_data$do_mgl_adj[i] <- NA
-          output_data$do_percsat_adj[i] <- NA
-        }
-        if(output_data$watertemp_C_1[i] == "-888.88") {
-          output_data$do_qaqc_code[i] <- "TEMP_ERROR"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "Logger error code"
-          output_data$watertemp_C_1_adj[i] <- NA
-        }
-
-        if(output_data$do_mgl[i]<0 & output_data$do_mgl[i]>= -1) {
-          output_data$do_mgl_adj[i] <- 0
-          output_data$do_percsat_adj[i] <- 0
-          output_data$do_qaqc_code[i] <- "NEGATIVE_DO"
-          output_data$do_qaqc_adj[i] <- "REPLACED"
-          output_data$do_qaqc_note[i] <- "DO within bounds of 0 to -1 corrected to 0"
-        }
-        if(output_data$do_mgl[i]< -1) {
-          output_data$do_mgl_adj[i] <- NA
-          output_data$do_percsat_adj[i] <- NA
-          output_data$do_qaqc_code[i] <- "NEGATIVE_DO"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "DO less than -1 removed"
-        }
-        if(output_data$do_mgl[i] > 21) {
-          output_data$do_mgl_adj[i] <- NA
-          output_data$do_percsat_adj[i] <- NA
-          output_data$do_qaqc_code[i] <- "OUTLIER_DO"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "DO greater than 21 mg/L removed"
-        }
-
-      } # end of if do dat available
-
-      # if(!is.na(output_data$do_percsat[i])) {
-      #   if(output_data$do_percsat[i] >= 100) {
-      #     output_data$do_qaqc_code[i] <- "FLAG_DRY"
-      #   }
-      #
-      # } # end of if do percsat dat available
 
       if(!is.na(output_data$watertemp_C_1[i])) {
         # if(output_data$watertemp_C_1[i] > 19) {
@@ -143,6 +96,46 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
 
         }
       } # end if watertemp data available
+
+      #DO outliers
+      if(!is.na(output_data$do_mgl[i])) {
+        # drop error codes
+        if(output_data$do_mgl[i]<0 & output_data$do_mgl[i]>= -1) {
+          output_data$do_mgl_adj[i] <- 0
+          output_data$do_percsat_adj[i] <- 0
+          output_data$do_qaqc_code[i] <- "NEGATIVE_DO"
+          output_data$do_qaqc_adj[i] <- "REPLACED"
+          output_data$do_qaqc_note[i] <- "DO within bounds of 0 to -1 corrected to 0"
+        }
+        if(output_data$do_mgl[i]< -1) {
+          output_data$do_mgl_adj[i] <- NA
+          output_data$do_percsat_adj[i] <- NA
+          output_data$do_qaqc_code[i] <- "NEGATIVE_DO"
+          output_data$do_qaqc_adj[i] <- "REMOVED"
+          output_data$do_qaqc_note[i] <- "DO less than -1 removed"
+        }
+        if(output_data$do_mgl[i] > 21) {
+          output_data$do_mgl_adj[i] <- NA
+          output_data$do_percsat_adj[i] <- NA
+          output_data$do_qaqc_code[i] <- "OUTLIER_DO"
+          output_data$do_qaqc_adj[i] <- "REMOVED"
+          output_data$do_qaqc_note[i] <- "DO greater than 21 mg/L removed"
+        }
+        if(output_data$do_mgl[i] == "-888.88") {
+          output_data$do_qaqc_code[i] <- "DO_ERROR"
+          output_data$do_qaqc_adj[i] <- "REMOVED"
+          output_data$do_qaqc_note[i] <- "Logger error code"
+          output_data$do_mgl_adj[i] <- NA
+          output_data$do_percsat_adj[i] <- NA
+        }
+        if(output_data$watertemp_C_1[i] == "-888.88") {
+          output_data$do_qaqc_code[i] <- "TEMP_ERROR"
+          output_data$do_qaqc_adj[i] <- "REMOVED"
+          output_data$do_qaqc_note[i] <- "Logger error code"
+          output_data$watertemp_C_1_adj[i] <- NA
+        }
+
+      } # end of if do dat available
     } # end of i loop
 
     # if water temp within 2 degrees of air temp and over 100% air sat for 12 consecutive hours
@@ -232,10 +225,10 @@ dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mg
   if(plot_only == FALSE) {
     if(var_waterlevel_m != "none") {
       names(output_data)[names(output_data) == "waterlevel_m" ] <-  var_waterlevel_m
-      print("Results returned as list: select [1] for waterlevel data with QAQC flags, [2] waterlevel data to visually assess for dry/ice/disturbance periods")
+      print("Results returned as list: select [1] for dissolved oxygen data with QAQC flags, [2] dissolved oxygen data to visually assess for dry/ice/disturbance periods")
       return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(o)), suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.3, 0.3, 0.3), nrows = 3,shareX = TRUE, margin = 0.05)))
     } else{
-      print("Results returned as list: select [1] for waterlevel data with QAQC flags, [2] waterlevel data to visually assess for dry/ice/disturbance periods")
+      print("Results returned as list: select [1] for dissolved oxygen data with QAQC flags, [2] dissolved oxygen data to visually assess for dry/ice/disturbance periods")
       return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(o)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05)))
     }
   } # end of plot only = TRUE
