@@ -114,6 +114,7 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
 
     # create columns
     dat_i$airpress_kPa_adj <- dat_i$airpress_kPa
+    dat_i$airtemp_C_adj <- dat_i$airtemp_C
     dat_i$baro_qaqc_adj <- NA #what adjustment was made?
     dat_i$baro_qaqc_code <- NA #why was an adjustment made?
     dat_i$baro_qaqc_note <- NA #why was an adjustment made?
@@ -121,6 +122,7 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
     # if multiple baro loggers used, need to apply adjustment
     if(length(unique(dat_i$baro_code))>1 ){
       dat_i$airpress_kPa_adj <- NA
+      dat_i$airtemp_C_adj <- NA
 
       # fill in adj values using CLOSEST/MOST OCCURRING baro as reference
       baros_used_i <- as.data.frame(unique(dat_i$baro_code))
@@ -136,6 +138,7 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
       for(l in 1:length(dat_i$timestamp)){
         if(dat_i$baro_code[l]==ref_baro_i){
           dat_i$airpress_kPa_adj[l] <- dat_i$airpress_kPa[l]
+          dat_i$airtemp_C_adj[l] <- dat_i$airtemp_C[l]
         }
       }
       # if airpress_adj = NA then it is not the reference baro and needs to be adjusted
@@ -152,14 +155,27 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
           ref_press <- ref_baro_dat_i$airpress_kPa[ref_baro_dat_i$timestamp==match_ts]
           alt_press <- alt_baro_dat$airpress_kPa[alt_baro_dat$timestamp==match_ts]
           press_diff <- ref_press-alt_press # difference must be added to press_adj
-            for(m in l:length(dat_i$timestamp)){
-              if(dat_i$baro_code[m]==alt_baro){
-                dat_i$airpress_kPa_adj[m] <- dat_i$airpress_kPa[m]+press_diff
-                dat_i$baro_qaqc_adj[m] <- paste("added", round(press_diff,3))
-                dat_i$baro_qaqc_note[m] <- "added difference in pressure prior to change"
-                dat_i$baro_qaqc_code[m] <- "ALT_BARO_CORR"
-              }
+          for(m in l:length(dat_i$timestamp)){
+            if(dat_i$baro_code[m]==alt_baro){
+              dat_i$airpress_kPa_adj[m] <- dat_i$airpress_kPa[m]+press_diff
+              dat_i$baro_qaqc_adj[m] <- paste("added", round(press_diff,3), "to airpress_kPa")
+              dat_i$baro_qaqc_note[m] <- "added difference in pressure prior to change"
+              dat_i$baro_qaqc_code[m] <- "ALT_BARO_CORR"
             }
+          }
+        }
+        if(is.na(dat_i$airtemp_C_adj[l])){
+          alt_baro <- dat_i$baro_code[l]
+          alt_baro_dat <- baro_data[baro_data$site_station_code==alt_baro,]
+          match_ts <- min(subset(ref_baro_dat_i$timestamp, ref_baro_dat_i$timestamp %in% alt_baro_dat$timestamp))
+          ref_temp <- ref_baro_dat_i$airtemp_C[ref_baro_dat_i$timestamp==match_ts]
+          alt_temp <- alt_baro_dat$airtemp_C[alt_baro_dat$timestamp==match_ts]
+          temp_diff <- ref_temp-alt_temp # difference must be added to temp_adj
+          for(m in l:length(dat_i$timestamp)){
+            if(dat_i$baro_code[m]==alt_baro){
+              dat_i$airtemp_C_adj[m] <- dat_i$airtemp_C[m]+temp_diff
+            }
+          }
         }
       } # end of alt baro adjustments
 
@@ -182,10 +198,15 @@ add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folde
       logger_header <- "WL"
     }
 
+    if(input_logger_type == "conductivity_U24"){
+      logger_header <- "CO"
+    }
+
     # rename variables to user input
     names(dat_i)[names(dat_i) ==  "airpress_kPa"] <- var_airpress_kPa
     names(dat_i)[names(dat_i) ==  "airpress_kPa_adj"] <-paste0(var_airpress_kPa, "_adj")
     names(dat_i)[names(dat_i) ==  "airtemp_C"] <- var_airtemp_C
+    names(dat_i)[names(dat_i) ==  "airtemp_C_adj"] <- paste0(var_airtemp_C, "_adj")
 
       # split by year
       years_i <- unique(lubridate::year(dat_i$timestamp))
