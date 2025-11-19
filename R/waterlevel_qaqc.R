@@ -53,25 +53,19 @@ waterlevel_qaqc <- function(input_data, select_station, plot_only = FALSE, var_w
     for(i in 1:length(output_data$timestamp)) {
       if(!is.na(output_data$waterlevel_m[i])){
 
-        if(output_data$waterlevel_m[i]<0){
-          output_data$wl_qaqc_note[i] <-  "corrected to zero"
-          output_data$wl_qaqc_adj[i] <-  "REPLACED"
-          output_data$wl_qaqc_code[i] <- "NEGATIVE_WL"
-          output_data$waterlevel_m_adj[i] <- 0
-        }
         if(!is.na(output_data$watertemp_C[i])){
           # if water pressure is equal to or less than air pressure add DRY flag column
-          if(output_data$watertemp_C[i] > 19 | output_data$waterpress_kPa[i] <= output_data$airpress_kPa[i]) {
+          if(output_data$watertemp_C[i] > 25 | output_data$waterpress_kPa[i] <= output_data$airpress_kPa[i]) {
             output_data$wl_qaqc_code[i] <- "FLAG_DRY"
           }
-          if(output_data$watertemp_C[i]<0.3){
+          if(output_data$watertemp_C[i]<0.2){
             output_data$wl_qaqc_code[i] <- "FLAG_ICE"
           }
           if(output_data$watertemp_C[i]< -1){
             output_data$watertemp_C_adj[i] <- NA
             output_data$wl_qaqc_note[i] <-  "water temp out of range"
             output_data$wl_qaqc_adj[i] <-  "REMOVED"
-            output_data$wl_qaqc_code[i] <- "LOGGER_ICE"
+            output_data$wl_qaqc_code[i] <- "NEGATIVE_WT"
 
           }
           if(output_data$watertemp_C[i]<0 & output_data$watertemp_C[i]>-1){
