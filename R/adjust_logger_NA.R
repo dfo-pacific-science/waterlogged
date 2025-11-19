@@ -9,6 +9,7 @@
 #' @param timestamp_end Date and time of end of dry period: must be formatted the same as timestamp in site_data
 #' @param reason_to_adjust either ice, dry or disturbance
 #' @param logger_to_adjust either waterlevel or watertemp; select which variable/column to remove between timestamp_start and timestamp_end
+#' @param keep_temp logical; if TRUE water temperature data will be retained, if FALSE water temperature data within the specified time period will be removed.
 #' @param apply_to_all_data logical; if TRUE all water levels lower than the max waterlevel within the specified timeperiod identified as dry will be removed and flagged as dry; if false, only waterlevels within the specified time period are removed as dry
 #' @param var_waterlevel_m Name of variable column containing water level in meters
 #' @param var_watertemp_C Name of column for water temperature (in degrees Celcius) in input data
@@ -18,7 +19,7 @@
 #' @return Dataset where waterlevel_m below the dry waterlevel are flagged as dry
 #' @export
 
-adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "default", var_airtemp_C = "airtemp_C_U20") {
+adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, keep_temp = FALSE, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "default", var_airtemp_C = "airtemp_C_U20") {
 
   # ensures user is only processing one station at a time
   output_data <- input_data[input_data$site_station_code==select_station,]
@@ -89,17 +90,32 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_for
     }
 
     if(reason_to_adjust == "disturbance") {
+      if(keep_temp == TRUE){
+        for(i in 1:length(output_data$timestamp)) {
+          if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
+            output_data$waterlevel_m_adj[i] <- NA
+            output_data$wl_qaqc_code[i] <- "LOGGER_DISTURBANCE"
+            output_data$wl_qaqc_adj[i] <- "REMOVED"
+            output_data$wl_qaqc_note[i] <- "Waterlevel data removed due to disturbance to logger"
+          }
+        }
+
+
+      } else {
+
       for(i in 1:length(output_data$timestamp)) {
         if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
           output_data$waterlevel_m_adj[i] <- NA
           output_data$watertemp_C_adj[i] <- NA
-          output_data$do_qaqc_code[i] <- "LOGGER_DISTURANCE"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "DO data removed due to disturbance to logger"
+          output_data$wl_qaqc_code[i] <- "LOGGER_DISTURBANCE"
+          output_data$wl_qaqc_adj[i] <- "REMOVED"
+          output_data$wl_qaqc_note[i] <- "Data removed due to disturbance to logger"
         }
       }
+     } # keep_temp = FALSE
     }
   }
+
 
   if(logger_to_adjust == "dissolvedoxygen_U26"){
 
@@ -134,16 +150,30 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_for
     }
 
     if(reason_to_adjust == "disturbance") {
+      if(keep_temp == TRUE){
       for(i in 1:length(output_data$timestamp)) {
         if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
           output_data$do_mgl_adj[i] <- NA
           output_data$do_percsat_adj[i] <- NA
-          output_data$watertemp_C_adj[i] <- NA
-          output_data$do_qaqc_code[i] <- "LOGGER_DISTURANCE"
+          output_data$do_qaqc_code[i] <- "LOGGER_DISTURBANCE"
           output_data$do_qaqc_adj[i] <- "REMOVED"
           output_data$do_qaqc_note[i] <- "DO data removed due to disturbance to logger"
         }
       }
+      } else {
+
+        for(i in 1:length(output_data$timestamp)) {
+          if(output_data$timestamp[i]>=timestamp_start & output_data$timestamp[i]<=timestamp_end) {
+            output_data$do_mgl_adj[i] <- NA
+            output_data$do_percsat_adj[i] <- NA
+            output_data$watertemp_C_adj[i] <- NA
+            output_data$do_qaqc_code[i] <- "LOGGER_DISTURBANCE"
+            output_data$do_qaqc_adj[i] <- "REMOVED"
+            output_data$do_qaqc_note[i] <- "Data removed due to disturbance to logger"
+
+          }
+        }
+      } # keep_temp = FALSE
     }
 
     if(reason_to_adjust == "dry") {
