@@ -74,42 +74,41 @@ conductivity_qaqc <- function(input_data,
       }
     }
 
-        # Additional flags
+    # Additional flags
     for(i in 1:(length(output_data$timestamp))) {
       if(!is.na(output_data$conduct_uScm[i])) {
-
+        
         if(is.na(var_airtemp_C)){
           # if conductivity reads less than 10 uS/cm, then flag as dry
           # only applies if there is no air temp column
           if(output_data$conduct_uScm[i] < 10) {
             output_data$co_qaqc_code[i] <- "FLAG_DRY"
           }
-        }
-
-        # if water temperature is less than 5C, then flag as outside of range
-        if(output_data$watertemp_C[i] < 5){
-          output_data$co_qaqc_code[i] <- "LOGGER_TEMP_BELOW_RANGE"
-        }
-
-        # if water temperature is less than 0.3C, then flag as ice
-        # if(output_data$watertemp_C[i] < 0.3){
-        #   output_data$co_qaqc_code[i] <- "FLAG_ICE"
-        # }
-
-        # if water temperature is less than -2C, then remove
-        if(output_data$watertemp_C[i]< -2){
-          output_data$watertemp_C_adj[i] <- NA
-          output_data$co_qaqc_note[i] <-  "water temp out of range"
-          output_data$co_qaqc_adj[i] <-  "REMOVED"
-          output_data$co_qaqc_code[i] <- "LOGGER_ICE"
-        }
-
-        # if water temperature is between 0C and -1C, then change to 0
-        # if(output_data$watertemp_C[i]<0 & output_data$watertemp_C[i]>-1){
-        #   output_data$co_qaqc_note[i] <-  "corrected to zero"
-        #   output_data$co_qaqc_adj[i] <-  "REPLACED"
-        #   output_data$co_qaqc_code[i] <- "NEGATIVE_WT"
-        #   output_data$watertemp_C_adj[i] <- 0
+          
+          # if water temperature is less than 5C, then flag as outside of range
+          if(output_data$watertemp_C[i] < 5){
+            output_data$co_qaqc_code[i] <- "LOGGER_TEMP_BELOW_RANGE"
+          }
+          
+          # if water temperature is less than 0.3C, then flag as ice
+          # if(output_data$watertemp_C[i] < 0.3){
+          #   output_data$co_qaqc_code[i] <- "FLAG_ICE"
+          # }
+          
+          # if water temperature is less than -2C, then remove
+          if(output_data$watertemp_C[i]< -2){
+            output_data$watertemp_C_adj[i] <- NA
+            output_data$co_qaqc_note[i] <-  "water temp out of range"
+            output_data$co_qaqc_adj[i] <-  "REMOVED"
+            output_data$co_qaqc_code[i] <- "LOGGER_ICE"
+          }
+          
+          # if water temperature is between 0C and -1C, then change to 0
+          # if(output_data$watertemp_C[i]<0 & output_data$watertemp_C[i]>-1){
+          #   output_data$co_qaqc_note[i] <-  "corrected to zero"
+          #   output_data$co_qaqc_adj[i] <-  "REPLACED"
+          #   output_data$co_qaqc_code[i] <- "NEGATIVE_WT"
+          #   output_data$watertemp_C_adj[i] <- 0
         }
       } # end of if data not NA
     } # end of additional flags
@@ -247,4 +246,5 @@ conductivity_qaqc <- function(input_data,
     }
   }
 }
+
 
