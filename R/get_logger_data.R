@@ -153,7 +153,7 @@ get_logger_data <- function(path_to_data, logger_type, timestamp_format = "%Y-%m
     }
 
     if(logger_type=="conductivity_U24"){
-      var_ylab2 <- "bquote('Conductivity (muS·'~'cm'^-1~')')"
+      var_ylab2 <- expression(Conductivity~(mu*S %.% cm^{-1}))
       var_ylab1 <- "Water temperature (\u00b0C)"
 
       dat2 <- dat2 %>%
