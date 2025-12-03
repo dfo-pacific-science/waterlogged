@@ -93,18 +93,18 @@ correct_drift <- function(input_data,
   # 1. join on reference measurements taken within 29 mins of logger timestamp
   joined_refs <- fuzzyjoin::difference_left_join(logger_data, ref_data_site,
                                                  by = c("timestamp" = "ref_timestamp"),
-                                                 max_dist = 29*60) %>%
+                                                 max_dist = dminutes(29)) %>%
     mutate(difftime = difftime(timestamp, ref_timestamp))
 
   # 2. ID unmatched reference measurements (usually pre-post deployment)
   refs_unmatched <- difference_anti_join(ref_data_site, logger_data,
                                                     by = c("ref_timestamp" = "timestamp"),
-                                                    max_dist = 29*60)
+                                                    max_dist = dminutes(29))
 
   # 3. join within a 1-hour tolerance window
   joined_remainder <- difference_left_join(logger_data, refs_unmatched,
                                                       by = c("timestamp" = "ref_timestamp"),
-                                                      max_dist = 60*60) %>%
+                                                      max_dist = dminutes(60)) %>%
     mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
     filter(!is.na(ref_timestamp))
 
@@ -112,7 +112,7 @@ correct_drift <- function(input_data,
   if(nrow(joined_remainder) == 0){
     joined_remainder <- difference_left_join(logger_data, refs_unmatched,
                                                         by = c("timestamp" = "ref_timestamp"),
-                                                        max_dist = 2*60*60) %>%
+                                                        max_dist = dminutes(120)) %>%
       mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
       filter(!is.na(ref_timestamp))
   }
@@ -133,8 +133,8 @@ correct_drift <- function(input_data,
     joined_data_all$ref_watertemp_C[1] <- joined_data_all$watertemp_C[1]
     joined_data_all$ref_timestamp[1] <- joined_data_all$timestamp[1]
 
-    warning("No initial reference point found. Estimating drift based on perfect
-            calibration at the start of the logger data file.")
+    warning("No initial reference point found. Estimating drift based on perfect calibration at the start of the logger data file.",
+            call. = FALSE)
   }
 
 
@@ -177,6 +177,12 @@ correct_drift <- function(input_data,
     mutate(conduct_uScm_dc = conduct_uScm * c_drift,
            watertemp_C_dc  = watertemp_C * t_drift)
 
+  cal_devs <- output_data %>%
+    mutate(cal_deviation = round(abs(ref_conduct_uScm - conduct_uScm)/conduct_uScm, 2)) %>%
+    mutate(row_index = row_number()) %>%
+    filter(!is.na(cal_deviation), cal_deviation > 0.1) %>%
+    select(row_index, timestamp, ref_conduct_uScm, conduct_uScm, cal_deviation)
+
   # 5. update qa/qc columns
   append_qaqc <- function(existing, new) {
     ifelse(is.na(existing) | existing == "", new, paste(existing, new, sep = "; "))
@@ -190,8 +196,7 @@ correct_drift <- function(input_data,
                                   append_qaqc(co_qaqc_note, "Applied drift correction"),
                                   co_qaqc_note),
            co_qaqc_adj = if_else(conduct_uScm_dc != conduct_uScm & !is.na(conduct_uScm_dc),
-                                 append_qaqc(co_qaqc_adj, paste0("Multiplied conductivity by ", round(c_drift,3),
-                                                                 " and temperature by ", round(t_drift,3))),
+                                 append_qaqc(co_qaqc_adj, paste0("Multiplied conductivity by ", round(c_drift,3))),
                                  co_qaqc_adj)
            ) %>%
     select(sn, timestamp, site_station_code,
@@ -219,6 +224,13 @@ correct_drift <- function(input_data,
   names(output_data)[names(output_data) == "conduct_uScm_dc"] <- paste0(var_conduct_uScm, "_dc")
   names(output_data)[names(output_data) == "watertemp_C_dc"] <- paste0(var_watertemp_C, "_dc")
 
+  if (nrow(cal_devs) > 0) {
+    warning("One or multiple reference measurements deviate from the logger reading; check if they're appropriate to use in drift correction.
+            Select [4] to print them",
+            call. = FALSE)
+  }
+
   print("Results returned as list: select [1] for drift-corrected conductivity data, [2] reference measurements, [3] plot of raw and drift-corrected data")
-  return(list(output_data, ref_data_site, suppressWarnings(plotly::ggplotly(p))))
+  return(list(output_data, ref_data_site, suppressWarnings(plotly::ggplotly(p)), cal_devs))
+
 }

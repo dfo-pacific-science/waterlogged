@@ -47,7 +47,7 @@ convert_waterlevel_kPa_m <- function(input_data,
   #### Define Target Site and Prepare Data Frames ####
   ## filter datasets
   ## rename input columns to local columns
- output_data <- input_data
+  output_data <- input_data
   output_data <- output_data[output_data$site_station_code == select_station,]
 
   names(output_data)[names(output_data) == var_waterpress_kPa ] <- "waterpress_kPa_U20"
@@ -67,21 +67,43 @@ convert_waterlevel_kPa_m <- function(input_data,
     var_reference_waterlevel_m = "depth_m"
   }
 
-  names(reference_data)[names(reference_data) == var_reference_timestamp] <- 'timestamp'
+  names(reference_data)[names(reference_data) == var_reference_timestamp] <- 'ref_timestamp'
   names(reference_data)[names(reference_data) == var_reference_waterlevel_m] <- 'ref_m'
-  # round to nearest hour
-  reference_data$timestamp <- round_date(reference_data$timestamp, "hour")
-  #filter for only reference obs within data time period
+  # # round to nearest hour
+  # reference_data$ref_timestamp <- round_date(reference_data$ref_timestamp, "hour")
+  # filter for only reference obs within data time period +/- one hour
   ref_dat <- reference_data %>%
-  filter(site_station_code == select_station)%>%
-  filter(timestamp >= ts_range[1] & timestamp <= ts_range[2]) %>%
-  select(timestamp, ref_m)
+    filter(site_station_code == select_station)%>%
+    filter(ref_timestamp >= (ts_range[1]-60*60) & ref_timestamp <= (ts_range[2]+60*60)) %>%
+    select(ref_timestamp, ref_m)
 
-  if(length(ref_dat$timestamp)==0){
+  if(length(ref_dat$ref_timestamp)==0){
       print(paste("Error: ", reference_type," data not found for", select_station, ". Check reference file or change reference_type."))
-    }
+  }
 
-  output_data <- left_join(output_data, ref_dat, by = "timestamp")
+  # output_data <- left_join(output_data, ref_dat, by = "timestamp")
+
+  joined_refs <- fuzzyjoin::difference_left_join(output_data, ref_dat,
+                                                 by = c("timestamp" = "ref_timestamp"),
+                                                 max_dist = lubridate::dminutes(29),
+                                                 distance_col = "difftime")
+
+  refs_unmatched <- difference_anti_join(ref_dat, output_data,
+                                         by = c("ref_timestamp" = "timestamp"),
+                                         max_dist = dminutes(29))
+
+  joined_remainder <- difference_left_join(output_data, refs_unmatched,
+                                           by = c("timestamp" = "ref_timestamp"),
+                                           max_dist = dminutes(60)) %>%
+    mutate(difftime = difftime(timestamp, ref_timestamp)) %>%
+    filter(!is.na(ref_timestamp))
+
+  output_data <- bind_rows(joined_remainder, joined_refs) %>%
+    distinct(timestamp, .keep_all = TRUE) %>%
+    arrange(timestamp) %>%
+    select(-difftime)
+
+
 
   #### Run Barometric Compensation ####
 
@@ -139,20 +161,24 @@ convert_waterlevel_kPa_m <- function(input_data,
   #
   #   Dref = D[Ref Time]
 
-  ## define which manual stage measurement to use to as a reference level for the barometric compensation
+  ## Define which manual stage measurement to use to as a reference level for the barometric compensation
 
-  # selects corresponding timestamp from the nth row (may need to add/subtract an hour if logger was out of water)
-  T_meas <- as.numeric(ref_dat[select_measurement,"timestamp"]) # + (60*60)
-  T_meas <- ref_dat[select_measurement,"timestamp"] # + (60*60)
-
-  #T_meas <- T_meas + 60*60
-
-  # selects reference water level measurement from the nth row
+  # Selects reference water level measurement from the nth row
   L_meas <- as.numeric(ref_dat[select_measurement,"ref_m"])
 
-  # select water level and barometric sensor depths at reference time
-  D_ref <- output_data$sensor_depth_m[output_data$timestamp == T_meas]
-  D_baro0 <- output_data$baro_sensor_depth_m[output_data$timestamp == T_meas]
+  # Selects corresponding timestamp from the nth row (may need to add/subtract an hour if logger was out of water)
+  T_meas <- as.numeric(ref_dat[select_measurement,"ref_timestamp"])
+
+  # Find the row with the closest timestamp within 600 minutes
+  closest_index <- which.min(abs(difftime(output_data$timestamp, T_meas, units = "mins")))
+
+  if (abs(difftime(output_data$timestamp[closest_index], T_meas, units = "mins")) <= 60) {
+    # Select water level and barometric sensor depths at reference time
+    D_ref <- output_data$sensor_depth_m[closest_index]
+    D_baro0 <- output_data$baro_sensor_depth_m[closest_index]
+  } else {
+    stop(paste0("Cannot find a nearest timestamp to match using ", select_measurement, ". Try a different reference point."))
+  }
 
   ## define compensation constant (k)
   k <- L_meas - (D_ref - D_baro0)

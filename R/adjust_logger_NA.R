@@ -19,7 +19,7 @@
 #' @return Dataset with removed records being flagged as dry, ice, or disturbance,
 #' @export
 
-adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "default", var_conduct_uScm = "conduct_uScm_U24", var_airtemp_C = "airtemp_C_U20") {
+adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", timestamp_start, timestamp_end, logger_to_adjust, reason_to_adjust, apply_to_all_data = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "default", var_conduct_uScm = "conduct_uScm_U24", var_airtemp_C = "airtemp_C_U20", flag_only = FALSE) {
 
   # ensures user is only processing one station at a time
   output_data <- input_data[input_data$site_station_code==select_station,]
@@ -219,6 +219,11 @@ adjust_logger_NA <- function(input_data=site_data, select_station, timestamp_for
 
   ## U24 Conductivity Logger adjustments
   if (logger_to_adjust == "conductivity_U24") {
+
+    if(var_watertemp_C == "default"){
+      var_watertemp_C <- "watertemp_C_U24"
+    }
+
     # rename user input variables
     names(output_data)[names(output_data) == var_conduct_uScm ] <- "conduct_uScm"
     names(output_data)[names(output_data) == paste0(var_conduct_uScm, "_adj") ] <- "conduct_uScm_adj"

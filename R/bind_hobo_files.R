@@ -112,21 +112,22 @@ bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_ty
 }
   # LABEL AND TRIM ####
   ## Loop to link site_station_code to logger data by serial number and trim data by install and retrieval dates in metadata
+
+  # link sn to site_station_code in metadata
+  metadat_link <- metadata %>% filter(sn %in% unique(dat1$sn))
+
   ## METADAT TIMESTAMPS ####
   # format timestamp
   # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
-  metadata$timestamp_deploy <-as.POSIXct(metadata$timestamp_deploy, format = timestamp_format, tz = timestamp_timezone)
-  metadata$timestamp_remove <-as.POSIXct(metadata$timestamp_remove, format = timestamp_format, tz = timestamp_timezone)
+  metadat_link$timestamp_deploy <-as.POSIXct(metadat_link$timestamp_deploy, format = timestamp_format, tz = timestamp_timezone)
+  metadat_link$timestamp_remove <-as.POSIXct(metadat_link$timestamp_remove, format = timestamp_format, tz = timestamp_timezone)
 
-  if(any(is.na(metadata$timestamp_deploy))) {
-    missing_ts <- metadata %>% filter(is.na(timestamp_deploy))
+  if(any(is.na(metadat_link$timestamp_deploy))) {
+    missing_ts <- metadat_link %>% filter(is.na(timestamp_deploy))
     missing_ts_sn <- unique(missing_ts$sn)
 
     print(paste("WARNING: NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
   }
-
-  # link sn to site_station_code in metadata
-  metadat_link <- metadata %>% filter(sn %in% unique(dat1$sn))
 
   # make dummy columns and datasets to fill in
   dat1$site_station_code <- NA
