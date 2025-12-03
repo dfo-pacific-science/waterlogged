@@ -31,9 +31,9 @@ library(lubridate)
 
 # Welcome 
 
-water-logged is a data processing package for water data from continuous water data loggers. The goal of water-logged is to streamline the process from raw data to clean data, document QAQC processing via r scripts, and do so without relying on proprietal software. 
+water-logged is a data processing package for water data from continuous water data loggers. The goal of water-logged is to streamline the process from raw data to clean data, document QAQC processing via r scripts, and do so without relying on proprietary software. 
 
-This version of the package was built for data from Onset HOBO barometric pressure (U20), dissolved oxygen (U26), and TibiT loggers. Future versions will test this package on data from other types of loggers to try to make it a more universal package. 
+This version of the package was built for data from Onset® HOBO® barometric pressure (U20), dissolved oxygen (U26), conductivity (U24) and TidbiT loggers. Future versions will test this package on data from other types of loggers to try to make it a more universal package. 
 
 
 $~$
@@ -104,7 +104,7 @@ The function **bind_hobo_files** will load all .csv files in the *path_to_raw_fo
 
 *path_to_output_folder* is where you would like the bound files to be saved. 
 
-*logger_type* The type of HOBO logger that produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, and temperature_TidbiT
+*logger_type* The type of HOBO logger that produced the raw datafiles. Recognised logger_types are: dissolvedoxygen_U26, baro_U20, waterlevel_U20, conductivity_U24, and temperature_TidbiT
 
 
 Here is an example of running the function on barometric data from a HOBO U20 logger:
@@ -115,10 +115,12 @@ $~$
 
 raw_dir <- "REPLACE WITH DESIRED RAW BARO FOLDER PATH"  #the folder where you've stored your raw csv's (ie. "data/baro/2024/raw")
 
-# to run this example using our data, you can access raw hobo files here:
-raw_dir <- system.file("extdata/ex-baro/raw", package = "waterlogged")
+out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR BARO DATA"  #from this folder (e.g., "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
 
-out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR BARO DATA"  #from this folder (ie. "data/baro/2024/raw" or simply the Desktop of your local computer), bind_hobo_files will look for a year folder corresponding to your logger data, and if one isn't made, it will create a new year folder and a "processed" folder to store your processed data (ie. "data/baro/2024/processed")
+# to run this example using our data, you can access raw hobo files here:
+raw_dir <- system.file("extdata","ex-baro",package = "waterlogged")
+# and save output files to a temporary folder:
+out_dir <- tempdir()
 
 baro_bound <- bind_hobo_files(path_to_raw_folder = raw_dir, 
                               path_to_output_folder = out_dir, 
@@ -160,6 +162,7 @@ To view a summary plot of the trimmed data, select the third object in the list.
 
 ```{r bind-ex4}
 baro_bound[3]
+
 ```
 
 $~$
@@ -192,27 +195,25 @@ $~$
 
 $~$
 
-Hobo water level loggers are not vented meaning they read both the pressure of the water above them and the atmospheric pressure; this is why waterlevel is currently recorded as "Absolute Pressure", rather than a more useful metric, such as metres. In order to correct for this, we must apply a barometric compensation equation to each timestamp of waterlevel data. Barometric data can be obtained from a U20 installed above water (ie. in a nearby tree) at a nearby location as the waterlevel logger. Or hourly barometric pressure can be obtained from nearby weather stations. Regardless, the barometric data used must contain the following columns and formatting:
+HOBO water level loggers are not vented meaning they read both the pressure of the water above them and the atmospheric pressure; this is why water level is currently recorded as "Absolute Pressure", rather than a more useful metric, such as metres. In order to correct for this, we must apply a barometric compensation equation to each timestamp of water level data. Barometric data can be obtained from a U20 installed above water (e.g., in a nearby tree) at a nearby location as the water level logger. Alternatively, hourly barometric pressure can be obtained from nearby weather stations. Regardless, the barometric data used must contain the following columns and formatting:
 
 
    - *site_station_code* used to index to metadata for closest baro logger
-   - *timestamp*  used to join waterlevel or dissolved oxygen data to baro data for each timestamp
+   - *timestamp*  used to join water level or dissolved oxygen data to baro data for each timestamp
    - *airpress_kPa_U20* barometric pressure is in kPa, used to calculate percent saturation
 
 
 $~$
 
-We have barometric loggers for some sites, but not all. If a site with a water level logger or dissolved oxygen logger does not have it's own barometric logger, we want to use the closest one that has data for the water level or dissolved oxygen time range.
+We have barometric loggers for some sites, but not all. If a site with a water level logger or dissolved oxygen logger does not have its own barometric logger, we want to use the closest one that has data for the water level or dissolved oxygen time range. We recommend that the atmospheric pressure logger/station be within 30 km (20 miles) of the water level logger. It is also important to note than when using weather station data, it is usually normalized to sea level and therefore additional compensation on the station data should be performed if there is a significant difference in elevation.
 
 **add_nearest_baro** performs three tasks
 
 1. Binds the closest barometric logger to the target logger at each station using metadata provided by the user
-2. Fills in gaps in barometric data from
-one station with baro data from the
-next closest station
+2. Fills in gaps in barometric data from one station with baro data from the next closest station
 3. Corrects for jumps in pressure due to differences in altitude between logger locations
 
-The input data with barometric data added as additional coluns is then exported with suffix of v0.2.
+The input data with barometric data added as additional columns is then exported with suffix `v0.2`.
 
 The metadata must include the following columns:
 
@@ -234,11 +235,11 @@ head(baro_metadat)
 
 $~$
 
-This is an example of running the function, using the bound baro and waterlevel datasets we made in Step 1
+This is an example of running the function, using the bound barometric and waterlevel datasets we made in Step 1
 $~$
 
 ```{r baro-ex, eval = FALSE}
-out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR WATERLEVEL DATA"
+out_dir <- "REPLACE WITH DESIRED OUTPUT FOLDER PATH FOR WATER LEVEL DATA"
 
 wl_baro_dat <- add_nearest_baro(input_data = wl_dat, 
                                 input_logger_type = "waterlevel_U20",
@@ -251,7 +252,7 @@ $~$
 The following message will appear, indicating that barometric data was successfully added to your waterlevel data:
 [1] "Barometric pressure data (v0.2) from FROG_WE_01 added to 2024 folder"
 
-**Note: the suffix "v0.2" indicates that this is the second version of processed data, where now barometric data has been added as new columns**
+**Note: the suffix "v0.2" indicates that this is the second version of processed data, where now the baro logger data have been added as new columns**
 
 This is what the dataset output now looks like:
 
@@ -268,13 +269,13 @@ Our water level dataset now has a few extra columns:
   + *airpress_kPa_U20* shows the air pressure recorded at the barometric logger
   + *airtemp_C_U20* shows the air temperature recorded at the barometric logger
 
-If the nearest barometric logger does not cover the entire observation period of the dissolved oxygen file, data from the second nearest barometric logger will be added. Because these loggers may be at different elevations, a small adjustment needs to be made to the pressure values..
+If the nearest barometric logger does not cover the entire observation period of the dissolved oxygen file, data from the second-nearest barometric logger will be added. Because these loggers may be at different elevations, a small adjustment needs to be made to the pressure values.
 
 *press_diff* the difference in air pressure between subsequent observations at barometric loggers if data from two different loggers were stitched together. This difference is then added/subtracted from the second barometric data to adjust for elevation. These new values are reflected in *airpress_kPa_U20_adj*
 
 The plot that pops up after running **add_nearest_baro** should show a continuous line of varying air pressure values - any breaks or gaps in the line would indicate that an adjustment in pressure between sites of different elevations should be made..
 
-*Note: the air temperature is taken from the barometric logger location, which is not neccessarily the same site as the dissolved oxygen logger - care should be taken for analyses attributing air temperature to a specific location when the baro_code is not the same as site_station_code*
+*Note: the air temperature is taken from the barometric logger location, which may not necessarily be the same site as the dissolved oxygen logger. Care should be taken for analyses attributing air temperature to a specific location when the baro_code is not the same as site_station_code*
 
 ```{r baro-plot, echo = FALSE}
 knitr::include_graphics("figures/step2_add_nearest_baro.png")
@@ -464,7 +465,7 @@ $~$
 
 # Step 3: QAQC
 
-From our experience with hydrology data, it is then necessary to investigate data from each station individually. This can be done efficiently by overlaying data from multiple loggers (if applicable) from the same station and time period. Visual investigation of data timeseries and automated flags allows the user to confirm periods where loggers were dry, frozen or disturbed by human/natural cause. All manual data processing is saved in an R script for tracking QAQC of each logger type each year, and recorded as additional qaqc columns in clean data files.
+From our experience with hydrology data, it is then necessary to investigate data from each station individually. This can be done efficiently by overlaying data from multiple loggers (if applicable) from the same station and time period. Visual investigation of data time series and automated flags allows the user to confirm periods where loggers were dry, frozen or disturbed by human/natural cause. All manual data processing is saved in an R script for tracking QAQC of each logger type each year, and recorded as additional qaqc columns in clean data files.
 
 $~$
 
@@ -472,7 +473,7 @@ $~$
 
 ```{r get-ex-wl-b, echo=FALSE}
 
-# this file has aritificial errors in it to show qaqc examples
+# this file has artificial errors in it to show qaqc examples
 #read in to overwrite station_wl_dat
 
 station_wl_dat <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20240101_20241009_v0.3b.rds", package = "waterlogged"))
@@ -480,7 +481,7 @@ station_wl_dat <- readRDS(system.file("extdata/ex-waterlevel", "FROG_WE_01_WL_20
 
 ```
 
-If you came here straight from step 2, you may already have the waterlevel data with barometric compensation loaded in your environment (ie. station_wl_dat). If not, you can grab it from your computer, wherever you selected as *path_to_output_folder*. The waterlevel with barometric compensation is saved as a file ending with *v0.3*. Or, if you have waterlevel data from multiple stations to clean, you can load them all using the function *get_logger_data*
+If you came here straight from step 2, you may already have the water level data with barometric compensation loaded in your environment (ie. station_wl_dat). If not, you can grab it from your computer, wherever you selected as *path_to_output_folder*. The water level with barometric compensation is saved as a file ending with *v0.3*. Or, if you have water level data from multiple stations to clean, you can load them all using the function *get_logger_data*
 
 $~$
 
@@ -600,7 +601,7 @@ waterlevel_qaqc(input_data = station_wl_dat4,
 
 ### Dealing with a sudden shift in waterlevel: cable break
 
-Moving onto the next QAQC flag: FLAG_DISTURBANCE (black triangle on plotly graph). This flag appears when the waterlevel drops or rises by over 0.1m in 1 hour. This may not always indicate a disturbance to the logger, as is the case in a sudden flood, or significant rainfall event. You can verify if this is a natural flood by zooming in on the time periods where disturbance was flagged for August 24th and September 29th. Although the waterlevel has risen quickly, you can see that each point is progressively increasing, and then decreases over time, signalling a flood event. We can ignore these flags. 
+Moving onto the next QAQC flag: FLAG_DISTURBANCE (black triangle on plotly graph). This flag appears when the waterlevel drops or rises by over 0.1m in 1 hour. This may not always indicate a disturbance to the logger, as is the case in a sudden flood or significant rainfall event. You can verify if this is a natural flood by zooming in on the time periods where disturbance was flagged for August 24th and September 29th. Although the waterlevel has risen quickly, you can see that each point is progressively increasing, and then decreases over time, signalling a flood event. We can ignore these flags. 
 
 Look at the disturbance flag on Oct 1st. Here, we see a sudden jump in waterlevel from 0.47m up to 0.95m in 1 hour. The waterlevel does not gradually come back down, but stays around 0.95 until the logger is removed on Oct 7th. If we check our field notes, it says "CABLE_BREAK", meaning that the cable was found broken upon station inspection. 
 
@@ -670,7 +671,7 @@ station_do_dat<- dissox_qaqc(input_data = do_baro_sat_wl,
 
 $~$
 
-Lets look at the data to see what QAQC flags were made. Plotly is used as an interactive plotting feature to allow the user to overlay water data from multiple loggers ie. compare water temperature from dissolved oxygen logger to air temperature from barometric logger at the same site) and zoom in on time periods of interest; this helps to identify data where a logger has gone dry, frozen or been disturbed. 
+Lets look at the data to see what QAQC flags were made. Plotly is used as an interactive plotting feature to allow the user to overlay water data from multiple loggers, e.g., compare water temperature from dissolved oxygen logger to air temperature from barometric logger at the same site) and zoom in on time periods of interest; this helps to identify data where a logger has gone dry, frozen or been disturbed. 
 
 $~$
 
@@ -766,13 +767,11 @@ dissox_qaqc(input_data = station_do_dat4,
 
 $~$
 
-Once you are happy with your QAQC adjustments, move onto saving your data for this station. 
-
-## Step 4: save clean site data
+# Step 4: save clean site data
 
 $~$
 
-*write_clean_data* drops unneccessary columns and saves the file to the output folder with a standardized naming convention ending with suffix *v1.0* to show this is the clean data. 
+*write_clean_data* drops unnecessary columns and saves the file to the output folder with a standardized naming convention ending with suffix *v1.0* to show this is the clean data. 
 
 $~$
 
@@ -800,6 +799,261 @@ head(do_clean)
 Repeat steps 3 and 4 for each logger/station you have.
 
 We recommend saving the R script with all function inputs as QAQC documentation for future reference and for transparency.
+
+$~$
+
+# Conductivity
+
+Much like with the water level and dissolved oxygen loggers, conductivity loggers may undergo a similar QA/QC process to remove erroneous data from dry, ice, and/or disturbance events. The data should be further processed to correct for sensor drift and compensate for temperature, which will be outlined in subsequent steps here.
+
+Let's start by reading in some example raw conductivity data:
+
+```{r get-ex-conductivity, echo=FALSE}
+
+# read in example conductivity file to demonstrate QAQC
+cdat <-  read.csv(system.file("extdata/ex-conductivity","CO_BUGS_WE_01_20240421_20250418_v0.1.csv", package="waterlogged")) %>% 
+  mutate(timestamp = as.POSIXct(timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC"))
+
+head(cdat)
+```
+
+The function **conductivity_qaqc** takes raw conductivity data and flags events where data may have been compromised (i.e., the logger was either dry or frozen) according to the following rules: 
+
+- *LOGGER_ICE* if water temperature is less than -1C, value is removed
+- *NEGATIVE_WT* if water temperature is between 0C and -1C, the value is corrected to 0C
+- *FLAG_DRY* if conductivity is less than 10 uS/cm
+- *FLAG_ICE* if water temperature is less than 0.3C
+- *FLAG_DISTURBANCE* if conductivity changes by more than 200 uS/cm in an hour (this does not necessarily indicate an issue with the logger, but it might warrant further investigating potential causes of what triggered this spike)
+
+Required inputs are:
+
+- *input_data* the conductivity data v0.1 (can be data from a single site, or merged data across multiple sites)
+- *select_station* filters dataset to desired station; unique site_station_code that identified a site/station where a logger is located
+
+Optional inputs are:
+- *var_airtemp_C*: if you have a nearby logger that measures air temperature (e.g., a baro HOBO U20 or similar), you can join the dataset and input the variable name for air temperature in degrees Celsius here. This adds a supplemental rule for *FLAG_DRY* to check if water temperature is within 2C of air temperature for six consecutive hours. If you are using our naming convention, this would be *airtemp_C_U20*. Air temperature and water temperature will be plotted on a separate graph from conductivity.
+- *var_waterlevel_m*: if the you have already QAQC'd the water level data for this site, you can join the datasets and input the variable name for water level in metres here. This is an additional visual aid to identify when the logger may be dry (but it does not specifically flag the conductivity data). If you are using our naming convention, this would be *waterlevel_m_U20_adj*.
+
+$~$
+
+To fully illustrate how additional loggers can help with the QC process, let's join both air temperature and water level to the conductivity data using the timestamp column as the primary key to link records
+
+```{r join-at-wl}
+# The supplemental data we're adding here is formatted in the same way that data cleaned and written by this package would be produced. 
+
+# If you're using multiple loggers for air temperature, you can use the **add_nearest_baro** function to join up the geographically closest loggers for each record.
+
+# We only need to keep the relevant columns. If your supplemental datasets contain data from multiple sites, make sure they are also filtered to only include a single site
+atdat <-  readRDS(system.file("extdata/ex-baro", "BUGS_WE_01_BARO_20240421_20250418_v1.0.rds", package = "waterlogged")) %>%
+  select(timestamp, airtemp_C_U20_adj)
+
+wldat <- readRDS(system.file("extdata/ex-waterlevel", "BUGS_WE_01_WL_20240421_20250418_v1.0.rds", package = "waterlogged")) %>% 
+  select(timestamp, waterlevel_m_U20_adj, starts_with("wl_qaqc"))
+
+co_at_wl <- left_join(cdat, atdat, by = "timestamp") %>% 
+  left_join(wldat, by = "timestamp")
+
+head(co_at_wl)
+```
+
+$~$
+
+## Step 1: Run automated QA/QC function
+
+Here is an example of how **conductivity_qaqc** is run with the optional arguments. We're using the default arguments for 
+*var_conduct_uScm* and *var_watertemp_C* as the raw data is formatted as it if were tidied using **bind_hobo_files**. If your conductivity and temperature columns have different names, be sure to specify them in the function's arguments.
+
+```{r run-co-qaqc}
+devtools::load_all()
+cond_dat <- conductivity_qaqc(co_at_wl,
+                              var_airtemp_C = "airtemp_C_U20_adj",
+                              var_waterlevel_m = "waterlevel_m_U20_adj",
+                              select_station = "BUGS_WE_01")
+```
+
+$~$
+
+Let's look at the data to see what QAQC flags were made. Plotly is used as an interactive plotting feature to allow the user to overlay water data from multiple loggers, e.g., compare water temperature from the conductivity logger to air temperature from the barometric logger at the same site) and zoom in on time periods of interest; this helps to identify data where a logger has gone dry, frozen or been disturbed. 
+
+$~$
+
+```{r co-qaqc2}
+
+cond_dat[[2]]
+
+# save the output dataframe
+
+cond_dat2 <- data.frame(cond_dat[[1]])
+```
+
+You can zoom in on sections of the plot by clicking and dragging with your mouse. You can see data point values by hovering your mouse over the data point on the graph. You can also toggle data sources on and off by clicking on the data type in the legend. 
+
+The top plot shows the conductivity in blue, with the raw values in a lighter shade and any adjustments to the data in a darker shade. The function does not make any automatic adjustments to conductivity values (as with the water level and dissolved oxygen QAQC functions), so we would only expect to see differences in the two lines if the data had been adjusted by another function (e.g., drift correction or manual removal of values). 
+
+The black points indicate data that have been flagged for manual inspection:
+- triangle: disturbance (change in conductivity >200 uS/cm in one hour)
+- X: dry (conductivity < 10 uS/cm and/or water temp within 2C of air temp for at least 6 consecutive hours)
+- circle: ice (water temp < 0.3C)
+
+The second plot shows water temperature of the conductivity logger in green and (optionally) air temperature in light blue.
+
+A third plot is shown if water level data were added. Note the difference between "FLAG_DRY" and "LOGGER_DRY" — the former indicates suspicious data, but the latter indicates data were intentionally removed and the flag represents the reasonal for the removal. 
+
+Since flags rely on automated rules to trigger, they are not always indicative of a true issue with the data, which is why we recommend manual inspection and overlaying data from one or more supplemental loggers to diagnose what might have happened.
+
+$~$
+
+#### Dealing with dry periods
+
+In the conductivity plot, we see a drop to nearly 0 uS/cm from 2024-08-07 at 12:00 to 2024-09-12 at 12:00 — this roughly coincides with when the water level logger was noted to be dry. Furthermore, we can see on the temperature plot where water and air temperature significantly overlap for an extended period of time. All three indicators suggest that the site went dry during this time frame (the week-long discrepancy between the conductivity and water level loggers going dry suggest the latter's sensor may have been situated slightly higher up).
+
+The function **adjust_logger_NA** takes the inputs of your station data (*input_data*), the timestamp for the start of the dry period (*timestamp_start*), and the timestamp for the end of the dry period (*timestamp_end*). The timestamps must be formatted correctly as POSIXct objects in the same timezone as your dataset using the variables *timestamp_format* and *timestamp_timezone* (Note: by default we force the UTC timezone so that R doesn't automatically correct for daylight saving since our loggers don't correct for daylight savings - they just stay in Pacific Standard Time all year round). 
+You need to tell the function why you are removing the data (ie. reason_to_adjust = "dry" )
+
+```{r adjust-co-dry}
+cond_dat3 <- adjust_logger_NA(input_data = cond_dat2, 
+                              select_station = "BUGS_WE_01",
+                              timestamp_start = "2024-08-07 12:00:00",
+                              timestamp_end = "2024-09-12 12:00:00",
+                              logger_to_adjust = "conductivity_U24",
+                              var_watertemp_C = "watertemp_C_U24",
+                              reason_to_adjust = "dry")
+```
+
+$~$
+
+Let's re-examine the data by calling **conductivity_qaqc** and using the argument *plot_only = TRUE* to only visualize the changes without reapplying the automated QAQC flags.
+
+$~$
+
+```{r co-dry-plot}
+conductivity_qaqc(input_data = cond_dat3,
+                  select_station = "BUGS_WE_01",
+                  var_conduct_uScm = "conduct_uScm_U24",
+                  var_watertemp_C = "watertemp_C_U24",
+                  plot_only = TRUE)
+```
+
+We should see that the time period we specified between 8/07 and 9/12 should be missing from the adjusted variable columns, but still present in the raw columns. In the data, the adjusted rows will appear as *NA* with *co_qaqc_code = LOGGER_DRY*. 
+
+#### Dealing with ice periods
+
+We can see that the period between 2025-01-31 and 2025-03-04 have been flagged as "ice" in the conductivity plot as the water temperature was recorded as below 0.3C. If the logger were truly encased in ice, we should expect to see conductivity sharply drop to near 0 uS/cm, similarly to if the logger were dry, because ice has poor conductivity. 
+
+However, we know from the water level logger that this was not the case as that data remained unadjusted for that time period and that the loggers are still approximately one metre underwater. It is likely that even if the surface of the water had frozen, the logger was deep enough that its readings were unaffected. Therefore, it is safe to ignore the ice flags for this dataset. 
+
+If we wanted to remove the ice period, we would follow the same arguments for **adjust_logger_NA** as for the dry example, but instead specify *reason_to_adjust = "ice"*.
+
+$~$
+
+#### Interpreting disturbance spikes
+
+We can disregard the conductivity spikes on 8/19 and 9/08 since we know the logger to still have been dry then. These are likely sensor artifacts. If these spikes were observed during a period of known immersion, then alternative explanations should be considered, e.g., localized contamination events from a heavy rainfall event or brief sediment disturbance. In these instances, we suggest keeping the data in.
+
+$~$
+
+## Step 2: Correcting for sensor drift (OPTIONAL) 
+
+Conductivity loggers deployed for extended periods of time, or in particularly fouled waters, can be subject to sensor drift. As it is not always practical to re-calibrate loggers in the field, we can compensate for potential drift by using spot reference measurements, such as from a handheld YSI® conductivity meter that has been calibrated in the lab prior to use. 
+
+Your field measurements should be in a readable .csv file and formatted something like this:
+
+```{r echo=false}
+ysi_data <- read.csv("inst/extdata/ex-site-attribute/site_station_waterquality.csv")
+head(ysi_data)
+# 
+# ysi_data$ysi_conduct_uScm[3] <- 85.2
+# ysi_data$ysi_conduct_uScm[5] <- 60.8
+```
+
+We can then apply the **correct_drift** function to the dataset we performed automated QA/QC on earlier. The required inputs are:
+
+- *input_data* the conductivity data (for this example, we'll be using the data we just put through the automated QA/QC function)
+- *ref_data* the dataset containing the spot reference measurements
+- *select_station* ensures the data are only from a singular station
+- *var_ref_watertemp_C* the reference data column that contains the spot temperature measurement
+- *var_ref_conduct_uScm* the reference data column that contains the spot conductivity measurement. Make sure you are using the device's *conductivity* readings and not *specific conductance*
+- *var_ref_timestamp* the reference data column that contains the timestamp of the measurement. Like with the logger data, it should be formatted as "mm/dd/yyyy hh:mm" (e.g., "10/09/2024 15:00")
+
+```{r co-drift-correction}
+# We're using the default column names for all of the variables, but if your input or reference columns are labeled differently, they need to be specified appropriately. 
+# We're using the "_adj" columns from the input data because we want to preserve the changes we made to the data during QA/QC, i.e., dropping the rows when the logger was dry
+
+cond_dat4 <- correct_drift(input_data = cond_dat3,
+                           ref_data = ysi_data,
+                           select_station = "BUGS_WE_01",
+                           var_ref_watertemp_C = "ysi_watertemp_C",
+                           var_ref_conduct_uScm = "ysi_conduct_uScm",
+                           var_ref_timestamp = "ysi_timestamp")
+```
+
+We can compare how the drift-corrected data look compared to the uncorrected values in a plotly output. 
+
+```{r get-co-drift-plot}
+cond_dat4[[3]]
+```
+
+The function works by taking the difference between the logger and reference measurements between two spot measurement events and applies — to each logger record — a correction that scales based on the amount of time that has passed between the first spot measurement and the next. This is because we assume that sensor drift will increase as time passes. 
+
+If you did not take a spot measurement within 2 hours of the start of the dataset, the function will assume that the logger data starts out perfectly calibrated. 
+
+If a reference measurement is significantly different from the corresponding logger record, we recommend either further examining the raw data (e.g., check for excessive fouling or disturbance) or excluding the outlier measurement in the drift correction function by manually removing it from the reference dataset.
+
+$~$
+
+## Step 3: Applying temperature compensation
+
+The final step in processing raw conductivity data is compensating for temperature, which produces a value called *specific conductance*. Specific conductance is the recommended measurement to be used when making comparisons between different sites or times because it removes temperature as factor, leaving only the influence of the dissolved ions. 
+
+```{r co-apply-temp-comp}
+cond_dat5 <- conduct_temp_comp(input_data = cond_dat4[[1]],
+                               var_conduct_uScm = "conduct_uScm_U24_adj_dc",
+                               var_watertemp_C = "watertemp_C_U24_adj_dc")
+```
+
+The function applies a non-linear formula for natural water per the ISO EN278888 standard — this is only appropriate for freshwater lakes and streams. Currently, the function does not support specific conductance conversion for saltwater or brackish water. 
+
+```{r show-spc}
+head(cond_dat5)
+```
+
+We can examine how specific conductance differs from uncompensated conductivity
+
+```{r spc-plot, echo=FALSE}
+p <- ggplot(cond_dat5, aes(x = timestamp)) +
+  geom_line(aes(y = spc_uScm_U24, colour = "Spec. cond (uS/cm)")) +
+  geom_line(aes(y = conduct_uScm_U24_adj_dc, colour = "Conductivity (uS/cm)"), linetype = 2) +
+  geom_line(aes(y = watertemp_C_U24_adj_dc, colour = "Temperature (C)"), alpha = 0.5) +
+  scale_colour_manual(values = c("Spec. cond (uS/cm)" = "#1f77b4",
+                                 "Conductivity (uS/cm)" = "#ff7f0e",
+                                 "Temperature (C)" = "#d62728")) +
+  labs(title = "Specific conductance vs. conductivity",
+       x = "Timestamp",
+       y = "",
+       colour = "") +
+  theme_classic()
+
+ggplotly(p)
+```
+
+$~$
+
+## Step 4: Write clean data 
+
+This fully processed conductivity data can then be passed on to the **write_clean_data** function.
+
+```{r write-clean-data, eval=FALSE}
+write_clean_data(input_data = cond_dat5,
+                 logger_type = "conductivity_U24",
+                 path_to_output_folder = out_dir)
+```
+
+```{r ex-clean-dat, echo=FALSE}
+co_clean <- readRDS(system.file("extdata/ex-conductivity", "BUGS_WE_01_CO_20240421_20241231_v1.0.rds", package="waterlogged"))
+
+head(co_clean)
+```
+
 
 $~$
 

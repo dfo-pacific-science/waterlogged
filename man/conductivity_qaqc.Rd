@@ -2,20 +2,15 @@
 % Please edit documentation in R/conductivity_qaqc.R
 \name{conductivity_qaqc}
 \alias{conductivity_qaqc}
-\title{CONDUCTIVITY LOGGER DRIFT CORRECTION & QA/QC}
+\title{Conductivity QAQC}
 \usage{
 conductivity_qaqc(
   input_data,
   plot_only = FALSE,
-  reference_file,
-  drop_ref = NA,
-  ref_deploy_offset = 1,
   var_conduct_uScm = "conduct_uScm_U24",
   var_watertemp_C = "watertemp_C_U24",
-  var_airtemp_C = NA,
-  var_waterlevel_m = NA,
-  var_ref_conduct_uScm = "cond_uscm_ysi",
-  var_ref_watertemp_C = "watertemp_C_ysi"
+  var_airtemp_C = "none",
+  var_waterlevel_m = "none"
 )
 }
 \arguments{
@@ -23,20 +18,16 @@ conductivity_qaqc(
 
 \item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, values out of range are removed and flagged}
 
-\item{var_conduct_uScm}{Name of column for reference conductivity (uScm)}
+\item{var_conduct_uScm}{Name of column for conductivity (uScm) in input data}
 
 \item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
 
-\item{var_airtemp_C}{The variable for air temperature in degrees Celsius}
+\item{var_airtemp_C}{Optional. Name of column for air temperature in degrees Celsius in input data.}
 
-\item{var_waterlevel_m}{Name of variable column containing water level in meters}
-
-\item{var_ref_watertemp_C}{Name of column for reference water temperature (in degrees Celcius)}
+\item{var_waterlevel_m}{Optional. Name of variable column containing water level in meters in input data.}
 
 \item{select_station}{site_station_code for desired logger station, supplied barometric data will be filtered by this code}
-
-\item{ref_deploy_ofset}{Number of hours to search between deployment and YSI measurement (between 0 and 2)}
 }
 \description{
-CONDUCTIVITY LOGGER DRIFT CORRECTION & QA/QC
+Perform preliminary QAQC on conductivity data
 }
