@@ -28,17 +28,19 @@ adjust_waterlevel_cablebreak <- function(input_data, select_station, timestamp_s
   #remove rownumbers
   rownames(output_data) <- NULL
 
-  # ID timestamp of break, find change in water level, subtract from entried following break
+  # ID timestamp of break, find change in water level, subtract from entries following break
   before_break <- round(output_data$waterlevel_m[output_data$timestamp == timestamp_start], digits = 3)
   after_break <- round(output_data$waterlevel_m[output_data$timestamp == timestamp_end], digits = 3)
   corr_break <- after_break-before_break
 
+  output_data$wl_qaqc_adj[output_data$timestamp == timestamp_start] <- paste(corr_break, "added")
+  output_data$wl_qaqc_code[output_data$timestamp == timestamp_start] <- "LOGGER_DISTURBANCE"
+  output_data$wl_qaqc_note[output_data$timestamp == timestamp_start] <- "logger cable break"
+
   for(i in 1:length(output_data$timestamp)) {
-    # corect logger cable break
+    # correct logger cable break
     if(output_data$timestamp[i] >= timestamp_end) {
-      output_data$wl_qaqc_adj[i] <-  paste(corr_break, "added")
-      output_data$wl_qaqc_code[i] <- "LOGGER_DISTURBANCE"
-      output_data$wl_qaqc_note[i] <- "logger cable break"
+       output_data$wl_qaqc_adj[i] <-  paste(corr_break, "added")
 
       # use adj if full, if NA use water_level_m
       if(!is.na(output_data$waterlevel_m_adj[i])) {

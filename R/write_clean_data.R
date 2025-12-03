@@ -176,6 +176,13 @@ write_clean_data <- function(input_data, path_to_output_folder, logger_type, var
       # correct missing midnight timestamps
       site_year_j$timestamp <- as.character(format(site_year_j$timestamp))
 
+      # remove data flags
+
+      site_year_j$wl_qaqc_code <- gsub("FLAG_ICE", NA, site_year_j$wl_qaqc_code)
+      site_year_j$wl_qaqc_code <- gsub("FLAG_DISTURBANCE", NA, site_year_j$wl_qaqc_code)
+      site_year_j$wl_qaqc_code <- gsub("FLAG_DRY", NA, site_year_j$wl_qaqc_code)
+
+
       # write csv for each year and site_station_code
       write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/clean/", site_i,"_",logger_header ,"_", start_j,"_", end_j, "_v1.0", ".csv"), row.names = FALSE)
       print(paste("Clean data (v1.0) from",site_i,"added to", year_j, "folder"))
