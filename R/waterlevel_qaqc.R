@@ -1,140 +1,177 @@
-#' Automatic waterlevel qaqc
-#'
-#' Change all negative water level values to zero, flag water temperatures above 19C as potentially dry, flag water temperatures below 0.3C as potentially in ice, and remove water temperature values below -1C.
-#' @param input_data Dataframe with water level in metres
-#' @param select_station site_station_code for desired logger station, supplied waterlevel data will be filtered by this code
-#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged
-#' @param var_waterlevel_m Name of variable column containing water level in meters
-#' @param var_watertemp_C Name of column for water temperature (in degrees Celcius) in input data
-#' @param var_waterpress_kPa Name of column for water pressure (in kPa) in input data
-#' @param var_airpress_kPa Name of column for air pressure (in kPa) in input data
-#' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
-#' @return list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
-#' @export
-#' @import ggplot2
-#' @import dplyr
-#' @import tidyr
-#' @import plotly
+#source("R/qaqc_log_helpers.R")
 
-waterlevel_qaqc <- function(input_data, select_station, plot_only = FALSE, var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_waterpress_kPa = "waterpress_kPa_U20", var_airpress_kPa = "airpress_kPa_U20_adj", var_airtemp_C = "airtemp_C_U20") {
-
-
-  # ensures user is only processing one station at a time
-  output_data <- input_data
-  output_data <- output_data[output_data$site_station_code==select_station,]
-  #remove rownumbers
-  rownames(output_data) <- NULL
-
-  names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
-  names(output_data)[names(output_data) == var_watertemp_C ] <- "watertemp_C"
-  names(output_data)[names(output_data) == paste0(var_waterlevel_m, "_adj") ] <- "waterlevel_m_adj"
-  names(output_data)[names(output_data) == paste0(var_watertemp_C, "_adj" )] <- "watertemp_C_adj"
-  names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
-  names(output_data)[names(output_data) == var_airpress_kPa ] <- "airpress_kPa"
-  names(output_data)[names(output_data) == var_waterpress_kPa ] <- "waterpress_kPa"
-
-
-  if(plot_only == FALSE) {
-    # new columns to fill
-    output_data$waterlevel_m_adj <- output_data$waterlevel_m
-    output_data$watertemp_C_adj <- output_data$watertemp_C
-    output_data$wl_qaqc_adj <- NA
-    output_data$wl_qaqc_code <- NA
-    output_data$wl_qaqc_note <- NA
-
-    for(i in 1:(length(output_data$timestamp)-1)){
-      if(!is.na(output_data$waterlevel_m[i])){
-        wl_diff <- output_data$waterlevel_m[i] -  output_data$waterlevel_m[i+1]
-        if(abs(wl_diff) > 0.1) {
-          output_data$wl_qaqc_code[i] <- "FLAG_DISTURBANCE" #if water level changes by more than 0.1m (10 cm) in 1 hour then add DISTURBANCE flag column (logger wire break or adjusted)
-        }
-      }
-    }
-    for(i in 1:length(output_data$timestamp)) {
-      if(!is.na(output_data$waterlevel_m[i])){
-
-        if(!is.na(output_data$watertemp_C[i])){
-          # if water pressure is equal to or less than air pressure add DRY flag column
-          if(output_data$watertemp_C[i] > 25 | output_data$waterpress_kPa[i] <= output_data$airpress_kPa[i]) {
-            output_data$wl_qaqc_code[i] <- "FLAG_DRY"
-          }
-          if(output_data$watertemp_C[i]<0.2){
-            output_data$wl_qaqc_code[i] <- "FLAG_ICE"
-          }
-          if(output_data$watertemp_C[i]< -1){
-            output_data$watertemp_C_adj[i] <- NA
-            output_data$wl_qaqc_note[i] <-  "water temp out of range"
-            output_data$wl_qaqc_adj[i] <-  "REMOVED"
-            output_data$wl_qaqc_code[i] <- "NEGATIVE_WT"
-
-          }
-          if(output_data$watertemp_C[i]<0 & output_data$watertemp_C[i]>-1){
-            output_data$wl_qaqc_note[i] <-  "corrected to zero"
-            output_data$wl_qaqc_adj[i] <-  "REPLACED"
-            output_data$wl_qaqc_code[i] <- "NEGATIVE_WT"
-            output_data$watertemp_C_adj[i] <- 0
-          }
-        } # end of if na water temp
-
-      } # end of if na water level
-
-    } # end of loop for qaqc flags
-
-  } # end of plot only = false loop
-
-  # ensure qaqc columns are writtable
-  #output_data <- output_data %>% mutate(across(c(wl_qaqc_adj, wl_qaqc_code, wl_qaqc_note), as.character))
-
-
-  p <- ggplot(data=output_data, aes(x = timestamp))+
-    geom_line(aes(y = waterlevel_m, color = "waterlevel_m"), alpha = 0.5)+
-    geom_line(aes(y = waterlevel_m_adj, color = "waterlevel_m_adj"))+
-    geom_point(data = output_data %>% drop_na(wl_qaqc_code) %>% filter(grepl("FLAG", wl_qaqc_code)),
-               aes(y = 0, shape = as.factor(wl_qaqc_code)),
-               color = "black")+
-    scale_color_manual(values = c("waterlevel_m" = "#233d4d",
-                                  "waterlevel_m_adj" = "#233d4d"))+
-    scale_shape_manual(values = c("FLAG_ICE" = 1,
-                                  "FLAG_DISTURBANCE" = 2,
-                                  "FLAG_DRY" = 4))+
-    labs(title = paste("QAQC for:", select_station),
-         y = "Water level (m)",
-         x = "Timestamp",
-         color = "",
-         shape = "") +
-    theme_classic()
-
-
-  q <- ggplot(data=output_data, aes(x = timestamp))+
-    geom_line(aes(y = airtemp_C, color = "airtemp_C"), alpha = 0.5) +
-    geom_line(aes(y = watertemp_C, color = "watertemp_C"), alpha = 0.5)+
-    geom_line(aes(y = as.numeric(watertemp_C_adj), color = "watertemp_C_adj"))+
-    scale_color_manual(values = c("watertemp_C" = "#619b8a" ,
-                                  "watertemp_C_adj" = "#619b8a" ,
-                                  "airtemp_C" = "#fe7f2d"))+
-    labs(title =select_station,
-         y = "Temperature (C)",
-         x = "Timestamp",
-         color = "",
-         shape = "") +
-    theme_classic()
-
-
-  # return variables to user input naming
-  names(output_data)[names(output_data) == "waterlevel_m"] <- var_waterlevel_m
-  names(output_data)[names(output_data) ==  "watertemp_C"] <- var_watertemp_C
-  names(output_data)[names(output_data) == "airtemp_C"] <- var_airtemp_C
-  names(output_data)[names(output_data) == "airpress_kPa"] <- var_airpress_kPa
-  names(output_data)[names(output_data) == "waterlevel_m_adj"] <- paste0(var_waterlevel_m, "_adj")
-  names(output_data)[names(output_data) ==  "watertemp_C_adj"] <- paste0(var_watertemp_C, "_adj")
-  names(output_data)[names(output_data) ==  "waterpress_kPa"] <-var_waterpress_kPa
-
-
-  if(plot_only == FALSE) {
-    print("Results returned as list: select [1] for waterlevel data with QAQC flags, [2] waterlevel data to visually assess for dry/ice/disturbance periods")
-    return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05)))
+waterlevel_qaqc <- function(input_data,
+                            select_station,
+                            log_root,
+                            user = Sys.info()[["user"]]) {
+  
+  # 1. Basic checks ------------------------------------------------------------
+  required_cols <- c(
+    "site_station_code",
+    "timestamp",
+    "waterlevel_m",
+    "watertemp_C",
+    "waterpress_kPa",
+    "airpress_kPa",
+    "airtemp_C"
+  )
+  
+  missing_cols <- setdiff(required_cols, names(input_data))
+  if (length(missing_cols) > 0) {
+    stop(
+      "waterlevel_qaqc(): missing required column(s): ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
-  if(plot_only == TRUE){
-    return(plotly::subplot(suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05))
+  
+  # 2. Subset to station + init adjusted cols ----------------------------------
+  output_data <- input_data %>%
+    dplyr::filter(site_station_code == select_station) %>%
+    dplyr::arrange(timestamp) %>%
+    dplyr::mutate(
+      waterlevel_m_adj = waterlevel_m,
+      watertemp_C_adj  = watertemp_C
+    )
+  
+  if (nrow(output_data) == 0) {
+    stop("waterlevel_qaqc(): no rows found for station '", select_station, "'.")
   }
+  
+  # Ensure timestamp is POSIXct (just in case)
+  if (!inherits(output_data$timestamp, "POSIXct")) {
+    output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
+  }
+  
+  # 3. Apply QA/QC rules (WL + WT) --------------------------------------------
+  output_data <- output_data %>%
+    dplyr::mutate(
+      # --- helper columns for waterlevel disturbance ---
+      wl_lead = dplyr::lead(waterlevel_m),
+      wl_diff = waterlevel_m - wl_lead,
+      
+      flag_disturbance = !is.na(waterlevel_m) & !is.na(wl_diff) &
+        abs(wl_diff) > 0.1,
+      
+      # --- water temperature helpers (from old watertemp_qaqc) ---
+      wt_high_dry   = !is.na(watertemp_C) & watertemp_C > 19,
+      flag_ice      = !is.na(watertemp_C) & watertemp_C < 0.3,
+      neg_lt_minus1 = !is.na(watertemp_C) & watertemp_C < -1,
+      neg_between   = !is.na(watertemp_C) & watertemp_C < 0 & watertemp_C > -1,
+      
+      wt_air_close  = !is.na(watertemp_C) & !is.na(airtemp_C) &
+        abs(watertemp_C - airtemp_C) < 2,
+      wt_air_warmer = !is.na(watertemp_C) & !is.na(airtemp_C) &
+        (airtemp_C - watertemp_C) < 0,
+      
+      # old WL-based dry rule, updated to 19°C to match watertemp_qaqc doc
+      flag_dry_wl = !is.na(waterlevel_m) & !is.na(watertemp_C) &
+        !is.na(waterpress_kPa) & !is.na(airpress_kPa) &
+        (watertemp_C > 19 | waterpress_kPa <= airpress_kPa),
+      
+      # combine temperature-based dry signals
+      flag_dry_temp = wt_high_dry | wt_air_close | wt_air_warmer,
+      
+      # final dry flag (WL + WT signals) – make it WL-specific
+      flag_wl_dry = flag_dry_wl | flag_dry_temp,
+      
+      # adjust temperature based on negatives
+      watertemp_C_adj = dplyr::case_when(
+        neg_lt_minus1 ~ NA_real_,  # remove clearly impossible temps
+        neg_between   ~ 0,         # small negatives corrected to 0 °C
+        TRUE          ~ watertemp_C_adj
+      )
+    ) %>%
+    # drop only internal helpers we don't want in the output
+    dplyr::select(
+      -wl_lead, -wl_diff,
+      -wt_high_dry, -wt_air_close, -wt_air_warmer,
+      -flag_dry_wl, -flag_dry_temp
+    )
+  
+  # 4. Build QA/QC log rows from flags ----------------------------------------
+  metric      <- "WL"
+  action      <- "AUTO_QAQC"
+  fun_name    <- "waterlevel_qaqc"
+  manual_note <- "Automatic water level & water temperature QA/QC; no manual note provided."
+  run_time    <- Sys.time()
+  
+  rules <- list(
+    # temperature-related rules (watertemp_C_adj field)
+    list(
+      flag        = output_data$neg_lt_minus1 | output_data$neg_between,
+      field       = "watertemp_C_adj",
+      code        = "NEGATIVE_WT",
+      action_note = "Negative water temperature detected; removed (< -1°C) or corrected to 0°C (-1 to 0°C)."
+    ),
+    list(
+      flag        = output_data$flag_ice %in% TRUE,
+      field       = "watertemp_C_adj",
+      code        = "FLAG_ICE",
+      action_note = "Possible ice conditions: water temperature < 0.3°C; flagged for review."
+    ),
+    # WL-related rules (waterlevel_m_adj field)
+    list(
+      flag        = output_data$flag_disturbance %in% TRUE,
+      field       = "waterlevel_m_adj",
+      code        = "FLAG_DISTURBANCE",
+      action_note = "Large step change in water level (> 0.1 m); flagged as potential logger disturbance."
+    ),
+    list(
+      flag        = output_data$flag_wl_dry %in% TRUE,
+      field       = "waterlevel_m_adj",
+      code        = "FLAG_WL_DRY",
+      action_note = "Possible dry sensor (warm water, low pressure, or air–water temperature behaviour); flagged."
+    )
+  )
+  
+  logs_list <- lapply(rules, function(r) {
+    make_qaqc_log_row(
+      timestamps  = output_data$timestamp[r$flag],
+      station     = select_station,
+      metric      = metric,
+      field       = r$field,
+      action      = action,
+      code        = r$code,
+      action_note = r$action_note,
+      manual_note = manual_note,
+      fun_name    = fun_name,
+      user        = user,
+      run_time    = run_time
+    )
+  })
+  
+  log_this <- dplyr::bind_rows(logs_list)
+  
+  # 5. If nothing flagged, still log that QAQC ran -----------------------------
+  if (nrow(log_this) == 0) {
+    log_this <- dplyr::tibble(
+      station        = select_station,
+      metric         = metric,
+      field          = "waterlevel_m_adj",
+      action         = action,
+      code           = NA_character_,
+      action_note    = "Automatic water level & water temperature QA/QC ran; no flags applied.",
+      manual_note    = manual_note,
+      ts_start       = NA_character_,
+      ts_end         = NA_character_,
+      duration_hours = NA_real_,
+      fun_name       = fun_name,
+      run_at         = run_time,
+      user           = user
+    )
+  }
+  
+  # 6. Append to on-disk log ---------------------------------------------------
+  log_path <- qaqc_log_path(log_root, select_station, metric)
+  
+  qaqc_log_append(
+    log_path = log_path,
+    station  = select_station,
+    metric   = metric,
+    log_rows = log_this
+  )
+  
+  message("QA/QC log updated: ", as.character(log_path))
+  
+  return(output_data)
 }

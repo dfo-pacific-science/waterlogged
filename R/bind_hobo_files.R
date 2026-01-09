@@ -1,287 +1,452 @@
-#' Bind raw dissolved oxygen data
+#' Bind HOBO logger CSVs and attach site metadata
 #'
-#' Merge dissolved oxygen data from multiple loggers by site_station_code and trim for install/removal dates
-#' @param path_to_raw_folder The folder containing raw dissolved oxygen in mg/L from HOBO as csv files
-#' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
-#' @param logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, conductivity_U24, watertemp_TidbiT, airtemp_TidbiT
-#' @param  metadata File containing serial number, install date, install time and status for each site_station_code
-#' @param  timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "%m/%d/%Y %H:%M"
-#' @param  timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
-#' @return Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
-#' @export
-#' @import dplyr
-#' @import tidyr
+#' Reads all HOBO CSV files in a folder, links each logger serial number to
+#' deployment metadata, trims records to deployment/removal windows, standardises
+#' core column names by metric (barometric, waterlevel, DO, TidbiT temperature,
+#' conductivity), writes per-station/year v0.1 CSVs, and returns a compiled
+#' long data frame plus a quick QC plot.
+#'
+#' @param path_to_raw_folder Path to the folder containing raw HOBO CSV files
+#'   (one or more loggers, all of the same metric). For example
+#'   `"data/raw/level"` or `"data/testing/raw/COND"`.
+#' @param path_to_output_folder Root folder where processed v0.1 CSVs will be
+#'   written. Files are created under `<path_to_output_folder>/<year>/processed`,
+#'   e.g. `"data/processed"`.
+#' @param metadata_path Path to a metadata CSV that has at least logger serial
+#'   numbers and deployment/removal information (e.g. `sn`, `metric`,
+#'   `site_station_code`, `timestamp_deploy`, `timestamp_remove`, `model`).
+#' @param timestamp_timezone Time zone used when filling in open-ended
+#'   deployments (where `timestamp_remove` is `NA`). Defaults to `"UTC"`.
+#'
+#' @details
+#' The function:
+#'
+#' * Reads all `*.csv` files in `path_to_raw_folder` using
+#'   [extract_alldata_from_file()] and binds them into a single data frame.
+#' * Uses [QAQC_metadata()] to clean/standardise the metadata file.
+#' * Assigns `site_station_code` to each record based on `sn` and the
+#'   deployment/removal timestamps.
+#' * Enforces a single `metric` per folder (e.g., all barometric, all
+#'   waterlevel, all conductivity).
+#' * Standardises core column names depending on logger/metric, e.g.
+#'   `airpress_kPa`, `waterpress_kPa`, `watertemp_C`, `airtemp_C`,
+#'   `do_mgl`, `conduct_uScm`, and `conduct_range_used`.
+#' * For conductivity (U24) loggers, unifies low/full range columns into a
+#'   single `conduct_uScm` column and records which range was used.
+#' * Writes one v0.1 CSV per station per year to
+#'   `<path_to_output_folder>/<year>/processed` with filenames of the form
+#'   `<site>_<LOGGER>_<startdate>_<enddate>_v0.1.csv`.
+#'
+#' @return A list of length 2:
+#' \describe{
+#'   \item{[[1]]}{A data frame of compiled logger data (`sites_compiled`),
+#'   with `site_station_code`, `sn`, `timestamp`, `logger_type`, `metric`, and
+#'   metric-specific value columns.}
+#'   \item{[[2]]}{A `ggplot` object showing the primary value column vs time,
+#'   faceted by `site_station_code`, for quick visual QA/QC.}
+#' }
+#'
+#' @seealso [QAQC_metadata()], [extract_alldata_from_file()]
+#'
 #' @import ggplot2
-#' @import purrr
-
-bind_hobo_files <- function(path_to_raw_folder, path_to_output_folder, logger_type, metadata, timestamp_format = "%m/%d/%Y %H:%M", timestamp_timezone = "UTC") {
-
-  ## GET DATA FROM HOBO CSV FILES####
-  #make sure all paths have trailing slash
-  if (!endsWith(path_to_raw_folder, "/")) {
-    path_to_raw_folder <- paste0(path_to_raw_folder, "/")
+#' @import dplyr
+#' @importFrom purrr map_df
+#' @importFrom lubridate mdy_hms now year date
+#' @export
+bind_hobo_files <- function(path_to_raw_folder, 
+                            path_to_output_folder, 
+                            metadata_path,  timestamp_timezone = "UTC") {
+  
+  # check if folder paths exist
+  # metadata path checked in QAQC_metadata script
+  if(!dir.exists(path_to_raw_folder)) {
+    stop("Folder not found: ", path_to_raw_folder)
   }
-  if (!endsWith(path_to_output_folder, "/")) {
-    path_to_output_folder <- paste0(path_to_output_folder, "/")
+  
+  if(!dir.exists(path_to_output_folder)) {
+    stop("Folder not found: ", path_to_output_folder)
   }
-
-  file_names <- list.files(path = path_to_raw_folder, pattern = "\\.csv$") # extract file names ending in csv
-  path_to_files <- paste0(path_to_raw_folder, file_names) # makes string of full file path for all csv files
-
-  extract_data_from_file <- function(file) {
-    data <- read.csv(file, header = FALSE, sep = ",", dec = ".",
-                     stringsAsFactors = FALSE)
-    logger_info <- as.character(data[2,3])
-    dat1_type <- sub("\\,.*", "", logger_info) # extract everything before comma
-    dat1_unit <- sub("\\s*\\(.*", "", logger_info) # extract everything before the left bracket
-    dat1_unit <- sub(".*, ", "", dat1_unit) # extract everything after the comma
-    logger_sn <- regmatches(logger_info, regexpr("\\d{8}", logger_info)) # extract 8 digit serial number
-
-    dat2_info <- as.character(data[2,4])
-    dat2_type <- sub("\\,.*", "", dat2_info) # extract everything before comma
-    dat2_unit <- sub("\\s*\\(.*", "", dat2_info) # extract everything before the left bracket
-    dat2_unit <- sub(".*, ", "", dat2_unit) # extract everything after the comma
-
-    # use serial number for data link
-    # add as first column
-    data$V1 <- logger_sn
-    data <- data[-c(1:2),] # drop header rows
-    data <- data[,c(1:4)] # drop empty columns
-
-    # drop empty rows
-    data$V3 <- as.numeric(data$V3)
-    data <- data[complete.cases(data), ]
-
-    # write new headers
-    colnames(data) <- c("sn", "timestamp", paste(dat1_type,dat1_unit), paste(dat2_type, dat2_unit))
-
-    return(data)
-  }
-
-  dat1 <- map_df(path_to_files, extract_data_from_file)
-
-  ## SUMMARIZE DATA FILES ####
-  extract_metadata_from_file <- function(file) {
-    data <- read.csv(file, header = FALSE, sep = ",", dec = ".",
-                     stringsAsFactors = FALSE)
-    file_name <- sub(".*/", "", file, perl = T) # get file name
-
-    tz <- as.character(data[2,2]) # get timezone
-    tz <- sub(".*(Date Time.*), ", "", tz)
-    logger_info <- as.character(data[2,3])
-    dat1_type <- sub("\\,.*", "", logger_info) # extract everything before comma
-    dat1_unit <- sub("\\s*\\(.*", "", logger_info) # extract everything before the left bracket
-    dat1_unit <- sub(".*, ", "", dat1_unit) # extract everything after the comma
-    logger_sn <- regmatches(logger_info, regexpr("\\d{8}", logger_info)) # extract 8 digit serial number
-
-    dat2_info <- as.character(data[2,4])
-    dat2_type <- sub("\\,.*", "", dat2_info) # extract everything before comma
-    dat2_unit <- sub("\\s*\\(.*", "", dat2_info) # extract everything before the left bracket
-    dat2_unit <- sub(".*, ", "", dat2_unit) # extract everything after the comma
-
-    file_summary <- data.frame(t(c(file_name, logger_sn, tz, dat1_type, dat1_unit, dat2_type, dat2_unit)))
-    colnames(file_summary) <- c("file_name", "sn", "timezone", "data1_type", "data1_unit", "data2_type", "data2_unit")
-
-    return(file_summary)
-
-  }
-
-  file_summary <- map_df(path_to_files, extract_metadata_from_file)
-
+  
+  # QAQC and format metadata file
+  metadata <- QAQC_metadata(metadata_path)
+  
+  path_to_files <- list.files(
+    path    = path_to_raw_folder,
+    pattern = "\\.csv$",
+    full.names = TRUE
+  )
+  
+  # extract data from hobo file(s)
+  hobo_data_raw <- purrr::map_df(path_to_files, extract_alldata_from_file)
+  
   # Error messages for file binding
-  if(length(unique(file_summary$data1_type))>1){
-    print("WARNING: folder contains different types of HOBO loggers.  Check that all files in input folder are of the same logger type (refer to 'file_summary').")
+  if (length(unique(hobo_data_raw$data1_type)) > 1) {
+    warning(
+      "Folder contains different types of HOBO loggers. ",
+      "Check that all files in input folder are of the same logger type ",
+      "(refer to 'file_summary')."
+    )
   }
-  if(length(unique(file_summary$data1_unit))>1|length(unique(file_summary$data2_unit))>1){
-    print("WARNING: some files are in different units (refer to 'file_summary').")
+  
+  # Safely check units for channel 1 and (if present) channel 2
+  units1_mixed <- length(unique(hobo_data_raw$data1_unit)) > 1
+  
+  units2_mixed <- "dat2_unit" %in% names(hobo_data_raw) &&
+    length(unique(hobo_data_raw$dat2_unit)) > 1
+  
+  is_conductivity_folder <- any(grepl("conduct", tolower(hobo_data_raw$data1_type)))
+  
+  if (units1_mixed || units2_mixed) {
+    if (is_conductivity_folder) {
+      warning(
+        "Conductivity files have different HOBO channel layouts (e.g., Low Range vs Full Range). ",
+        "All channels are in µS/cm. bind_hobo_files() will merge them into a single ",
+        "`conduct_uScm` column and record the source in `conduct_source`."
+      )
+    } else {
+      warning("Some files are in different units (refer to 'file_summary').")
+    }
   }
-  if(length(unique(file_summary$timezone))>1){
-    print("WARNING: some files are in different timezones (refer to 'file_summary').")
-  }
-
-  ## TIMESTAMPS ####
+  
+  
   # format timestamp
   # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
-  dat1$timestamp <-as.POSIXct(dat1$timestamp, format = timestamp_format, tz = timestamp_timezone)
-
-  if(any(is.na(dat1$timestamp))) {
-    missing_ts <- dat1 %>% filter(is.na(timestamp))
+  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp)
+  
+  if(any(is.na(hobo_data_raw$timestamp))) {
+    missing_ts <- hobo_data_raw %>% 
+      dplyr::filter(is.na(timestamp))
     missing_ts_sn <- unique(missing_ts$sn)
-
-    print(paste("WARNING: NAs produced in timestamp for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted as mm/dd/yy HH:MM:SS AM/PM (%m/%d/%y %I:%M:%S %p). Correct and try again."))
-}
-  # LABEL AND TRIM ####
-  ## Loop to link site_station_code to logger data by serial number and trim data by install and retrieval dates in metadata
-
+    
+    warning(paste("NAs produced in timestamp for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted as mm/dd/yy HH:MM:SS AM/PM (%m/%d/%y %I:%M:%S %p). Correct and try again."))
+  }
+  
+  
+  if(any(is.na(metadata$timestamp_deploy))) {
+    missing_ts <- metadata %>% 
+      dplyr::filter(is.na(timestamp_deploy))
+    
+    missing_ts_sn <- unique(missing_ts$sn)
+    
+    warning(paste("NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
+  }
+  
   # link sn to site_station_code in metadata
-  metadat_link <- metadata %>% filter(sn %in% unique(dat1$sn))
-
-  ## METADAT TIMESTAMPS ####
-  # format timestamp
-  # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
-  metadat_link$timestamp_deploy <-as.POSIXct(metadat_link$timestamp_deploy, format = timestamp_format, tz = timestamp_timezone)
-  metadat_link$timestamp_remove <-as.POSIXct(metadat_link$timestamp_remove, format = timestamp_format, tz = timestamp_timezone)
-
-  if(any(is.na(metadat_link$timestamp_deploy))) {
-    missing_ts <- metadat_link %>% filter(is.na(timestamp_deploy))
-    missing_ts_sn <- unique(missing_ts$sn)
-
-    print(paste("WARNING: NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
+  metadat_link <- metadata %>% dplyr::filter(sn %in% unique(hobo_data_raw$sn))
+  
+  measurement_type <- unique(metadat_link$metric)
+  
+  # make sure it's only one type per folder
+  if (length(measurement_type) != 1) {
+    stop("Multiple metric types found for these loggers: ",
+         paste(measurement_type, collapse = ", "),
+         "\nMake sure your input folder only contains one metric type (e.g., all barometric or all waterlevel).")
   }
-
+  
   # make dummy columns and datasets to fill in
-  dat1$site_station_code <- NA
+  hobo_data_raw$site_station_code <- NA
   data_i <- data.frame()
   sites_compiled <- data.frame()
-
-  for(i in 1:length(unique(dat1$sn))){
-    logger_i <- unique(dat1$sn)[i]
-    data_i <- dat1 %>% filter(sn ==logger_i)
-
+  
+  uniq_sn_list <- unique(hobo_data_raw$sn)
+  
+  for(serial_num in 1:length(uniq_sn_list)){
+    logger_i <- uniq_sn_list[serial_num]
+    data_i <- hobo_data_raw %>% dplyr::filter(sn ==logger_i)
+    
     # get site codes for each sn
-    metadat_i <- metadat_link %>% filter(sn==logger_i)
-
+    metadat_i <- metadat_link %>% dplyr::filter(sn==logger_i)
+    
     # if no metadat for that logger produce error message
     if(length(metadat_i$sn)==0){
-      print(paste(c("ERROR: Metadata missing for logger serial number:", logger_i)))
+      stop(paste(c("Metadata missing for logger serial number:", logger_i)))
     }
-    for(j in 1:length(metadat_i$sn)){
-      site_j <- metadat_i$site_station_code[j]
-      deploy_j <- metadat_i$timestamp_deploy[j]
-      remove_j<- metadat_i$timestamp_remove[j]
-
+    
+    for(metadata_sn_j in 1:length(metadat_i$sn)){
+      site_j <- metadat_i$site_station_code[metadata_sn_j]
+      deploy_j <- metadat_i$timestamp_deploy[metadata_sn_j]
+      remove_j<- metadat_i$timestamp_remove[metadata_sn_j]
+      
       # if logger is still logging it wont have a remove date so make it today
       if(is.na(remove_j)){remove_j <- lubridate::now(tzone=timestamp_timezone)}
-
+      
       # assign location based on matching timestamps in metadata
-      for(k in 1:length(data_i$timestamp)){
-        if(data_i$timestamp[k]>=deploy_j&data_i$timestamp[k]<=remove_j){
-          data_i$site_station_code[k]<-site_j
-        }
-      } # end of k loop
+      data_i$site_station_code[data_i$timestamp >= deploy_j & data_i$timestamp <= remove_j] <- site_j
+      
     } # end of j loop
-
+    
     # trim data to within install/removal at each site
-    data_i <- data_i %>% drop_na(site_station_code)
+    data_i <- data_i %>% tidyr::drop_na(site_station_code)
     sites_compiled <- rbind(sites_compiled, data_i)
-
+    
   } # end of i loop
-
-## CLEAN UP ####
-
+  
+  ## CLEAN UP ####
+  
   # remove duplicate rows in case multiple downloads per logger results in overlapping dates
   sites_compiled <- sites_compiled %>%
     dplyr::distinct(site_station_code, sn, timestamp, .keep_all = TRUE)
-
+  
   # order by site and timestamp
   sites_compiled<- sites_compiled[order(sites_compiled$site_station_code, sites_compiled$timestamp), ]
+  
+  
+  
+  #####
+  # NEED TO ADD CODE FOR TIDBIT QAQC STILL, ALSO WHAT HAPPENS IF USER HAS MORE THAN 1 LOGGER TYPE?
+  # U20s and TidbiTs can be used for different metrics (U20 can be barometricpressure or waterlevel, 
+  # TidbiT can be air or water temperature, Pendant can be temp/light/event)
+  # perhaps separate by model and metric?
+  #####
+  
+  logger_type <- unique(metadat_link$model)
+  if (length(logger_type) != 1) {
+    warning("Multiple logger models found for these files: ",
+            paste(logger_type, collapse = ", "),
+            ". Using first.")
+  }
+  
+  logger_type <- logger_type[[1]] 
+  
+  
+  # mutate a column for logger type and metric  
+  sites_compiled <- sites_compiled %>%
+    dplyr::mutate(logger_type = logger_type, metric = measurement_type)
+  
+  
+  # setting this sa default. That way if logger_header is not assigned in anything below we can create an error.
+  logger_header <- NA_character_ 
+  
 
-  # change column names to remove spaces and symbols for data processing
-  # if columns are in different units, then just keep original headers
-  if(colnames(sites_compiled)[3]=="DO conc mg/L"){
-    colnames(sites_compiled)[3]<- "do_mgl_U26"
+  # DO LOGGER -----------------------------------------------------------
+  if (colnames(sites_compiled)[3] == "DO conc mg/L") {
+    colnames(sites_compiled)[3] <- "do_mgl"
     logger_header <- "DO"
-
-    if(colnames(sites_compiled)[4]=="Temp °C"){
-      colnames(sites_compiled)[4]<- "watertemp_C_U26"
+    
+    # Temp handling
+    if (ncol(sites_compiled) >= 4) {
+      if (colnames(sites_compiled)[4] == "Temp °C") {
+        colnames(sites_compiled)[4] <- "watertemp_C"
+      }
+      if (colnames(sites_compiled)[4] == "Temp °F") {
+        sites_compiled[[4]] <- convert_F_to_C(sites_compiled[[4]])
+        colnames(sites_compiled)[4] <- "watertemp_C"
+      }
     }
   }
-  if(colnames(sites_compiled)[3]=="Abs Pres kPa" & logger_type == "baro_U20"){
-    colnames(sites_compiled)[3]<- "airpress_kPa_U20"
-    sites_compiled <- sites_compiled[complete.cases(sites_compiled$airpress_kPa_U20),]
-
+  
+  # BAROMETRIC LOGGER ---------------------------------------------------
+  if (colnames(sites_compiled)[3] == "Abs Pres kPa" && measurement_type == "barometric") {
+    # note: suggest modifying conditionals to use identical() instead of == to ensure length 1
+      # even if this doesn't cause problems currently
+    colnames(sites_compiled)[3] <- "airpress_kPa"
+    sites_compiled <- sites_compiled[complete.cases(sites_compiled$airpress_kPa),]
     logger_header <- "BARO"
-    if(colnames(sites_compiled)[4]=="Temp °C"){
-      colnames(sites_compiled)[4]<- "airtemp_C_U20"
+    
+    if (ncol(sites_compiled) >= 4) {
+      if (colnames(sites_compiled)[4] == "Temp °C") {
+        colnames(sites_compiled)[4] <- "airtemp_C"
+      }
+      if (colnames(sites_compiled)[4] == "Temp °F") {
+        sites_compiled[[4]] <- convert_F_to_C(sites_compiled[[4]])
+        colnames(sites_compiled)[4] <- "airtemp_C"
+      }
     }
   }
-  if(colnames(sites_compiled)[3]=="Abs Pres kPa" & logger_type == "waterlevel_U20"){
-    colnames(sites_compiled)[3]<- "waterpress_kPa_U20"
+  
+  # WATER LEVEL LOGGER --------------------------------------------------
+  if (colnames(sites_compiled)[3] == "Abs Pres kPa" && measurement_type == "waterlevel") {
+    colnames(sites_compiled)[3] <- "waterpress_kPa"
     logger_header <- "WL"
-
-    if(colnames(sites_compiled)[4]=="Temp °C"){
-      colnames(sites_compiled)[4]<- "watertemp_C_U20"
+    
+    if (ncol(sites_compiled) >= 4) {
+      if (colnames(sites_compiled)[4] == "Temp °C") {
+        colnames(sites_compiled)[4] <- "watertemp_C"
+      }
+      if (colnames(sites_compiled)[4] == "Temp °F") {
+        sites_compiled[[4]] <- convert_F_to_C(sites_compiled[[4]])
+        colnames(sites_compiled)[4] <- "watertemp_C"
+      }
     }
   }
-  if(colnames(sites_compiled)[3]=="Low Range μS/cm" | colnames(sites_compiled)[3]=="Full Range μS/cm"){
-    colnames(sites_compiled)[3]<- "conduct_uScm_U24"
-    logger_header <- "CO"
-
-    if(colnames(sites_compiled)[4]=="Temp °C"){
-      colnames(sites_compiled)[4]<- "watertemp_C_U24"
-    }
-  }
-  if(colnames(sites_compiled)[3]=="Temp °C" & logger_type == "watertemp_TidbiT"){
+  
+  # TIDBIT WATER TEMP LOGGER -------------------------------------------
+  if (colnames(sites_compiled)[3] == "Temp °C" && logger_type == "tidbit") {
     logger_header <- "WT"
-    colnames(sites_compiled)[3]<- "watertemp_C_TidbiT"
-
+    colnames(sites_compiled)[3] <- "watertemp_C"
   }
-  if(colnames(sites_compiled)[3]=="Temp °C" & logger_type == "airtemp_TidbiT"){
+  
+  if (colnames(sites_compiled)[3] == "Temp °F" && logger_type == "tidbit") {
+    logger_header <- "WT"
+    sites_compiled[[3]] <- convert_F_to_C(sites_compiled[[3]])
+    colnames(sites_compiled)[3] <- "watertemp_C"
+  }
+  
+  # TIDBIT AIR TEMP LOGGER ---------------------------------------------
+  if (colnames(sites_compiled)[3] == "Temp °C" && logger_type == "tidbit") {
     logger_header <- "AT"
-    colnames(sites_compiled)[3]<- "airtemp_C_TidbiT"
-
+    colnames(sites_compiled)[3] <- "airtemp_C"
   }
+  
+  if (colnames(sites_compiled)[3] == "Temp °F" && logger_type == "tidbit") {
+    logger_header <- "AT"
+    sites_compiled[[3]] <- convert_F_to_C(sites_compiled[[3]])
+    colnames(sites_compiled)[3] <- "airtemp_C"
+  }
+  
+  # CONDUCTIVITY LOGGER U24 ---------------------------------------------
+  # Only run this block if the folder metric is conductivity
 
-
+  if (measurement_type == "conductivity") {
+    
+    nm <- names(sites_compiled)
+    
+    # Much looser patterns: just look for "Low Range" / "Full Range" and "S/cm"
+    low_col  <- nm[grepl("Low Range",  nm, ignore.case = TRUE) &
+                     grepl("S/cm",       nm, ignore.case = TRUE)]
+    full_col <- nm[grepl("Full Range", nm, ignore.case = TRUE) &
+                     grepl("S/cm",       nm, ignore.case = TRUE)]
+    
+    # Temp column: "Temp °C" or "Temp, °C", any variant with C
+    temp_col <- nm[grepl("^Temp", nm, ignore.case = TRUE) &
+                     grepl("C",     nm, ignore.case = TRUE)]
+    
+    if (length(low_col)  > 1L) stop("Multiple 'Low Range' columns found.")
+    if (length(full_col) > 1L) stop("Multiple 'Full Range' columns found.")
+    if (length(temp_col) > 1L) stop("Multiple temperature (°C) columns found.")
+    
+    low_col  <- if (length(low_col))  low_col[[1]]  else NA_character_
+    full_col <- if (length(full_col)) full_col[[1]] else NA_character_
+    temp_col <- if (length(temp_col)) temp_col[[1]] else NA_character_
+    
+    # Extract numeric vectors safely 
+    n <- nrow(sites_compiled)
+    
+    low_vals  <- if (!is.na(low_col))  suppressWarnings(as.numeric(sites_compiled[[low_col]]))  else rep(NA_real_, n)
+    full_vals <- if (!is.na(full_col)) suppressWarnings(as.numeric(sites_compiled[[full_col]])) else rep(NA_real_, n)
+    temp_vals <- if (!is.na(temp_col)) suppressWarnings(as.numeric(sites_compiled[[temp_col]])) else rep(NA_real_, n)
+    
+    # HOBO U24 low-range ~0–1000 µS/cm
+    low_max <- 1000
+    
+    sites_compiled <- sites_compiled %>%
+      dplyr::mutate(
+        conduct_uScm = dplyr::case_when(
+          !is.na(low_vals)  & low_vals <= low_max ~ low_vals,   # prefer low range when valid & in range
+          !is.na(full_vals)                      ~ full_vals,   # else full range
+          !is.na(low_vals)                       ~ low_vals,    # fallback to low
+          TRUE                                   ~ NA_real_
+        ),
+        conduct_source = dplyr::case_when(
+          !is.na(low_vals)  & low_vals <= low_max ~ "low",
+          !is.na(full_vals)                      ~ "full",
+          !is.na(low_vals)                       ~ "low",
+          TRUE                                   ~ NA_character_
+        ),
+        watertemp_C = temp_vals
+      )
+    
+    logger_header <- "COND"
+    
+    # Standardise metadata so "data1" = cond, "data2" = temp for ALL cond files
+    sites_compiled$data1_type <- "conductivity"
+    sites_compiled$data1_unit <- "µS/cm"
+    sites_compiled$data2_type <- "Temp"
+    sites_compiled$dat2_unit  <- "°C"
+  }
+  
+  
+  # If logger_header is not successfully reassigned above
+  if (is.na(logger_header)) {
+    stop("Could not determine logger_header from column names and measurement_type.")
+  }
+  
+  # Remove HOBO event columns we don't need
+  sites_compiled <- sites_compiled %>%
+    dplyr::select(
+      -dplyr::matches("Coupler Detached|Coupler Attached|Stopped|End Of File")
+    )
+  
   #### EXPORT CSV BY LOGGER TYPE LOCATION AND YEAR
   # some stations may have multiple logger files, one from a download in spring and another for a download in fall
   # this loop will split data by type, location and year for ease of access and processing
-
-
-
+  
   for(i in 1:length(unique(sites_compiled$site_station_code))) {
-
+    
     site_i <- unique(sites_compiled$site_station_code)[i]
-    site_dat <- sites_compiled %>% filter(site_station_code==site_i)
-
+    site_dat <- sites_compiled %>% 
+      dplyr::filter(site_station_code==site_i)
+    
     # split by year
     years_i <- unique(lubridate::year(site_dat$timestamp))
-
-    for(j in 1:length(years_i)){
+    
+    for (j in seq_along(years_i)) {
       year_j <- years_i[j]
-      site_year_j <- site_dat %>% filter(lubridate::year(timestamp)==year_j)
-
-      #name by timestamp range
-      start_j <- as.character(min(lubridate::date(site_year_j$timestamp)))
-      start_j <- gsub("\\D", "", start_j)
-      end_j <- as.character(max(lubridate::date(site_year_j$timestamp)))
-      end_j <- gsub("\\D", "", end_j)
-
-      # search for year folder, if does not exist, write new one
-      # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
-      if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
-      if(!dir.exists(paste0(path_to_output_folder, year_j,"/processed/"))){dir.create(paste0(path_to_output_folder, year_j,"/processed/"))}
-
-
-      # write csv for each year and site_station_code
-
-      # correct missing midnight timestamps
-      site_year_j$timestamp <- as.character(format(site_year_j$timestamp))
-
-      # write_csv(site_year_j, paste0(path_to_output_folder, year_j,"/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"))
-      write.csv(site_year_j, paste0(path_to_output_folder, year_j,"/processed/", site_i,"_",logger_header,"_", start_j,"_", end_j, "_v0.1", ".csv"), row.names = FALSE)
-
-       print(paste("Data (v0.1) from",site_i,"added to", year_j, "folder"))
-
-      } #end of year level loop
-
-    } # end of site level loop
-
-  print("List returned: [1] trimmed and compiled dataset of csvs in raw folder [2] file summary of csvs in raw folder [3] summary plots of data by site_station_code and timestamp")
-
-  ## Graph Raw Data ####
-  sites_compiled[,3] <- as.numeric(sites_compiled[,3])
-  sites_compiled[,4] <- as.numeric(sites_compiled[,4])
-
- multi_plots <- ggplot(data=sites_compiled, aes(x = sites_compiled[,2], y = sites_compiled[,3])) +
-                          geom_line(linewidth = 1)+
-                          facet_wrap(~site_station_code, scales = "free")+
-                          theme_classic()+
-                          theme(axis.text.x = element_text(angle = 90))+
-                          scale_x_datetime(date_labels = "%y-%m")+
-                          labs(x = "Timestamp (YY-MM)", y = colnames(sites_compiled[3]))
-
-
-  return(list(sites_compiled, file_summary, multi_plots))
-  } # end of function
+      
+      site_year_j <- site_dat %>% 
+        dplyr::filter(lubridate::year(timestamp) == year_j)
+      
+      # skip if no data for this year
+      if (!nrow(site_year_j)) next
+      
+      # name by timestamp range
+      start_j <- gsub("\\D", "", as.character(min(lubridate::date(site_year_j$timestamp))))
+      end_j   <- gsub("\\D", "", as.character(max(lubridate::date(site_year_j$timestamp))))
+      
+      # create paths for output folders
+      year_dir <- file.path(path_to_output_folder, year_j)
+      proc_dir <- file.path(year_dir, "processed")
+      
+      # Create them recursively (no warnings if they already exist)
+      dir.create(year_dir, recursive = TRUE, showWarnings = FALSE)
+      dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
+      
+      # correct missing midnight timestamps & put into character so no formatting issues arise when in Excel
+      site_year_j$timestamp <- format(site_year_j$timestamp, "%Y-%m-%d %H:%M:%S")
+      
+      # build output path using file.path for consistency
+      out_file <- sprintf("%s_%s_%s_%s_v0.1.csv", site_i, logger_header, start_j, end_j)
+      out_path <- file.path(proc_dir, out_file)
+      
+      utils::write.csv(site_year_j, out_path, row.names = FALSE)
+      
+      message(sprintf("Data (v0.1) from %s added to %s/processed", site_i, year_j))
+      
+      
+    } #end of year level loop
+    
+  } # end of site level loop
+  
+  print("List returned: [1] trimmed and compiled dataset of csvs in raw folder \n [2] summary plots of data by site_station_code and timestamp")
+  
+  # Make sure the numeric columns are actually numeric
+  sites_compiled <- sites_compiled %>%
+    dplyr::mutate(
+      dplyr::across(3:4, as.numeric)
+    )
+  
+  # Grab the names explicitly instead of relying on position
+  time_col  <- names(sites_compiled)[2]
+  value_col <- names(sites_compiled)[3]
+  
+  multi_plots <- ggplot(
+    data = sites_compiled,
+    aes(x = .data[[time_col]], y = .data[[value_col]])
+  ) +
+    geom_line(linewidth = 1) +
+    facet_wrap(~ site_station_code, scales = "free") +
+    theme_classic() +
+    theme(axis.text.x = element_text(angle = 90)) +
+    scale_x_datetime(date_labels = "%y-%m") +
+    labs(
+      x = "Timestamp (YY-MM)",
+      y = value_col
+    )
+  
+  return(list(
+    sites_compiled, 
+    multi_plots
+  ))
+  
+} 
 

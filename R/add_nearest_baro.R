@@ -1,251 +1,431 @@
-#' Barometric pressure compensation for dissolved oxygen
-#'
-#' Add nearest barometric logger to existing dataset of dissolved oxygen and/or water level data, based on metadata file
-#' @param input_data The dataset containing raw dissolved oxygen in mg/L or waterlevel in kPa
-#' @param input_logger_type Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20
-#' @param path_to_output_folder The desired folder for output of bound dissolved oxygen and barometric pressure per station
-#' @param metadata File containing site_station_code, latitude, and longitude
-#' @param baro_data File containing barometric pressure in kPa for barometric stations as site_code that match with those in the metadata_file under nearest_baro, secondary_baro, tertiary_baro
-#' @param var_airtemp_C The variable for air temperature in degrees Celsius from barometric logger
-#' @param var_airpress_kPa The variable for barometric pressure in kPa
-#' @param  timestamp_format Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "%m/%d/%Y %H:%M"
-#' @param  timestamp_timezone Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.
-#' @return dataset with barometric data and adjustments added as new columns, as well as a saved csv
-#' @export
-#' @import dplyr
-#' @import tidyr
-#' @import ggplot2
+add_nearest_baro <- function(input_data,
+                             path_to_output_folder,
+                             baro_data_path,
+                             metric = c("water level", "DO", "conductivity", "both", "all"),
+                             max_km = 30,
+                             baro_site_selection = "auto",
+                             metadata_path) {
 
-add_nearest_baro <- function(input_data, input_logger_type, path_to_output_folder, baro_data, timestamp_format = "%Y-%m-%d %H:%M:%S", timestamp_timezone = "UTC", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20", metadata){
 
-  ## SETUP ####
-  # format timestamp
-  # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
-  input_data$timestamp <-as.POSIXct(input_data$timestamp, format = timestamp_format, tz = timestamp_timezone)
-  baro_data$timestamp <-as.POSIXct(baro_data$timestamp, format = timestamp_format, tz = timestamp_timezone)
-
-  #make sure all paths have trailing slash
+  metadata <- QAQC_metadata(metadata_path)
+  
+  # allow NULL or numeric for max_km ------------------------------------------
+  if (!is.null(max_km) && !is.numeric(max_km)) {
+    stop("add_nearest_baro(): `max_km` must be numeric or NULL.", call. = FALSE)
+  }
+  
+  # only convert to POSIXct format if it's not already in the format.
+  if (!inherits(input_data$timestamp, "POSIXct")) {
+    input_data$timestamp <- lubridate::ymd_hms(input_data$timestamp, tz = "UTC")
+  }
+  
+  # QC + normalization for metrics param ----
+  metrics_info      <- resolve_metrics_param(metric[1])
+  metrics_need_baro <- metrics_info$metrics_need_baro
+  
+  # normalize metric names in input_data and metadata ----
+  input_data <- input_data %>%
+    dplyr::mutate(
+      metric_norm = dplyr::case_when(
+        grepl("cond", tolower(metric)) ~ normalize_string("conductivity"),
+        TRUE                                ~ normalize_string(metric)
+      )
+    )
+  
+  metadata <- metadata %>%
+    dplyr::mutate(metric_norm = normalize_string(metric))
+  
+  # keep only rows that need baro ----
+  input_data <- input_data %>%
+    dplyr::filter(metric_norm %in% metrics_need_baro)
+  
+  if (!nrow(input_data)) {
+    stop(
+      "add_nearest_baro(): No rows found requiring baro for metrics: ",
+      paste(metrics_need_baro, collapse = ", "),
+      call. = FALSE
+    )
+  }
+  
+  # NEW: drop sites not present in metadata for these metrics -----------------
+  valid_sites <- metadata %>%
+    dplyr::filter(metric_norm %in% metrics_need_baro) %>%
+    dplyr::pull(site_station_code) %>%
+    unique()
+  
+  dropped_sites <- setdiff(unique(input_data$site_station_code), valid_sites)
+  if (length(dropped_sites)) {
+    warning(
+      "add_nearest_baro(): Dropping site(s) not found in metadata for selected metrics: ",
+      paste(dropped_sites, collapse = ", ")
+    )
+    input_data <- input_data %>%
+      dplyr::filter(site_station_code %in% valid_sites)
+  }
+  
+  if (!nrow(input_data)) {
+    stop(
+      "add_nearest_baro(): After removing sites not in metadata, no rows remain. ",
+      "Check `metadata_path` and station codes.",
+      call. = FALSE
+    )
+  }
+  
+  # make sure output path has trailing slash ----
   if (!endsWith(path_to_output_folder, "/")) {
     path_to_output_folder <- paste0(path_to_output_folder, "/")
   }
-
-  # user input baro data names to local names
-  names(baro_data)[names(baro_data) == var_airpress_kPa ] <- "airpress_kPa"
-  names(baro_data)[names(baro_data) == var_airtemp_C ] <- "airtemp_C"
-  baro_data$site_station_code <- as.character(baro_data$site_station_code)
-
-
-  ## Bind Data ####
-  ## get baro list
-  baro_link <- metadata %>% drop_na(site_station_code, latitude, longitude)
-
-   output_data <- input_data
-  # make empty columns in input data to fill with baro data
-  output_data$baro_code <- NA
-  output_data$airpress_kPa <- NA
-  output_data$airtemp_C <- NA
-  output_data$site_station_code <- as.character(output_data$site_station_code)
-
-  ## create empty datasets for loop
-  do_baro_compiled <- data.frame()
-
-  ## start site level loop
-  for(i in 1:length(unique(output_data$site_station_code))){
-
-    site_i <- unique(output_data$site_station_code)[i]
-    dat_i <- filter(output_data, site_station_code==site_i)
-
-    # order by timestamp
-    dat_i <- dat_i[order(dat_i$timestamp),]
-
-    coords_i <- filter(metadata, site_station_code == site_i)
-
-    # make error message for missing metadata
-    if(length(coords_i$site_station_code)==0){
-      print(paste("ERROR: latitude and longitude not found for", site_i, input_logger_type, ". Please review metadata."))
-    } else{
-      coords_i <- coords_i[,c("longitude","latitude")]
+  
+  escape_regex <- function(x) gsub("([][{}()+*^$|\\.?\\\\-])", "\\\\\\1", x)
+  
+  metric_code_map <- list(
+    "waterlevel"      = "WL",
+    "wl"              = "WL",
+    "do"              = "DO",
+    "dissolvedoxygen" = "DO",
+    "conductivity"    = "COND",
+    "cond"            = "COND"
+  )
+  
+  metric_to_code <- function(metric_norm_value) {
+    if (metric_norm_value %in% names(metric_code_map)) metric_code_map[[metric_norm_value]] else toupper(metric_norm_value)
+  }
+  
+  pct_missing <- function(x) {
+    if (is.null(x)) return(NA_real_)
+    n <- length(x)
+    if (n == 0) return(NA_real_)
+    round(mean(is.na(x)) * 100, 1)
+  }
+  
+  df_with_baro <- NULL
+  
+  ## ---------------------------------------------------------------------------
+  ## MANUAL BARO SELECTION
+  ## ---------------------------------------------------------------------------
+  if (baro_site_selection != "auto") {
+    
+    baro_meta <- metadata %>%
+      dplyr::filter(metric == "barometric",
+                    site_station_code == baro_site_selection)
+    
+    if (nrow(baro_meta) == 0) {
+      stop("Selected barometric site '", baro_site_selection,
+           "' not found in metadata with metric == 'barometric'.", call. = FALSE)
     }
-
-    # calculate shortest difference between site_i and each baro
-    # new baro_link df for each i
-    baro_link_i <- baro_link %>% select(site_station_code, longitude, latitude)
-    baro_link_i<- baro_link_i  %>% mutate(
-      dist = geosphere::distHaversine(coords_i, baro_link_i[,2:3])
+    
+    baro_stn <- baro_site_selection
+    baro_pattern <- paste0("^", escape_regex(baro_stn), "_BARO_.*\\.csv$")
+    
+    file_paths <- list.files(
+      baro_data_path,
+      pattern    = baro_pattern,
+      full.names = TRUE,
+      recursive  = TRUE
     )
-    # order by increasing distance
-    baro_link_i <- baro_link_i[order(baro_link_i$dist),]
-    # make list of nearest to farthest baro
-    barolist_i <- as.vector(baro_link_i$site_station_code)
-
-    # go through each baro in order of closest
-    for(j in 1:length(barolist_i)){
-      baro_j <- barolist_i[j]
-      baro_dat_j <- filter(baro_data, site_station_code == baro_j)
-      baro_dat_j <- baro_dat_j[order(baro_dat_j$timestamp),]
-
-         # if baro dat timestamps overlap with site data timestamps, use this baro
-        if(any(baro_dat_j$timestamp %in% dat_i$timestamp)){
-
-          # go through site timestamps
-          for(k in 1:length(dat_i$timestamp)){
-
-            # do not overwrite data
-            if(is.na(dat_i$baro_code[k])){
-              ts <- dat_i$timestamp[k]
-              try(dat_i$airpress_kPa[k] <- baro_dat_j$airpress_kPa[which(baro_dat_j$timestamp==ts)], silent = TRUE)
-              try(dat_i$airtemp_C[k] <- baro_dat_j$airtemp_C[which(baro_dat_j$timestamp==ts)], silent = TRUE)
-              try(dat_i$baro_code[k] <- baro_dat_j$site_station_code[which(baro_dat_j$timestamp==ts)], silent = TRUE)
-            }
-
-          } # end of timestamp loop k
-
-        }  # end of if matching timestamps
-
-    } # end of baro list loop j
-
-    if(any(is.na(dat_i$baro_code))){
-      missing_baro_ts <- min(dat_i$timestamp[is.na(dat_i$baro_code)])
-
-      dat_i <- dat_i[!is.na(dat_i$baro_code),]
-
-      print(paste("WARNING: Baro data missing for timestamps equal to and greater than", missing_baro_ts, ". Dropped data without matching baro data."))
+    
+    if (!length(file_paths)) {
+      stop("No BARO files found for selected site: ", baro_stn,
+           " under ", baro_data_path, call. = FALSE)
     }
-
-    # create columns
-    dat_i$airpress_kPa_adj <- dat_i$airpress_kPa
-    dat_i$airtemp_C_adj <- dat_i$airtemp_C
-    dat_i$baro_qaqc_adj <- NA #what adjustment was made?
-    dat_i$baro_qaqc_code <- NA #why was an adjustment made?
-    dat_i$baro_qaqc_note <- NA #why was an adjustment made?
-
-    # if multiple baro loggers used, need to apply adjustment
-    if(length(unique(dat_i$baro_code))>1 ){
-      dat_i$airpress_kPa_adj <- NA
-      dat_i$airtemp_C_adj <- NA
-
-      # fill in adj values using CLOSEST/MOST OCCURRING baro as reference
-      baros_used_i <- as.data.frame(unique(dat_i$baro_code))
-      baros_used_i$hours <- NA
-
-      for(l in 1:length(baros_used_i$hours)){
-        baros_used_i$hours[l] <- length(dat_i$timestamp[dat_i$baro_code == baros_used_i$`unique(dat_i$baro_code)`[l]])
+    
+    file <- dplyr::bind_rows(lapply(file_paths, read.csv, stringsAsFactors = FALSE, check.names = FALSE))
+    
+    if (!"timestamp" %in% names(file)) {
+      ts_cand <- intersect(c("timestamp","Timestamp","Date Time","datetime","date_time"),
+                           names(file))
+      if (!length(ts_cand)) stop("No timestamp column found in BARO files for ", baro_stn, call. = FALSE)
+      file <- dplyr::rename(file, timestamp = !!rlang::sym(ts_cand[1]))
+    }
+    
+    file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+    
+    press_col <- if ("airpress_kPa_adj" %in% names(file)) "airpress_kPa_adj" else "airpress_kPa"
+    temp_col  <- if ("airtemp_C_adj"   %in% names(file)) "airtemp_C_adj"   else "airtemp_C"
+    
+    if (!press_col %in% names(file)) {
+      stop("BARO file(s) for ", baro_stn, " missing airpress_kPa (or _adj).", call. = FALSE)
+    }
+    
+    press_clean <- file %>%
+      dplyr::select(timestamp, !!rlang::sym(press_col)) %>%
+      dplyr::rename(airpress_kPa = !!rlang::sym(press_col))
+    
+    if (!is.null(temp_col) && temp_col %in% names(file)) {
+      temp_clean <- file %>%
+        dplyr::select(timestamp, !!rlang::sym(temp_col)) %>%
+        dplyr::rename(airtemp_C = !!rlang::sym(temp_col))
+    } else {
+      temp_clean <- dplyr::tibble(timestamp = press_clean$timestamp, airtemp_C = NA_real_)
+    }
+    
+    wide_baro_df <- press_clean %>%
+      dplyr::arrange(timestamp) %>%
+      dplyr::mutate(
+        baro_site_stn_code = baro_stn,
+        baro_qaqc_adj      = NA_character_,
+        baro_qaqc_note     = "manual barometric selection",
+        baro_qaqc_code     = "MANUAL_BARO"
+      ) %>%
+      dplyr::left_join(temp_clean %>% dplyr::arrange(timestamp), by = "timestamp")
+    
+    df_with_baro <- input_data %>%
+      dplyr::left_join(
+        wide_baro_df %>%
+          dplyr::select(
+            timestamp, airpress_kPa, airtemp_C,
+            baro_site_stn_code, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
+          ),
+        by = "timestamp"
+      ) %>%
+      dplyr::arrange(site_station_code, timestamp)
+    
+  } else {
+    
+    ## -------------------------------------------------------------------------
+    ## AUTO BARO SELECTION (nearest neighbours, calibration)
+    ## -------------------------------------------------------------------------
+    
+    site_coords <- metadata %>%
+      dplyr::filter(metric_norm %in% metrics_need_baro) %>%
+      dplyr::select(site_code = site_station_code, latitude, longitude) %>%
+      dplyr::distinct()
+    
+    baro_coords <- metadata %>%
+      dplyr::filter(metric == "barometric") %>%
+      dplyr::select(baro_code = site_station_code, baro_lat = latitude, baro_lon = longitude) %>%
+      dplyr::distinct()
+    
+    if (!nrow(site_coords)) stop("add_nearest_baro(): No site coordinates found in metadata for selected metrics.", call. = FALSE)
+    if (!nrow(baro_coords)) stop("add_nearest_baro(): No barometric stations found in metadata.", call. = FALSE)
+    
+    site_baro_rank_raw <- tidyr::crossing(site_coords, baro_coords) %>%
+      dplyr::mutate(
+        dist_m = geosphere::distHaversine(
+          cbind(longitude, latitude),
+          cbind(baro_lon,  baro_lat)
+        )
+      ) %>%
+      dplyr::group_by(site_code) %>%
+      dplyr::arrange(dist_m, .by_group = TRUE) %>%
+      dplyr::mutate(rank = dplyr::row_number()) %>%
+      dplyr::ungroup()
+    
+    site_baro_rank <- if (is.null(max_km)) {
+      site_baro_rank_raw %>% dplyr::filter(rank <= 3)
+    } else {
+      site_baro_rank_raw %>% dplyr::filter(dist_m <= max_km * 1000, rank <= 3)
+    }
+    
+    baro_site_station_codes <- unique(site_baro_rank$baro_code)
+    
+    baro_press_list <- list()
+    baro_temp_list  <- list()
+    
+    for (baro_stn in baro_site_station_codes) {
+      
+      baro_pattern <- paste0("^", escape_regex(baro_stn), "_BARO_.*\\.csv$")
+      file_paths <- list.files(baro_data_path, pattern = baro_pattern, full.names = TRUE, recursive = TRUE)
+      
+      if (!length(file_paths)) {
+        warning("add_nearest_baro(): No baro files found for ", baro_stn)
+        next
       }
-
-      ref_baro_i <-  baros_used_i$`unique(dat_i$baro_code)`[which(baros_used_i$hours==max(baros_used_i$hours))]
-      ref_baro_dat_i <- baro_data[baro_data$site_station_code==ref_baro_i,]
-
-      for(l in 1:length(dat_i$timestamp)){
-        if(dat_i$baro_code[l]==ref_baro_i){
-          dat_i$airpress_kPa_adj[l] <- dat_i$airpress_kPa[l]
-          dat_i$airtemp_C_adj[l] <- dat_i$airtemp_C[l]
-        }
+      
+      file <- dplyr::bind_rows(lapply(file_paths, read.csv, stringsAsFactors = FALSE, check.names = FALSE))
+      
+      if (!"timestamp" %in% names(file)) {
+        ts_cand <- intersect(c("timestamp","Timestamp", "Date Time", "datetime", "date_time"), names(file))
+        if (!length(ts_cand)) stop("No timestamp column in file(s) for ", baro_stn, call. = FALSE)
+        file <- dplyr::rename(file, timestamp = !!rlang::sym(ts_cand[1]))
       }
-      # if airpress_adj = NA then it is not the reference baro and needs to be adjusted
-      # get alt baro code and timestamp
-      # find the first match in timestamp between alt baro and ref baro
-      # calc diff in pressure
-      # apply diff pressure to all alt baro values
-      # do not overwrite, move to next press_adj NA
-      for(l in 1:length(dat_i$timestamp)){
-        if(is.na(dat_i$airpress_kPa_adj[l])){
-          alt_baro <- dat_i$baro_code[l]
-          alt_baro_dat <- baro_data[baro_data$site_station_code==alt_baro,]
-          match_ts <- min(subset(ref_baro_dat_i$timestamp, ref_baro_dat_i$timestamp %in% alt_baro_dat$timestamp))
-          ref_press <- ref_baro_dat_i$airpress_kPa[ref_baro_dat_i$timestamp==match_ts]
-          alt_press <- alt_baro_dat$airpress_kPa[alt_baro_dat$timestamp==match_ts]
-          press_diff <- ref_press-alt_press # difference must be added to press_adj
-          for(m in l:length(dat_i$timestamp)){
-            if(dat_i$baro_code[m]==alt_baro){
-              dat_i$airpress_kPa_adj[m] <- dat_i$airpress_kPa[m]+press_diff
-              dat_i$baro_qaqc_adj[m] <- paste("added", round(press_diff,3), "to airpress_kPa")
-              dat_i$baro_qaqc_note[m] <- "added difference in pressure prior to change"
-              dat_i$baro_qaqc_code[m] <- "ALT_BARO_CORR"
-            }
-          }
+      
+      file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+      
+      press_col <- if ("airpress_kPa_adj" %in% names(file)) "airpress_kPa_adj" else "airpress_kPa"
+      temp_col  <- if ("airtemp_C_adj"   %in% names(file)) "airtemp_C_adj"   else "airtemp_C"
+      
+      if (!press_col %in% names(file)) {
+        warning("add_nearest_baro(): ", baro_stn, " missing airpress_kPa (or _adj). Skipping.")
+        next
+      }
+      
+      press_clean <- file %>%
+        dplyr::select(timestamp, !!rlang::sym(press_col)) %>%
+        dplyr::rename(!!baro_stn := !!rlang::sym(press_col))
+      
+      if (!is.null(temp_col) && temp_col %in% names(file)) {
+        temp_clean <- file %>%
+          dplyr::select(timestamp, !!rlang::sym(temp_col)) %>%
+          dplyr::rename(!!baro_stn := !!rlang::sym(temp_col))
+      } else {
+        temp_clean <- dplyr::tibble(timestamp = press_clean$timestamp, !!baro_stn := NA_real_)
+      }
+      
+      baro_press_list[[baro_stn]] <- press_clean
+      baro_temp_list[[baro_stn]]  <- temp_clean
+    }
+    
+    if (!length(baro_press_list)) {
+      stop("No usable barometric files found under: ", baro_data_path, call. = FALSE)
+    }
+    
+    sites <- unique(input_data$site_station_code)
+    df_with_baro_list <- list()
+    
+    for (site_i in sites) {
+      
+      site_data <- input_data %>% dplyr::filter(site_station_code == site_i)
+      if (!nrow(site_data)) next
+      
+      baros_for_site <- site_baro_rank %>%
+        dplyr::filter(site_code == site_i) %>%
+        dplyr::pull(baro_code) %>%
+        unique()
+      
+      if (!length(baros_for_site)) {
+        if (is.null(max_km)) {
+          warning("add_nearest_baro(): No barometric stations found for site ", site_i, ". Skipping.")
+        } else {
+          warning("add_nearest_baro(): No barometric stations within ", max_km, " km for site ", site_i, ". Skipping.")
         }
-        if(is.na(dat_i$airtemp_C_adj[l])){
-          alt_baro <- dat_i$baro_code[l]
-          alt_baro_dat <- baro_data[baro_data$site_station_code==alt_baro,]
-          match_ts <- min(subset(ref_baro_dat_i$timestamp, ref_baro_dat_i$timestamp %in% alt_baro_dat$timestamp))
-          ref_temp <- ref_baro_dat_i$airtemp_C[ref_baro_dat_i$timestamp==match_ts]
-          alt_temp <- alt_baro_dat$airtemp_C[alt_baro_dat$timestamp==match_ts]
-          temp_diff <- ref_temp-alt_temp # difference must be added to temp_adj
-          for(m in l:length(dat_i$timestamp)){
-            if(dat_i$baro_code[m]==alt_baro){
-              dat_i$airtemp_C_adj[m] <- dat_i$airtemp_C[m]+temp_diff
-            }
-          }
+        next
+      }
+      
+      baros_for_site <- baros_for_site[baros_for_site %in% names(baro_press_list)]
+      if (!length(baros_for_site)) {
+        warning("add_nearest_baro(): No usable baro files available for site ", site_i, ". Skipping.")
+        next
+      }
+      
+      wide_press_site <- baros_for_site %>%
+        purrr::map(~ baro_press_list[[.x]]) %>%
+        purrr::reduce(dplyr::full_join, by = "timestamp") %>%
+        dplyr::arrange(timestamp)
+      
+      wide_temp_site <- baros_for_site %>%
+        purrr::map(~ baro_temp_list[[.x]]) %>%
+        purrr::reduce(dplyr::full_join, by = "timestamp") %>%
+        dplyr::arrange(timestamp)
+      
+      baro_cols <- setdiff(names(wide_press_site), "timestamp")
+      if (!length(baro_cols)) next
+      
+      ref_col <- baro_cols[1]
+      calib <- calibrate_baro_series(
+        wide_press  = wide_press_site,
+        baro_cols   = baro_cols,
+        ref_col     = ref_col,
+        min_overlap = 10L
+      )
+      wide_press_site <- calib$wide_press
+      use_adj <- paste0(baro_cols, "_adj")
+      
+      wide_baro_df_site <- wide_press_site %>%
+        dplyr::mutate(airpress_kPa = dplyr::coalesce(!!!rlang::syms(use_adj)))
+      
+      wide_baro_df_site$baro_site_stn_code <- apply(
+        wide_baro_df_site[use_adj],
+        1,
+        function(row) {
+          idx <- which(!is.na(row))[1]
+          if (!length(idx) || is.na(idx)) NA_character_ else baro_cols[idx]
         }
-      } # end of alt baro adjustments
-
-  } # end of multi baro loops
-    # check that there are no breaks/jumps in pressure between loggers
-    dev.new()
-
-    print(ggplot(data = dat_i, aes(x = timestamp))+
-            geom_line(aes(y = airpress_kPa_adj), color = "black")+
-            geom_point(aes(y = airpress_kPa_adj, color = baro_code))+
-            labs(title = site_i)+
-            theme_classic())
-
-    # create headers for saved file
-     if(input_logger_type == "dissolvedoxygen_U26"){
-      logger_header <- "DO"
+      )
+      
+      temp_syms <- rlang::syms(baro_cols)
+      baro_temp_df_site <- wide_temp_site %>%
+        dplyr::transmute(timestamp, airtemp_C = dplyr::coalesce(!!!temp_syms))
+      
+      wide_baro_df_site <- wide_baro_df_site %>%
+        dplyr::mutate(
+          baro_qaqc_adj  = NA_character_,
+          baro_qaqc_note = NA_character_,
+          baro_qaqc_code = NA_character_
+        ) %>%
+        dplyr::left_join(baro_temp_df_site, by = "timestamp")
+      
+      pct <- pct_missing(wide_baro_df_site$airpress_kPa)
+      if (!is.na(pct) && pct > 0) {
+        warning(sprintf("add_nearest_baro(): Baro data missing for %.1f%% of timestamps for site %s.", pct, site_i))
+      }
+      
+      df_with_baro_list[[site_i]] <- site_data %>%
+        dplyr::left_join(
+          wide_baro_df_site %>%
+            dplyr::select(timestamp, airpress_kPa, airtemp_C,
+                          baro_site_stn_code, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code),
+          by = "timestamp"
+        ) %>%
+        dplyr::arrange(site_station_code, timestamp)
     }
-
-    if(input_logger_type == "waterlevel_U20"){
-      logger_header <- "WL"
+    
+    df_with_baro <- dplyr::bind_rows(df_with_baro_list)
+    
+    # NEW: stop early if nothing produced (prevents your QC plot crash)
+    if (!nrow(df_with_baro) || !"site_station_code" %in% names(df_with_baro)) {
+      stop(
+        "add_nearest_baro(): No outputs were produced in auto mode. ",
+        "Common causes: sites missing from metadata, no nearby baro stations within max_km, or no readable BARO files.\n",
+        "Try checking unique(input_data$site_station_code) and metadata station codes, or set max_km = NULL.",
+        call. = FALSE
+      )
     }
-
-    if(input_logger_type == "conductivity_U24"){
-      logger_header <- "CO"
+  }
+  
+  # ---- WRITE OUTPUTS (unchanged behavior, code-based naming) ----
+  sites_out <- unique(df_with_baro$site_station_code)
+  
+  for (site_i in sites_out) {
+    site_dat <- df_with_baro[df_with_baro$site_station_code == site_i, , drop = FALSE]
+    if (!nrow(site_dat)) next
+    
+    metrics_site <- unique(site_dat$metric_norm)
+    
+    for (metric_key in metrics_site) {
+      metric_rows <- dplyr::filter(site_dat, metric_norm == metric_key)
+      if (!nrow(metric_rows)) next
+      
+      metric_header <- metric_to_code(metric_key)
+      
+      years_i <- unique(lubridate::year(metric_rows$timestamp))
+      
+      for (yy in years_i) {
+        site_year <- dplyr::filter(metric_rows, lubridate::year(timestamp) == yy)
+        if (!nrow(site_year)) next
+        
+        start_str <- gsub("\\D", "", as.character(min(lubridate::date(site_year$timestamp))))
+        end_str   <- gsub("\\D", "", as.character(max(lubridate::date(site_year$timestamp))))
+        
+        proc_dir <- file.path(path_to_output_folder, yy, "processed")
+        dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
+        
+        site_year$timestamp <- as.character(site_year$timestamp)
+        
+        out_name <- sprintf("%s_%s_%s_%s_v0.2.csv", site_i, metric_header, start_str, end_str)
+        out_path <- file.path(proc_dir, out_name)
+        
+        utils::write.csv(site_year, out_path, row.names = FALSE)
+        message(sprintf("Data (v0.2) from %s (%s) written to %s", site_i, metric_header, out_path))
+      }
     }
-
-    # rename variables to user input
-    names(dat_i)[names(dat_i) ==  "airpress_kPa"] <- var_airpress_kPa
-    names(dat_i)[names(dat_i) ==  "airpress_kPa_adj"] <-paste0(var_airpress_kPa, "_adj")
-    names(dat_i)[names(dat_i) ==  "airtemp_C"] <- var_airtemp_C
-    names(dat_i)[names(dat_i) ==  "airtemp_C_adj"] <- paste0(var_airtemp_C, "_adj")
-
-      # split by year
-      years_i <- unique(lubridate::year(dat_i$timestamp))
-
-    for(n in 1:length(years_i)){
-      year_n <- years_i[n]
-      site_year_n <- dat_i %>% filter(lubridate::year(timestamp)==year_n)
-
-      #name by timestamp range
-      start_n <- as.character(min(lubridate::date(site_year_n$timestamp)))
-      start_n <- gsub("\\D", "", start_n)
-      end_n <- as.character(max(lubridate::date(site_year_n$timestamp)))
-      end_n <- gsub("\\D", "", end_n)
-
-      # search for year folder, if does not exist, write new one
-      # if(!dir.exists(paste0(path_to_output_folder, year_j))){dir.create(paste0(path_to_output_folder, year_j))}
-      if(!dir.exists(paste0(path_to_output_folder, year_n))){dir.create(paste0(path_to_output_folder, year_n))}
-      if(!dir.exists(paste0(path_to_output_folder, year_n,"/processed/"))){dir.create(paste0(path_to_output_folder, year_n,"/processed/"))}
-
-      # correct missing midnight timestamps
-      site_year_n$timestamp <- as.character(format(site_year_n$timestamp))
-
-      # write csv for each year and site_station_code
-
-      write.csv(site_year_n, paste0(path_to_output_folder, year_n,"/processed/", site_i,"_",logger_header,"_", start_n,"_", end_n, "_v0.2", ".csv"), row.names = FALSE)
-      print(paste("Barometric pressure data (v0.2) from",site_i,"added to", year_n, "folder"))
-
-    } #end of year level loop
-
-
-    # add site data to compiled dataset
-    do_baro_compiled <- dplyr::bind_rows(do_baro_compiled, dat_i)
-
-    # clear site dataset to prep for next loop
-    dat_i <- data.frame()
-
-
-  } # end of site loop i
-
-  return(do_baro_compiled)
-} # end of function
-
+  }
+  
+  # ---- QC plot (guarded) ----
+  qc_plot <- df_with_baro %>%
+    dplyr::filter(!is.na(site_station_code)) %>%
+    ggplot2::ggplot(ggplot2::aes(x = timestamp, y = airpress_kPa, color = baro_site_stn_code)) +
+    ggplot2::geom_line(linewidth = 0.6) +
+    ggplot2::geom_point(size = 0.7, alpha = 0.7) +
+    ggplot2::facet_wrap(~ site_station_code, scales = "free_x") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1)) +
+    ggplot2::labs(
+      title = "Baro stitch QC by site",
+      x = "Time",
+      y = "Air pressure (kPa)",
+      color = "Baro code"
+    )
+  
+  return(list(df_with_baro, qc_plot))
+}

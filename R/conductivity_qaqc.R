@@ -1,273 +1,208 @@
-#' Conductivity QAQC
-#'
-#' Perform preliminary QAQC on conductivity data
-#' @param input_data raw data csv from barometric U20 loggers
-#' @param select_station site_station_code for desired logger station, supplied barometric data will be filtered by this code
-#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, values out of range are removed and flagged
-#' @param var_conduct_uScm Name of column for conductivity (uScm) in input data
-#' @param var_watertemp_C_1 Name of column for water temperature (in degrees Celcius) in input data as measured by the conductivity logger
-#' @param var_watertemp_C_2 Optional. Name of column for water temperature (in degrees Celcius) in input data as measured by a secondary logger
-#' @param var_airtemp_C Optional. Name of column for air temperature in degrees Celsius in input data.
-#' @param var_waterlevel_m Optional. Name of variable column containing water level in meters in input data.
-#' @export
-#' @import dplyr
-#' @import tidyr
-#' @import ggplot2
-#' @import plotly
-
-
-conductivity_qaqc <- function(input_data,
-                              select_station,
-                              plot_only = FALSE,
-                              var_conduct_uScm = "conduct_uScm_U24",
-                              var_watertemp_C_1 = "watertemp_C_U24",
-                              var_watertemp_C_2 = "none",
-                              var_airtemp_C = "none",
-                              var_waterlevel_m = "none"){
-
-  # ensures select_station is valid
-  if (!(select_station %in% input_data$site_station_code)){
-    stop("Invalid station. Ensure you have entered an existing site_station_code.")
+conductivity_qaqc <- function(
+    input_data,
+    select_station,
+    log_root,
+    user                       = Sys.info()[["user"]],
+    temp_low_limit_C           = -2,    # below this = out of range (likely logger / ice)
+    temp_high_limit_C          = 40,    # above this = out of range
+    disturbance_threshold_uScm = 200,   # sudden >200 uS/cm change between samples
+    dry_threshold_uScm         = 10,    # very low cond = probable dry
+    air_water_diff_threshold_C = 2      # |air - water| <= 2°C to support dry inference
+) {
+  # ---------------------------------------------------------------------------
+  # Hard-coded small-temp rules:
+  #   * Water temperature < 0.1 °C is considered possible ICE.
+  #   * Slightly negative water temperatures between -1 and 0 °C are set to 0 °C.
+  # ---------------------------------------------------------------------------
+  ice_threshold_C        <- 0.1
+  near_zero_temp_window  <- c(-1, 0)
+  
+  # ---- 1. Filter & basic checks ---------------------------------------------
+  df <- input_data %>%
+    dplyr::filter(site_station_code == select_station) %>%
+    dplyr::arrange(timestamp)
+  
+  if (nrow(df) == 0) {
+    stop("conductivity_qaqc(): no rows for station ", select_station)
   }
-
-  # ensures user is only processing one station at a time
-  output_data <- input_data
-  output_data <- output_data[output_data$site_station_code==select_station,]
-  # remove rownumbers
-  rownames(output_data) <- NULL
-  # # ensure qaqc columns are writeable
-  # output_data <- output_data %>% mutate(across(c(co_qaqc_adj, co_qaqc_code, co_qaqc_note), as.character))
-
-  # rename input columns to local columns
-  names(output_data)[names(output_data) == var_conduct_uScm ] <- "conduct_uScm"
-  names(output_data)[names(output_data) == var_watertemp_C_1 ] <- "watertemp_C_1"
-  names(output_data)[names(output_data) == paste0(var_conduct_uScm, "_adj") ] <- "conduct_uScm_adj"
-  names(output_data)[names(output_data) == paste0(var_watertemp_C_1, "_adj" )] <- "watertemp_C_1_adj"
-
-  # ensure timestamp column is properly formatted
-  output_data$timestamp <- as.POSIXct(output_data$timestamp, format = "%m/%d/%Y %H:%M", tz = "UTC")
-
-  if(var_airtemp_C != "none"){
-    names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
+  
+  required <- c("timestamp", "conduct_uScm", "watertemp_C")
+  missing_cols <- setdiff(required, names(df))
+  if (length(missing_cols) > 0) {
+    stop(
+      "conductivity_qaqc(): missing required column(s): ",
+      paste(missing_cols, collapse = ", ")
+    )
   }
-
-  if(var_waterlevel_m != "none") {
-    names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
+  
+  # Ensure timestamp is POSIXct
+  if (!inherits(df$timestamp, "POSIXct")) {
+    df$timestamp <- lubridate::ymd_hms(df$timestamp, tz = "UTC")
   }
-
-  if(var_watertemp_C_2 != "none") {
-    names(output_data)[names(output_data) == var_watertemp_C_2 ] <- "watertemp_C_2"
+  
+  # ---- 2. Create adjusted columns if missing --------------------------------
+  if (!"conduct_uScm_adj" %in% names(df)) {
+    df$conduct_uScm_adj <- df$conduct_uScm
   }
-
-  if(plot_only == FALSE){
-
-    # if co_qaqc_code column does not already exist, make a new one
-    if(length(output_data$co_qaqc_code)==0) {
-      output_data$co_qaqc_code <- NA
-    }
-    if(length(output_data$co_qaqc_adj)==0) {
-      output_data$co_qaqc_adj <- NA
-    }
-    if(length(output_data$co_qaqc_note)==0) {
-      output_data$co_qaqc_note <- NA
-    }
-
-    output_data$conduct_uScm_adj <- output_data$conduct_uScm
-    output_data$watertemp_C_1_adj <- output_data$watertemp_C_1
-
-    # Disturbance flag if conductivity changes by more than 200 uS/cm in an hour
-    for(i in 1:(length(output_data$timestamp)-1)) {
-      if(!is.na(output_data$conduct_uScm[i])) {
-        cdiff <- output_data$conduct_uScm[i] - output_data$conduct_uScm[i+1]
-        if(abs(cdiff) > 200) {
-          output_data$co_qaqc_code[i] <- "FLAG_DISTURBANCE"
-        }
-      }
-    }
-
-    # Additional flags
-    for(i in 1:(length(output_data$timestamp))) {
-      if(!is.na(output_data$conduct_uScm[i])) {
-
-        # if water temperature is less than 5C, then flag as outside of range
-        if(output_data$watertemp_C_1[i] < 5){
-          output_data$co_qaqc_code[i] <- "WT_BELOW_RANGE"
-        }
-
-        # if water temperature is less than 0.1C, then flag as ice
-        if(output_data$watertemp_C_1[i] < 0.1){
-          output_data$co_qaqc_code[i] <- "FLAG_ICE"
-        }
-
-        # if water temperature is between 0C and -1C, then change to 0
-        if(output_data$watertemp_C_1[i]<0 & output_data$watertemp_C_1[i]>-1){
-          output_data$co_qaqc_note[i] <-  "corrected to zero"
-          output_data$co_qaqc_adj[i] <-  "REPLACED"
-          output_data$co_qaqc_code[i] <- "NEGATIVE_WT"
-          output_data$watertemp_C_1_adj[i] <- 0
-        }
-
-        # if water temperature is less than -2C, then remove
-        if(output_data$watertemp_C_1[i]< -2){
-          output_data$watertemp_C_1_adj[i] <- NA
-          output_data$co_qaqc_note[i] <- "water temp out of range"
-          output_data$co_qaqc_adj[i] <-  "REMOVED"
-          output_data$co_qaqc_code[i] <- "LOGGER_ICE"
-        }
-
-        if(is.na(var_airtemp_C)){
-          # if conductivity reads less than 10 uS/cm, then flag as dry
-          # only applies if there is no air temp column
-          if(output_data$conduct_uScm[i] < 10) {
-            output_data$co_qaqc_code[i] <- "FLAG_DRY"
-          }
-        }
-
-      } # end of if data not NA
-    } # end of additional flags
-
-    # Flag dry periods using air temperature
-    if(var_airtemp_C != "none"){
-      # calculate air to water temp diff
-      output_data$air_watertemp_diff <- abs(output_data$airtemp_C - output_data$watertemp_C_1)
-
-      # if water temp within 2 degrees of air temp and < 10 uS/cm for 6 consecutive hours:
-      print("Determining dry periods...")
-      counter <- 0
-      threshold <- 6
-
-      for (i in 1:length(output_data$timestamp)) {
-        if (output_data$air_watertemp_diff[i] <= 2 && output_data$conduct_uScm[i] < 10) {
-          counter <- counter + 1
-        } else {
-          counter <- 0
-        }
-
-        if (counter >= threshold) {
-          output_data$co_qaqc_code[(i - threshold):i] <- "FLAG_DRY"
-        }
-      }
-    } # end of air temp dry flag
-
-  } # end of plot_only = FALSE
-
-
-  ## PLOT DATA
-  ## Conductivity
-  p <- ggplot(output_data, aes(x = timestamp)) +
-    geom_line(aes(y = conduct_uScm, colour = "conduct_uScm"), alpha = 0.5)+
-    geom_line(aes(y = conduct_uScm_adj, colour = "conduct_uScm_adj")) +
-    geom_point(data = output_data %>% drop_na(co_qaqc_code) %>% filter(grepl("FLAG", co_qaqc_code)),
-               aes(y = 0, shape = as.factor(co_qaqc_code)),
-               color = "black") +
-    scale_colour_manual(values = c("conduct_uScm" = "#00008B",
-                                   "conduct_uScm_adj" = "#00008B")) +
-    scale_shape_manual(values = c("FLAG_ICE" = 1,
-                                  "FLAG_DISTURBANCE" = 2,
-                                  "FLAG_DRY" = 4)) +
-    labs(title = paste("QAQC for:", select_station),
-         y = "Conductivity (uS/cm)",
-         x = "Timestamp",
-         colour = "",
-         shape = "") +
-    theme_classic()
-
-  ## Temperature
-  q <- ggplot(output_data, aes(x = timestamp)) +
-    geom_line(aes(y = watertemp_C_1, colour = "watertemp_C_1"), alpha = 0.5) +
-    geom_line(aes(y = watertemp_C_1_adj, colour = "watertemp_C_1_adj"))
-
-  line_colours <- c("watertemp_C_1"     = "#619b8a",
-                    "watertemp_C_1_adj" = "#619b8a")
-
-
-  # Plot if the data contain air temperature
-  if (var_airtemp_C != "none") {
-    q <- q +
-      geom_line(aes(y = airtemp_C, colour = "airtemp_C"), linewidth = 0.3, alpha = 0.5)
-
-    line_colours["airtemp_C"] <- "#fe7f2d"
+  if (!"watertemp_C_adj" %in% names(df)) {
+    df$watertemp_C_adj <- df$watertemp_C
   }
-
-  # Plot if the data contains secondary water temperature
-  if (var_watertemp_C_2 != "none") {
-    q <- q +
-      geom_line(aes(y = watertemp_C_2, colour = "watertemp_C_2"), alpha = 0.5)
-
-    line_colours["watertemp_C_2"] <- "#FDB840"
+  
+  # ---- 3. Detection helpers (use adj as working values) ---------------------
+  # Temperature conditions
+  temp_low   <- df$watertemp_C_adj < temp_low_limit_C
+  temp_high  <- df$watertemp_C_adj > temp_high_limit_C
+  temp_ice   <- df$watertemp_C_adj < ice_threshold_C
+  
+  near_zero  <- df$watertemp_C_adj >= near_zero_temp_window[1] &
+    df$watertemp_C_adj <  near_zero_temp_window[2]
+  
+  # Conductivity spike (use adj)
+  diff_cond  <- c(NA_real_, diff(df$conduct_uScm_adj))
+  spike      <- abs(diff_cond) > disturbance_threshold_uScm
+  
+  # Very low conductivity
+  very_low_cond <- df$conduct_uScm_adj < dry_threshold_uScm
+  
+  # Air–water support for dry inference (optional)
+  if ("airtemp_C" %in% names(df)) {
+    air_water_close <- abs(df$airtemp_C - df$watertemp_C_adj) <= air_water_diff_threshold_C
+  } else {
+    air_water_close <- rep(FALSE, nrow(df))
   }
-
-  q <- q +
-    scale_colour_manual(values = line_colours) +
-    labs(title = select_station,
-         y = "Temperature (C)",
-         x = "Timestamp",
-         colour = "") +
-    theme_classic()
-
-  # Plot if data contains water level
-  # Use the QAQC codes from the water level data instead of the conductivity data
-  if (var_waterlevel_m != "none"){
-
-    names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
-
-    r <- ggplot(output_data, aes(x = timestamp)) +
-      geom_line(data = output_data, aes(y = waterlevel_m, colour = "waterlevel_m"), linewidth = 0.3) +
-      geom_point(data = output_data %>% drop_na(wl_qaqc_code) %>% filter(grepl("FLAG|LOGGER", wl_qaqc_code)),
-                 aes(y = 0, shape = as.factor(wl_qaqc_code)),
-                 color = "black") +
-      scale_color_manual(values = c("waterlevel_m" = "#233d4d"))+
-      scale_shape_manual(values = c("FLAG_ICE" = 1,
-                                    "LOGGER_ICE" = 1,
-                                    "FLAG_DISTURBANCE" = 2,
-                                    "LOGGER_DISTURBANCE" = 2,
-                                    "FLAG_DRY" = 4,
-                                    "LOGGER_DRY" = 4)) +
-      labs(title = select_station,
-           y = "Waterl level (m)",
-           x = "Timestamp",
-           colour = "",
-           shape = "") +
-      theme_classic()
+  
+  dry_air_based <- very_low_cond & air_water_close
+  
+  # Combined dry flag (COND-specific)
+  flag_co_dry <- very_low_cond | dry_air_based
+  
+  # ---- 4. Apply *temperature* adjustments; cond remains as-is ---------------
+  df <- df %>%
+    dplyr::mutate(
+      watertemp_C_adj = dplyr::case_when(
+        near_zero ~ 0,            # small negatives -> 0
+        temp_low  ~ NA_real_,     # out-of-range low
+        temp_high ~ NA_real_,     # out-of-range high
+        TRUE      ~ watertemp_C_adj
+      ),
+      
+      # Keep key flags for plotting / diagnostics
+      flag_co_spike         = spike,
+      flag_co_temp_ice      = temp_ice,
+      flag_co_temp_low      = temp_low,
+      flag_co_temp_high     = temp_high,
+      flag_co_temp_neg_near = near_zero,
+      flag_co_dry           = flag_co_dry
+    ) %>%
+    # Drop purely helper columns we don't need to expose
+    dplyr::select(
+      -dplyr::any_of(c(
+        "air_water_close",
+        "diff_cond"
+      ))
+    )
+  
+  # ---- 5. Build QA/QC log rows (COND-style rules list) ----------------------
+  metric      <- "COND"
+  fun_name    <- "conductivity_qaqc"
+  action      <- "AUTO_QAQC"
+  manual_note <- "Automatic conductivity QA/QC; no manual note provided."
+  run_time    <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+  
+  rules <- list(
+    # Spikes (no automatic removal, just flag & log)
+    list(
+      flag        = df$flag_co_spike %in% TRUE,
+      field       = "conduct_uScm_adj",
+      code        = "FLAG_CO_SPIKE",
+      action_note = paste0("Spike > ", disturbance_threshold_uScm, " µS/cm between samples; flagged for review.")
+    ),
+    # Ice-like temperatures
+    list(
+      flag        = df$flag_co_temp_ice %in% TRUE,
+      field       = "watertemp_C_adj",
+      code        = "FLAG_ICE",
+      action_note = "Water temperature < 0.1 °C (likely ice); flagged for review."
+    ),
+    # Slight negatives corrected to 0
+    list(
+      flag        = df$flag_co_temp_neg_near %in% TRUE,
+      field       = "watertemp_C_adj",
+      code        = "NEGATIVE_WT",
+      action_note = "Water temperature between -1 and 0 °C corrected to 0 °C."
+    ),
+    # Out-of-range temps (low or high)
+    list(
+      flag        = (df$flag_co_temp_low | df$flag_co_temp_high) %in% TRUE,
+      field       = "watertemp_C_adj",
+      code        = "TEMP_RANGE",
+      action_note = paste0(
+        "Water temperature outside acceptable range (",
+        temp_low_limit_C, " to ", temp_high_limit_C, " °C); set to NA."
+      )
+    ),
+    # Dry conditions – COND-specific
+    list(
+      flag        = df$flag_co_dry %in% TRUE,
+      field       = "conduct_uScm_adj",
+      code        = "FLAG_CO_DRY",
+      action_note = paste0(
+        "Possible dry sensor: conductivity < ", dry_threshold_uScm,
+        " µS/cm (and, where available, air–water temperatures behave like air exposure)."
+      )
+    )
+  )
+  
+  logs_list <- lapply(rules, function(r) {
+    ts_sel <- df$timestamp[r$flag]
+    if (length(ts_sel) == 0) return(NULL)
+    
+    make_qaqc_log_row(
+      timestamps  = ts_sel,
+      station     = select_station,
+      metric      = metric,
+      field       = r$field,
+      action      = action,
+      code        = r$code,
+      action_note = r$action_note,
+      manual_note = manual_note,
+      fun_name    = fun_name,
+      user        = user,
+      run_time    = run_time
+    )
+  })
+  
+  log_this <- logs_list[!vapply(logs_list, is.null, logical(1))]
+  log_this <- if (length(log_this) > 0) {
+    dplyr::bind_rows(log_this)
+  } else {
+    dplyr::tibble(
+      station        = select_station,
+      metric         = metric,
+      field          = "conduct_uScm_adj",
+      action         = action,
+      code           = NA_character_,
+      action_note    = "Automatic conductivity QA/QC ran; no flags applied.",
+      manual_note    = manual_note,
+      ts_start       = NA_character_,
+      ts_end         = NA_character_,
+      duration_hours = NA_real_,
+      fun_name       = fun_name,
+      run_at         = run_time,
+      user           = user
+    )
   }
-
-  # return variables to user input naming
-  names(output_data)[names(output_data) == "conduct_uScm"] <- var_conduct_uScm
-  names(output_data)[names(output_data) == "watertemp_C_1"] <- var_watertemp_C_1
-  names(output_data)[names(output_data) == "conduct_uScm_adj"] <- paste0(var_conduct_uScm, "_adj")
-  names(output_data)[names(output_data) == "watertemp_C_1_adj"] <- paste0(var_watertemp_C_1, "_adj")
-  if ("airtemp_C" %in% names(output_data)) names(output_data)[names(output_data) == "airtemp_C"] <- var_airtemp_C
-  if ("waterlevel_m" %in% names(output_data)) names(output_data)[names(output_data) == "waterlevel_m"] <- var_waterlevel_m
-  if ("watertemp_C_2" %in% names(output_data)) names(output_data)[names(output_data) == "watertemp_C_2"] <- var_watertemp_C_2
-
-  if(plot_only == FALSE) {
-    print("Results returned as list: select [1] for conductivity data with QAQC flags, [2] conductivity data to visually assess for dry/ice/disturbance periods")
-    if (var_waterlevel_m != "none"){
-      return(list(output_data,
-                  plotly::subplot(suppressWarnings(ggplotly(p)),
-                                  suppressWarnings(ggplotly(r)),
-                                  suppressWarnings(ggplotly(q)),
-                                  heights = c(0.3, 0.3, 0.3), nrows = 3, shareX = TRUE, margin = 0.05)))
-    }
-    else{
-      return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(p)),
-                                               suppressWarnings(ggplotly(q)),
-                                               heights = c(0.5, 0.5), nrows = 2, shareX = TRUE, margin = 0.05)))
-    }
-  }
-  if(plot_only == TRUE){
-    if (var_waterlevel_m != "none"){
-      return(plotly::subplot(suppressWarnings(ggplotly(p)),
-                             suppressWarnings(ggplotly(r)),
-                             suppressWarnings(ggplotly(q)),
-                             heights = c(0.3, 0.3, 0.3), nrows = 3, shareX = TRUE, margin = 0.05))
-    }
-    else{
-    return(plotly::subplot(suppressWarnings(ggplotly(p)),
-                           suppressWarnings(ggplotly(q)),
-                           heights = c(0.5, 0.5), nrows = 2, shareX = TRUE, margin = 0.05))
-    }
-  }
+  
+  # ---- 6. Append to on-disk log ---------------------------------------------
+  log_path <- qaqc_log_path(log_root, select_station, metric)
+  
+  qaqc_log_append(
+    log_path = log_path,
+    station  = select_station,
+    metric   = metric,
+    log_rows = log_this
+  )
+  
+  message("Conductivity QAQC completed for: ", select_station)
+  df
 }
-
-

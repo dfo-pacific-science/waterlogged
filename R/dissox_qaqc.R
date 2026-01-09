@@ -1,244 +1,236 @@
-#' Dissolved oxygen QAQC
-#'
-#' Perform preliminary QAQC on dissolved oxygen data
-#' @param input_data The dataset containing raw dissolved oxygen in mg/L, percent saturation, temperature in degrees Celcius and air temperature from barometric logger in degrees Celcius
-#' @param select_station Unique identifier code for station
-#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged
-#' @param var_waterlevel_m OPTIONAL Name of variable column containing water level in meters
-#' @param var_watertemp_C_1 Name of column for water temperature (in degrees Celcius) from dissolved oxygen logger in input data
-#' @param var_watertemp_C_2 OPTIONAL Name of column for water temperature (in degrees Celcius) from waterlevel logger in input data
-#' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
-#' @param var_do_percsat Name of column for dissolved oxygen in percent air saturation in input data
-#' @param var_do_mgl Name of column for dissolved oxygen in mg per litre in input data
-#' @return Dataset of dissolved oxygen and waterlevel filtered for error values and flagged for ice, dry and disturbance
-#' @export
-#' @import dplyr
-#' @import tidyr
-#' @import ggplot2
-#' @import plotly
-
-dissox_qaqc <- function(input_data, select_station, plot_only = FALSE, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_watertemp_C_1 = "watertemp_C_U26", var_waterlevel_m = "none", var_watertemp_C_2 = "none", var_airtemp_C = "airtemp_C_U20") {
-
-  # ensures user is only processing one station at a time
-  output_data <- input_data
-  output_data <- output_data[output_data$site_station_code==select_station,]
-  #remove rownumbers
-  rownames(output_data) <- NULL
-  # make qaqc columns are
-  output_data$do_qaqc_adj <- NA
-  output_data$do_qaqc_note <- NA
-  output_data$do_qaqc_code <- NA
-
-  names(output_data)[names(output_data) == var_do_mgl ] <- "do_mgl"
-  names(output_data)[names(output_data) == var_watertemp_C_1 ] <- "watertemp_C_1"
-  names(output_data)[names(output_data) == var_do_percsat ] <- "do_percsat"
-  names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
-
-  if(var_waterlevel_m != "none") {
-    names(output_data)[names(output_data) == var_waterlevel_m ] <- "waterlevel_m"
+dissox_qaqc <- function(input_data,
+                        select_station,
+                        log_root,
+                        user = Sys.info()[["user"]]) {
+  
+  # ---- 0. Required columns ----
+  required_cols <- c(
+    "site_station_code",
+    "timestamp",
+    "do_mgl",
+    "do_percsat",
+    "watertemp_C",
+    "airtemp_C"
+  )
+  
+  missing_cols <- setdiff(required_cols, names(input_data))
+  if (length(missing_cols) > 0) {
+    stop(
+      "dissox_qaqc(): input_data is missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
   }
-
-  if(var_watertemp_C_2 != "none") {
-    names(output_data)[names(output_data) == var_watertemp_C_2 ] <- "watertemp_C_2"
+  
+  # ---- 1. Filter to station & sort ----
+  output_data <- input_data %>%
+    dplyr::filter(.data$site_station_code == !!select_station) %>%
+    dplyr::arrange(.data$timestamp)
+  
+  if (nrow(output_data) == 0) {
+    warning("dissox_qaqc(): no rows for station ", select_station)
+    return(output_data)
   }
-  # join
-
-  if(plot_only == FALSE) {
-
-    # make new adj columns
-    if(length(output_data$do_mgl_adj)==0) {
-      output_data$do_mgl_adj <- output_data$do_mgl
-    }
-    if(length(output_data$do_percsat_adj)==0) {
-      output_data$do_percsat_adj <- output_data$do_percsat
-    }
-    if(length(output_data$watertemp_C_1_adj)==0) {
-      output_data$watertemp_C_1_adj <- output_data$watertemp_C_1
-    }
-    # if do_qaqc_code column does not already exist, make a new one
-    if(length(output_data$do_qaqc_code)==0) {
-      output_data$do_qaqc_code <- NA
-    }
-    if(length(output_data$do_qaqc_adj)==0) {
-      output_data$do_qaqc_adj <- NA
-    }
-    if(length(output_data$do_qaqc_note)==0) {
-      output_data$do_qaqc_note <- NA
-    }
-
-    #calc air to water temp diff
-    output_data$air_watertemp_diff <- output_data$airtemp_C - output_data$watertemp_C_1
-
-    # if second watertemp value assigned, calc diff between loggers
-    if(var_watertemp_C_2!="none") {
-      output_data$watertemp_diff <- output_data$watertemp_C_1 - output_data$watertemp_C_2
-    }
-
-    for(i in 1:length(output_data$timestamp)) {
-
-      if(!is.na(output_data$watertemp_C_1[i])) {
-        # if(output_data$watertemp_C_1[i] > 19) {
-        #   output_data$do_qaqc_code[i] <- "FLAG_DRY"
-        # }
-        if(output_data$watertemp_C_1[i]<0.3){
-          output_data$do_qaqc_code[i] <- "FLAG_ICE"
-        }
-        if(output_data$watertemp_C_1[i]<0 & output_data$watertemp_C_1[i]> -1){
-          output_data$do_qaqc_code[i] <- "NEGATIVE_TEMP"
-          output_data$do_qaqc_adj[i] <- "REPLACED"
-          output_data$do_qaqc_note[i] <- "Water temp within bounds of 0 to -1 corrected to 0"
-        }
-        if(output_data$watertemp_C_1[i]<= -1){
-          output_data$watertemp_C_1_adj[i] <- NA
-          output_data$do_qaqc_note[i] <-  "water temp less than or equal to -1 removed"
-          output_data$do_qaqc_adj[i] <-  "REMOVED"
-          output_data$do_qaqc_code[i] <- "LOGGER_ICE"
-
-        }
-      } # end if watertemp data available
-
-      #DO outliers
-      if(!is.na(output_data$do_mgl[i])) {
-        # drop error codes
-        if(output_data$do_mgl[i]<0 & output_data$do_mgl[i]>= -1) {
-          output_data$do_mgl_adj[i] <- 0
-          output_data$do_percsat_adj[i] <- 0
-          output_data$do_qaqc_code[i] <- "NEGATIVE_DO"
-          output_data$do_qaqc_adj[i] <- "REPLACED"
-          output_data$do_qaqc_note[i] <- "DO within bounds of 0 to -1 corrected to 0"
-        }
-        if(output_data$do_mgl[i]< -1) {
-          output_data$do_mgl_adj[i] <- NA
-          output_data$do_percsat_adj[i] <- NA
-          output_data$do_qaqc_code[i] <- "NEGATIVE_DO"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "DO less than -1 removed"
-        }
-        if(output_data$do_mgl[i] > 21) {
-          output_data$do_mgl_adj[i] <- NA
-          output_data$do_percsat_adj[i] <- NA
-          output_data$do_qaqc_code[i] <- "OUTLIER_DO"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "DO greater than 21 mg/L removed"
-        }
-        if(output_data$do_mgl[i] == "-888.88") {
-          output_data$do_qaqc_code[i] <- "DO_ERROR"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "Logger error code"
-          output_data$do_mgl_adj[i] <- NA
-          output_data$do_percsat_adj[i] <- NA
-        }
-        if(output_data$watertemp_C_1[i] == "-888.88") {
-          output_data$do_qaqc_code[i] <- "TEMP_ERROR"
-          output_data$do_qaqc_adj[i] <- "REMOVED"
-          output_data$do_qaqc_note[i] <- "Logger error code"
-          output_data$watertemp_C_1_adj[i] <- NA
-        }
-
-      } # end of if do dat available
-    } # end of i loop
-
-    # if water temp within 2 degrees of air temp and over 100% air sat for 12 consecutive hours
-    for(j in 1:(length(output_data$timestamp)-11)){
-      if(!is.na(output_data$do_mgl[j])) {
-        if(any(!is.na(output_data$air_watertemp_diff[j:(j+11)]))) {
-          if(max(abs(output_data$air_watertemp_diff[j:(j+11)]), na.rm = TRUE) <= 2 & min(output_data$do_percsat[j:(j+11)], na.rm = TRUE) >= 100) {
-            output_data$do_qaqc_code[j:(j+11)] <- "FLAG_DRY"
-          }
+  
+  # Ensure timestamp is POSIXct
+  if (!inherits(output_data$timestamp, "POSIXct")) {
+    output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
+  }
+  
+  # ---- 2. Initialise internal temp fields + *_adj columns --------------------
+  # Internal temp names (consistent with plotting / other funcs)
+  if (!"watertemp_C_do" %in% names(output_data)) {
+    output_data$watertemp_C_do <- output_data$watertemp_C
+  }
+  if (!"airtemp_C_baro" %in% names(output_data)) {
+    output_data$airtemp_C_baro <- output_data$airtemp_C
+  }
+  
+  # Only initialise *_adj if they don't already exist
+  if (!"do_mgl_adj" %in% names(output_data)) {
+    output_data$do_mgl_adj <- output_data$do_mgl
+  }
+  if (!"do_percsat_adj" %in% names(output_data)) {
+    output_data$do_percsat_adj <- output_data$do_percsat
+  }
+  if (!"watertemp_C_do_adj" %in% names(output_data)) {
+    output_data$watertemp_C_do_adj <- output_data$watertemp_C_do
+  }
+  
+  # ---- 3. Derived helpers & flags (vectorised) -------------------------------
+  # All conditions are based on the *current* adj values so we don't
+  # overwrite manual corrections.
+  output_data <- output_data %>%
+    dplyr::mutate(
+      # temp difference for dryness test (using current temp adj)
+      air_watertemp_diff = airtemp_C_baro - watertemp_C_do_adj,
+      
+      # DO flags (using adj as working column)
+      do_error         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
+      do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= -1,
+      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < -1,
+      do_high          = !is.na(do_mgl_adj) & do_mgl_adj > 21,
+      
+      # temperature flags (using adj as working col)
+      temp_flag_ice       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0.3,
+      temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj > -1,
+      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= -1
+    )
+  
+  # ---- 4. Apply DO / temp adjustments (vectorised) ---------------------------
+  output_data <- output_data %>%
+    dplyr::mutate(
+      # DO adjustments, applied to adj column only
+      do_mgl_adj = dplyr::case_when(
+        do_error | do_neg_lt_minus1 | do_high ~ NA_real_,
+        do_neg_between                         ~ 0,
+        TRUE                                   ~ do_mgl_adj
+      ),
+      do_percsat_adj = dplyr::case_when(
+        do_error | do_neg_lt_minus1 | do_high ~ NA_real_,
+        do_neg_between                         ~ 0,
+        TRUE                                   ~ do_percsat_adj
+      ),
+      # DO temp adjustments
+      watertemp_C_do_adj = dplyr::case_when(
+        temp_neg_leq_minus1 ~ NA_real_,
+        temp_neg_between    ~ 0,
+        TRUE                ~ watertemp_C_do_adj
+      )
+    )
+  
+  # ---- 5. 12-point dry flag (FLAG_DO_DRY) using adj DO -----------------------
+  n <- nrow(output_data)
+  output_data$flag_do_dry <- FALSE
+  
+  if (n >= 12) {
+    for (j in 1:(n - 11)) {
+      window_diff <- output_data$air_watertemp_diff[j:(j + 11)]
+      window_do   <- output_data$do_percsat_adj[j:(j + 11)]
+      
+      if (any(!is.na(window_diff)) && any(!is.na(window_do))) {
+        if (max(abs(window_diff), na.rm = TRUE) <= 2 &&
+            min(window_do, na.rm = TRUE) >= 100) {
+          output_data$flag_do_dry[j:(j + 11)] <- TRUE
         }
       }
-    } # end of j loop
-
-  }else{
-    names(output_data)[names(output_data) == paste0(var_do_mgl, "_adj")] <-  "do_mgl_adj"
-    names(output_data)[names(output_data) == paste0(var_do_percsat, "_adj")] <-  "do_percsat_adj"
-    names(output_data)[names(output_data) ==  paste0(var_watertemp_C_1, "_adj")] <- "watertemp_C_1_adj"
-  }
-
-
-  o <- ggplot(data=output_data, aes(x = timestamp))+
-    geom_line(aes(y = do_mgl, color = "do_mgl"), alpha = 0.5)+
-    geom_line(aes(y = do_mgl_adj, color = "do_mgl_adj"))+
-    geom_point(data = output_data %>% drop_na(do_qaqc_code) %>% filter(grepl("FLAG", do_qaqc_code)),
-               aes(y = 0, shape = as.factor(do_qaqc_code)),
-               color = "black")+
-    coord_cartesian(ylim = c(-1,22))+
-    scale_color_manual(values = c("do_mgl" = "#a1c181",
-                                  "do_mgl_adj" = "#a1c181"))+
-    scale_shape_manual(values = c("FLAG_ICE" = 1,
-                                  "FLAG_DISTURBANCE" = 2,
-                                  "FLAG_DRY" = 4))+
-    labs(y = "Dissolved Oxygen (mg/L)",
-         x = "Timestamp",
-         color = "",
-         shape = "") +
-    theme_classic()
-
-  if(var_waterlevel_m != "none"){
-    p <- ggplot(data=output_data, aes(x = timestamp))+
-      geom_line(aes(y = waterlevel_m, color = "waterlevel_m"))+
-      scale_color_manual(values = c("waterlevel_m" = "#233d4d"))+
-      labs(y = "Water level (m)",
-           x = "Timestamp",
-           color = "",
-           shape = "") +
-      theme_classic()
-  }
-
-
-  q <- ggplot(data=output_data, aes(x = timestamp))+
-    geom_line(aes(y = airtemp_C, color = "airtemp_C"), alpha = 0.5) +
-    geom_line(aes(y = watertemp_C_1, color = "watertemp_C_1"), alpha = 0.5)+
-    geom_line(aes(y = as.numeric(watertemp_C_1_adj), color = "watertemp_C_1_adj"))+
-    scale_color_manual(values = c("watertemp_C_1" = "#619b8a" ,
-                                  "watertemp_C_1_adj" = "#619b8a" ,
-                                  "airtemp_C" = "#fe7f2d"))+
-    coord_cartesian(ylim = c(-10,40))+
-    labs(y = "Temperature (C)",
-         x = "Timestamp",
-         color = "",
-         shape = "") +
-    theme_classic()
-
-  if(var_watertemp_C_2 != "none") {
-    q <- q +
-      geom_line(aes(y = watertemp_C_2, color = "watertemp_C_2"), alpha = 0.5)+
-      scale_color_manual(values = c("watertemp_C_2" = "#FDB840",
-                                    "watertemp_C_1" = "#619b8a" ,
-                                    "watertemp_C_1_adj" = "#619b8a" ,
-                                    "airtemp_C" = "#fe7f2d"))
-                         }
-  # return variables to user input naming
-  names(output_data)[names(output_data) == "do_mgl" ] <-  var_do_mgl
-  names(output_data)[names(output_data) == "do_mgl_adj" ] <-  paste0(var_do_mgl, "_adj")
-  names(output_data)[names(output_data) == "do_percsat" ] <-  var_do_percsat
-  names(output_data)[names(output_data) == "do_percsat_adj" ] <-  paste0(var_do_percsat, "_adj")
-  names(output_data)[names(output_data) == "watertemp_C_1" ] <-  var_watertemp_C_1
-  names(output_data)[names(output_data) == "watertemp_C_1_adj" ] <-  paste0(var_watertemp_C_1, "_adj")
-  names(output_data)[names(output_data) ==  "airtemp_C"] <-  var_airtemp_C
-
-
-  if(var_watertemp_C_2 != "none") {
-    names(output_data)[names(output_data) == "watertemp_C_2" ] <-  var_watertemp_C_2
-  }
-
-  if(plot_only == FALSE) {
-    if(var_waterlevel_m != "none") {
-      names(output_data)[names(output_data) == "waterlevel_m" ] <-  var_waterlevel_m
-      print("Results returned as list: select [1] for dissolved oxygen data with QAQC flags, [2] dissolved oxygen data to visually assess for dry/ice/disturbance periods")
-      return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(o)), suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.3, 0.3, 0.3), nrows = 3,shareX = TRUE, margin = 0.05)))
-    } else{
-      print("Results returned as list: select [1] for dissolved oxygen data with QAQC flags, [2] dissolved oxygen data to visually assess for dry/ice/disturbance periods")
-      return(list(output_data, plotly::subplot(suppressWarnings(ggplotly(o)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05)))
     }
-  } # end of plot only = TRUE
-  if(plot_only == TRUE){
-    if(var_waterlevel_m != "none") {
-      names(output_data)[names(output_data) == "waterlevel_m" ] <-  var_waterlevel_m
-      return(plotly::subplot(suppressWarnings(ggplotly(o)), suppressWarnings(ggplotly(p)), suppressWarnings(ggplotly(q)), heights = c(0.3, 0.3, 0.3), nrows = 3,shareX = TRUE, margin = 0.05))
-    } else{
-      return(plotly::subplot(suppressWarnings(ggplotly(o)), suppressWarnings(ggplotly(q)), heights = c(0.5, 0.5), nrows = 2,shareX = TRUE, margin = 0.05))
-    }
-  } # end of plot_only = TRUE
+  }
+  
+  # ---- 6. Build QAQC log rows (WL-style rules list) -------------------------
+  metric      <- "DO"
+  fun_name    <- "dissox_qaqc"
+  action      <- "AUTO_QAQC"
+  manual_note <- "Automatic dissolved oxygen QA/QC; no manual note provided."
+  run_time    <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+  
+  rules <- list(
+    # DO logger error
+    list(
+      flag        = output_data$do_error %in% TRUE,
+      field       = "do_mgl_adj",
+      code        = "DO_ERROR",
+      action_note = "Logger error code (-888.88) in DO or DO temperature; DO and %sat removed."
+    ),
+    # negative DO
+    list(
+      flag        = output_data$do_neg_between %in% TRUE,
+      field       = "do_mgl_adj",
+      code        = "NEGATIVE_DO",
+      action_note = "DO between 0 and -1 mg/L corrected to 0 (and %sat to 0)."
+    ),
+    list(
+      flag        = output_data$do_neg_lt_minus1 %in% TRUE,
+      field       = "do_mgl_adj",
+      code        = "NEGATIVE_DO",
+      action_note = "DO less than -1 mg/L removed (DO and %sat set to NA)."
+    ),
+    # very high DO
+    list(
+      flag        = output_data$do_high %in% TRUE,
+      field       = "do_mgl_adj",
+      code        = "OUTLIER_DO",
+      action_note = "DO greater than 21 mg/L removed (DO and %sat set to NA)."
+    ),
+    # temperature-driven rules
+    list(
+      flag        = output_data$temp_neg_between %in% TRUE,
+      field       = "watertemp_C_do_adj",
+      code        = "NEGATIVE_TEMP",
+      action_note = "DO water temp between 0 and -1 °C corrected to 0 °C."
+    ),
+    list(
+      flag        = output_data$temp_neg_leq_minus1 %in% TRUE,
+      field       = "watertemp_C_do_adj",
+      code        = "LOGGER_ICE",
+      action_note = "DO water temp ≤ -1 °C removed (set to NA)."
+    ),
+    list(
+      flag        = output_data$temp_flag_ice %in% TRUE,
+      field       = "watertemp_C_do_adj",
+      code        = "FLAG_ICE",
+      action_note = "Possible ice conditions: DO water temp < 0.3 °C; flagged for review."
+    ),
+    # dry periods (12-point rule) – DO-specific
+    list(
+      flag        = output_data$flag_do_dry %in% TRUE,
+      field       = "do_mgl_adj",
+      code        = "FLAG_DO_DRY",
+      action_note = "Possible dry sensor: DO %sat ≥ 100 and air–water temps within 2 °C for ≥ 12 points."
+    )
+  )
+  
+  logs_list <- lapply(rules, function(r) {
+    ts_sel <- output_data$timestamp[r$flag]
+    if (length(ts_sel) == 0) return(NULL)
+    
+    make_qaqc_log_row(
+      timestamps  = ts_sel,
+      station     = select_station,
+      metric      = metric,
+      field       = r$field,
+      action      = action,
+      code        = r$code,
+      action_note = r$action_note,
+      manual_note = manual_note,
+      fun_name    = fun_name,
+      user        = user,
+      run_time    = run_time
+    )
+  })
+  
+  log_this <- logs_list[!vapply(logs_list, is.null, logical(1))]
+  log_this <- if (length(log_this) > 0) {
+    dplyr::bind_rows(log_this)
+  } else {
+    dplyr::tibble(
+      station        = select_station,
+      metric         = metric,
+      field          = "do_mgl_adj",
+      action         = action,
+      code           = NA_character_,
+      action_note    = "Automatic dissolved oxygen QA/QC ran; no flags applied.",
+      manual_note    = manual_note,
+      ts_start       = NA_character_,
+      ts_end         = NA_character_,
+      duration_hours = NA_real_,
+      fun_name       = fun_name,
+      run_at         = run_time,
+      user           = user
+    )
+  }
+  
+  # ---- 7. Append to on-disk log ---------------------------------------------
+  log_path <- qaqc_log_path(log_root, select_station, metric)
+  
+  qaqc_log_append(
+    log_path = log_path,
+    station  = select_station,
+    metric   = metric,
+    log_rows = log_this
+  )
+  
+  message("QA/QC log updated: ", log_path)
+  
+  return(output_data)
 }
-#end of dissox_qaqc function
