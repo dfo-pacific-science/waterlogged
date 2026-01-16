@@ -19,7 +19,9 @@
 #' @import lubridate
 
 
-write_clean_data <- function(input_data, path_to_output_folder, logger_type, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26", var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_conduct_uScm = "conduct_uScm_U24", var_spc_uScm = "spc_uScm_U24", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20") {
+write_clean_data <- function(input_data, path_to_output_folder, logger_type, var_do_mgl = "do_mgl_U26", var_do_percsat = "do_percsat_U26",
+                             var_waterlevel_m = "waterlevel_m_U20", var_watertemp_C = "watertemp_C_U20", var_conduct_uScm = "conduct_uScm_U24",
+                             var_spc_uScm = "spc_uScm_U24", var_airpress_kPa = "airpress_kPa_U20", var_airtemp_C = "airtemp_C_U20") {
 
   #make sure all paths have trailing slash
   if (!endsWith(path_to_output_folder, "/")) {
@@ -178,9 +180,9 @@ write_clean_data <- function(input_data, path_to_output_folder, logger_type, var
 
       # remove data flags
 
-      site_year_j$wl_qaqc_code <- gsub("FLAG_ICE", NA, site_year_j$wl_qaqc_code)
-      site_year_j$wl_qaqc_code <- gsub("FLAG_DISTURBANCE", NA, site_year_j$wl_qaqc_code)
-      site_year_j$wl_qaqc_code <- gsub("FLAG_DRY", NA, site_year_j$wl_qaqc_code)
+      # site_year_j$wl_qaqc_code <- gsub("FLAG_ICE", NA, site_year_j$wl_qaqc_code)
+      # site_year_j$wl_qaqc_code <- gsub("FLAG_DISTURBANCE", NA, site_year_j$wl_qaqc_code)
+      # site_year_j$wl_qaqc_code <- gsub("FLAG_DRY", NA, site_year_j$wl_qaqc_code)
 
 
       # write csv for each year and site_station_code
