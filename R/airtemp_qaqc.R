@@ -63,7 +63,6 @@ airtemp_qaqc <- function(input_data, select_station,  var_airtemp_C = "airtemp_C
     geom_point(data = output_data %>% drop_na(at_qaqc_code), aes(x = timestamp, y = airtemp_C), color = "red", shape = 4)+
     scale_color_manual(values = c("airtemp_C" = "orange",
                                   "airtemp_C_adj" = "yellow"))+
-    scale_y_continuous(limits = c(-38,41))+
     labs(title =select_station,
          y = "Air temperature (C)",
          x = "Timestamp") +
