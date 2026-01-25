@@ -76,6 +76,11 @@ bind_hobo_files <- function(path_to_raw_folder,
     full.names = TRUE
   )
 
+  #check if there is csv files in
+  if(length(path_to_files) == 0) {
+    stop("No CSV files found in input folder. Please check the path to the folder containing raw HOBO CSV files and the folder itself.")
+  }
+
   # extract data from hobo file(s)
   hobo_data_raw <- purrr::map_df(path_to_files, extract_alldata_from_file)
 
