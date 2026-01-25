@@ -76,3 +76,18 @@ test_that("Test multiple metric types", {
                "Multiple metric types found for these loggers:")
 
 })
+
+test_that("Test no csv files in input folder", {
+
+  path_to_raw_folder = test_path("fixtures/data/testing/raw/no_csv_files_in_input_folder")
+
+  path_to_output_folder = withr::local_tempdir()
+
+  metadata_path = test_path("fixtures/data/testing/metadata/no_csv_files_in_input_folder.csv")
+
+  expect_error(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                               path_to_output_folder = path_to_output_folder,
+                               metadata_path = metadata_path),
+               "No CSV files found in input folder.")
+
+})
