@@ -44,3 +44,19 @@ test_that("Test binding DO files", {
   expect_s3_class(multi_plots, "ggplot")
 
 })
+
+test_that("Test missing metadata", {
+
+  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_missing_metadata")
+
+  path_to_output_folder = withr::local_tempdir()
+
+  metadata_path = test_path("fixtures/data/testing/metadata/test_missing_metadata.csv")
+
+
+  expect_error(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                               path_to_output_folder = path_to_output_folder,
+                               metadata_path = metadata_path),
+               "Metadata missing for logger serial number:")
+
+})
