@@ -60,3 +60,19 @@ test_that("Test missing metadata", {
                "Metadata missing for logger serial number:")
 
 })
+
+test_that("Test multiple metric types", {
+
+  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_metric_types")
+
+  path_to_output_folder = withr::local_tempdir()
+
+  metadata_path = test_path("fixtures/data/testing/metadata/test_multiple_metric_types.csv")
+
+
+  expect_error(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                               path_to_output_folder = path_to_output_folder,
+                               metadata_path = metadata_path),
+               "Multiple metric types found for these loggers:")
+
+})
