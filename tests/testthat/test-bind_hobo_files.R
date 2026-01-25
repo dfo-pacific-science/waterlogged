@@ -91,3 +91,29 @@ test_that("Test no csv files in input folder", {
                "No CSV files found in input folder.")
 
 })
+
+test_that("Test multiple date formats", {
+
+  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_date_formats/waterlevel_timestamp_wrong_format")
+
+  path_to_output_folder = withr::local_tempdir()
+
+  metadata_path = test_path("fixtures/data/testing/metadata/test_multiple_date_formats.csv")
+
+  timestamp_wrong_format_bound = bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                  path_to_output_folder = path_to_output_folder,
+                  metadata_path = metadata_path)
+
+  timestamp_wrong_format_compiled = timestamp_wrong_format_bound[[1]] %>% select(-file_name) #remove file name since it wont be identical between the two files
+
+  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_date_formats/waterlevel_timestamp_correct_format")
+
+  timestamp_correct_format_bound = bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                                 path_to_output_folder = path_to_output_folder,
+                                                 metadata_path = metadata_path)
+
+  timestamp_correct_format_compiled = timestamp_correct_format_bound[[1]] %>% select(-file_name) #remove file name since it wont be identical between the two files
+
+  expect_equal(timestamp_wrong_format_compiled, timestamp_correct_format_compiled)
+
+})
