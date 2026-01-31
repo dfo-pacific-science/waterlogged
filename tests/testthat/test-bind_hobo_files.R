@@ -45,6 +45,23 @@ test_that("Test binding DO files", {
 
 })
 
+test_that("Test binding COND files", {
+
+  path_to_raw_folder = test_path("fixtures/data/testing/raw/COND")
+  path_to_output_folder = withr::local_tempdir()
+  metadata_path = test_path("fixtures/data/testing/raw/testing_metadata_FP.csv")
+
+  cond_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                path_to_output_folder = path_to_output_folder,
+                                metadata_path = metadata_path)
+
+  sites_compiled = cond_bound[[1]]
+  multi_plots = cond_bound[[2]]
+
+  expect_s3_class(sites_compiled, "data.frame")
+  expect_s3_class(multi_plots, "ggplot")
+})
+
 test_that("Test missing metadata", {
 
   path_to_raw_folder = test_path("fixtures/data/testing/raw/test_missing_metadata")
