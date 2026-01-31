@@ -14,6 +14,22 @@
 #'
 watertemp_qaqc <- function(input_data, select_station, var_airtemp_C ="airtemp_C_U20", var_watertemp_C = "watertemp_C_U20", plot_only = FALSE) {
 
+  # ---- 0. Required columns ----
+  required_cols <- c(
+    "site_station_code",
+    "timestamp",
+    "watertemp_C",
+    "airtemp_C"
+  )
+
+  missing_cols <- setdiff(required_cols, names(input_data))
+  if (length(missing_cols) > 0) {
+    stop(
+      "dissox_qaqc(): input_data is missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
+    )
+  }
   # ensures user is only processing one station at a time
   output_data <- input_data
   output_data <- output_data[output_data$site_station_code==select_station,]
