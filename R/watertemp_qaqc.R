@@ -25,14 +25,27 @@ watertemp_qaqc <- function(input_data, select_station, var_airtemp_C ="airtemp_C
   missing_cols <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
-      "dissox_qaqc(): input_data is missing required columns: ",
+      "watertemp_qaqc(): input_data is missing required columns: ",
       paste(missing_cols, collapse = ", "),
       call. = FALSE
     )
   }
-  # ensures user is only processing one station at a time
-  output_data <- input_data
-  output_data <- output_data[output_data$site_station_code==select_station,]
+
+  # ---- 1. Filter to station & sort ----
+  output_data <- input_data %>%
+    dplyr::filter(.data$site_station_code == !!select_station) %>%
+    dplyr::arrange(.data$timestamp)
+
+  if (nrow(output_data) == 0) {
+    warning("watertemp_qaqc(): no rows for station ", select_station)
+    return(output_data)
+  }
+
+  # Ensure timestamp is POSIXct
+  if (!inherits(output_data$timestamp, "POSIXct")) {
+    output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
+  }
+
   #remove rownumbers
   rownames(output_data) <- NULL
 
@@ -41,6 +54,9 @@ watertemp_qaqc <- function(input_data, select_station, var_airtemp_C ="airtemp_C
 
   if(plot_only == FALSE) {
 
+    # make qaqc adjustment column
+    output_data$qaqc_code <- NA
+    output_data$qaqc_note <- NA
     output_data$watertemp_C_adj <- output_data$watertemp_C
 
     for(i in 1:length(output_data$timestamp)) {
@@ -89,7 +105,7 @@ watertemp_qaqc <- function(input_data, select_station, var_airtemp_C ="airtemp_C
     names(output_data)[names(output_data) ==  "watertemp_C"] <- var_watertemp_C
     names(output_data)[names(output_data) ==  "airtemp_C"] <- var_airtemp_C
 
-    return(list(ouput_data, ggplotly(p)))
+    return(list(output_data, ggplotly(p)))
 
   }
 
