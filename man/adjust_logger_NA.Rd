@@ -2,57 +2,85 @@
 % Please edit documentation in R/adjust_logger_NA.R
 \name{adjust_logger_NA}
 \alias{adjust_logger_NA}
-\title{Remove dry or ice}
+\title{Set logger values to NA over a time window and log the change}
 \usage{
 adjust_logger_NA(
-  input_data = site_data,
+  input_data,
   select_station,
-  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
-  timestamp_timezone = "UTC",
+  metric,
+  reason_to_adjust,
   timestamp_start,
   timestamp_end,
-  logger_to_adjust,
-  reason_to_adjust,
+  keep_temp = FALSE,
   apply_to_all_data = FALSE,
-  var_do_mgl = "do_mgl_U26",
-  var_do_percsat = "do_percsat_U26",
-  var_waterlevel_m = "waterlevel_m_U20",
-  var_watertemp_C = "default",
-  var_airtemp_C = "airtemp_C_U20"
+  manual_note,
+  log_root,
+  user = Sys.info()[["user"]]
 )
 }
 \arguments{
-\item{input_data}{Data for desired site_station_code}
+\item{input_data}{Data frame containing logger data for one or more stations,
+including a \code{timestamp} column, \code{site_station_code}, and the
+relevant adjusted fields (e.g. \code{waterlevel_m_adj},
+\code{do_mgl_adj}, etc.).}
 
-\item{select_station}{Unique identifier code for station}
+\item{select_station}{Station code to adjust (value of
+\code{site_station_code}).}
 
-\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+\item{metric}{Character string specifying which metric to adjust. Accepted
+values include \code{"waterlevel"}, \code{"dissolvedoxygen"},
+\code{"watertemp"}, \code{"barometric"}, \code{"conductivity"} and
+common variants (e.g. \code{"water level"}, \code{"DO"}, \code{"BARO"}).}
 
-\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
+\item{reason_to_adjust}{Character; reason for the adjustment. One of
+\code{"ice"}, \code{"dry"}, or \code{"disturbance"}. This controls which
+\code{edit_*} flag column is set and how the NA adjustment is applied.}
 
-\item{timestamp_start}{Date and time of start of dry period: must be formatted the same as timestamp in site_data}
+\item{timestamp_start, timestamp_end}{Character date-time values defining
+the adjustment window, in \code{"YYYY-MM-DD HH:MM:SS"} format, parsed
+with \code{lubridate::ymd_hms()}.}
 
-\item{timestamp_end}{Date and time of end of dry period: must be formatted the same as timestamp in site_data}
+\item{keep_temp}{Logical; if \code{TRUE}, water temperature adjustments are
+skipped for disturbance events (where applicable). Ignored for metrics
+where no temperature is associated.}
 
-\item{logger_to_adjust}{either waterlevel or watertemp; select which variable/column to remove between timestamp_start and timestamp_end}
+\item{apply_to_all_data}{Logical; if \code{FALSE} (default), only values
+within \code{timestamp_start}–\code{timestamp_end} are set to NA. If
+\code{TRUE} and a water level column is present, a dry threshold is
+derived from the window and applied to the whole record (for supported
+metrics and reasons).}
 
-\item{reason_to_adjust}{either ice, dry or disturbance}
+\item{manual_note}{Character; required free-text explanation describing why
+this adjustment is being made. Stored in the QA/QC log.}
 
-\item{apply_to_all_data}{logical; if TRUE all water levels lower than the max waterlevel within the specified timeperiod identified as dry will be removed and flagged as dry; if false, only waterlevels within the specified time period are removed as dry}
+\item{log_root}{Root directory where QA/QC logs are stored (e.g.
+\code{"data/testing/processed"}). The actual log path is derived from
+this root, station, and metric.}
 
-\item{var_do_mgl}{Name of column for dissolved oxygen in mg per litre in input data}
-
-\item{var_do_percsat}{Name of column for dissolved oxygen in percent air saturation in input data}
-
-\item{var_waterlevel_m}{Name of variable column containing water level in meters}
-
-\item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
-
-\item{var_airtemp_C}{Name of column for air temperature (in degrees Celcius) in input data}
+\item{user}{Character; user name recorded in the log entry. Defaults to
+\code{Sys.info()[["user"]]}.}
 }
 \value{
-Dataset where waterlevel_m below the dry waterlevel are flagged as dry
+A data frame for the selected station with updated adjusted fields
+and edit flags. Two internal helper columns (\code{in_window} and
+\code{edit_na}) are removed before returning.
 }
 \description{
-Remove data for periods when logger was out of water or in ice
+Convenience wrapper to set adjusted logger values to \code{NA} over a
+specified time window (or, optionally, for all data below a dry threshold)
+for a given station and metric. Typical use cases are removing periods
+affected by ice, dry conditions, or logger disturbances after visual QA/QC.
+}
+\details{
+The function is metric-aware: it only modifies the adjusted fields relevant
+to the requested \code{metric} and sets a matching \code{edit_*} flag
+(e.g. \code{edit_remove_ice}, \code{edit_remove_dry},
+\code{edit_remove_disturbance}). If no rows fall within the time window
+(or dry threshold) for the given station, a warning is issued and no log
+entry is written.
+}
+\seealso{
+\code{\link{waterlevel_qaqc}}, \code{\link{dissox_qaqc}},
+\code{\link{make_qaqc_log_row}},
+\code{\link{qaqc_log_append}}
 }

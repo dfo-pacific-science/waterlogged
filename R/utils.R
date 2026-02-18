@@ -19,10 +19,6 @@
 #'
 #' @return A numeric vector of temperatures converted to degrees Celsius.
 #'
-#' @examples
-#' convert_F_to_C(32)   # 0
-#' convert_F_to_C(212)  # 100
-#'
 #' @keywords internal
 convert_F_to_C <- function(x) (x - 32) * (5/9)
 
@@ -81,29 +77,29 @@ normalize_string <- function(x) {
 find_na_runs <- function(df, value_col = "airpress_kPa", add_step = TRUE) {
   stopifnot("timestamp" %in% names(df))
   vcol <- rlang::sym(value_col)
-  
+
   # ensure ordered
   df <- df %>% arrange(timestamp)
-  
+
   # estimate native step (for regular series)
   dt <- suppressWarnings(median(diff(df$timestamp), na.rm = TRUE))
   add_dt <- if (add_step && is.finite(as.numeric(dt))) dt else as.difftime(0, units = "secs")
-  
+
   # logical NA vector
   is_na <- is.na(df[[value_col]])
-  
+
   if (!any(is_na)) {
     return(tibble(
       gap_id = integer(), gap_start = as.POSIXct(character()), gap_end = as.POSIXct(character()),
       n_missing = integer(), duration = difftime(character(), character())
     ))
   }
-  
+
   # start = NA now & (previous non-NA or row 1)
   starts <- which(is_na & !dplyr::lag(is_na, default = FALSE))
   # end   = NA now & (next non-NA or last row)
   ends   <- which(is_na & !dplyr::lead(is_na, default = FALSE))
-  
+
   tibble(
     gap_id    = seq_along(starts),
     gap_start = df$timestamp[starts],

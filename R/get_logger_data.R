@@ -55,9 +55,9 @@
 #' @import ggplot2
 #' @import lubridate
 #' @import purrr
-#' 
+#'
 
-source("R/get_logger_data_helpers.R")
+#source("R/get_logger_data_helpers.R")
 
 
 get_logger_data <- function(path_to_data,
@@ -66,12 +66,12 @@ get_logger_data <- function(path_to_data,
                             select_station  = "all",
                             temporal_scale  = "none",
                             return_plots    = TRUE) {
-  
+
   temporal_scale <- normalise_temporal_scale(temporal_scale)
   dp_info        <- resolve_data_processing_pattern(data_processing)
   data_processing <- dp_info$data_processing
   pattern         <- dp_info$pattern
-  
+
   # ---- Handle metric for temporal_scale = "none" -------------------------------
   if (temporal_scale == "none") {
     if (!missing(metric) && !is.null(metric)) {
@@ -81,7 +81,7 @@ get_logger_data <- function(path_to_data,
       )
     }
   }
-  
+
   # find files recursively
   file_paths <- list.files(
     path       = path_to_data,
@@ -89,7 +89,7 @@ get_logger_data <- function(path_to_data,
     full.names = TRUE,
     recursive  = TRUE
   )
-  
+
   if (length(file_paths) == 0L) {
     stop(
       "No files found in `path_to_data` (recursively) matching pattern '", pattern, "'. ",
@@ -97,20 +97,20 @@ get_logger_data <- function(path_to_data,
       call. = FALSE
     )
   }
-  
+
   # read and combine
   dat <- purrr::map_df(file_paths, read_logger_file)
-  
+
   # optional station filter
   if (!identical(select_station, "all")) {
     dat <- dat %>% dplyr::filter(site_station_code %in% select_station)
   }
-  
+
   # if no summarisation requested, return combined wide data
   if (temporal_scale == "none") {
     return(dat)
   }
-  
+
   # summarisation: only allowed for v1.0/clean
   if (!identical(data_processing, "v1.0")) {
     stop(
@@ -120,19 +120,19 @@ get_logger_data <- function(path_to_data,
       call. = FALSE
     )
   }
-  
+
   metric_norm <- normalise_metric(metric)
-  
+
   dat_sum <- summarise_clean_data(dat, metric_norm, temporal_scale)
-  
+
   if (!isTRUE(return_plots)) {
     return(dat_sum)
   }
-  
+
   plots <- build_plots(dat_sum, metric_norm, temporal_scale)
-  
+
   message("Returning list: $data, $plot1, $plot2, $plot3 (some plots may be NULL).")
-  
+
   list(
     data  = dat_sum,
     plot1 = plots$plot1,

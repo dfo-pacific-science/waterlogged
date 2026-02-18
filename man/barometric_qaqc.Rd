@@ -2,33 +2,77 @@
 % Please edit documentation in R/barometric_qaqc.R
 \name{barometric_qaqc}
 \alias{barometric_qaqc}
-\title{Automatic barometric qaqc}
+\title{QA/QC a single barometric pressure time series}
 \usage{
 barometric_qaqc(
   input_data,
   select_station,
-  var_airpress_kPa = "airpress_kPa_U20",
-  var_airtemp_C = "airtemp_C_U20",
-  climate_station = "BLUE RIVER",
-  plot_only = FALSE
+  log_root,
+  user = Sys.info()[["user"]],
+  temp_low_limit = -40,
+  temp_high_limit = 50,
+  pressure_low_kpa = 85,
+  pressure_high_kpa = 105,
+  spike_threshold_kpa = 1.5,
+  flatline_n = 6
 )
 }
 \arguments{
-\item{input_data}{raw data csv from barometric U20 loggers}
+\item{input_data}{Data frame of barometric logger data containing at least
+\code{timestamp}, \code{site_station_code}, \code{airpress_kPa} and \code{airtemp_C}, possibly
+for multiple stations.}
 
-\item{select_station}{site_station_code for desired logger station, supplied barometric data will be filtered by this code}
+\item{select_station}{Character, station code to process
+(matches \code{site_station_code}).}
 
-\item{var_airpress_kPa}{The variable for barometric pressure in kPa}
+\item{log_root}{Root folder where QA/QC logs are written by
+\code{\link[=qaqc_log_append]{qaqc_log_append()}}, typically the same root used elsewhere in the
+workflow (e.g. \code{"data/testing/processed"}).}
 
-\item{var_airtemp_C}{The variable for air temperature in degrees Celsius}
+\item{user}{Character username written into the QA/QC log. Defaults to
+\code{Sys.info()[["user"]]}.}
 
-\item{climate_station}{name of desired climate station to check air temperature values. One of FORT NELSON, PRINCE GEORGE, BLUE RIVER, KAMLOOPS, or VANCOUVER.}
+\item{temp_low_limit}{Lower bound (C) for plausible barometric temperatures.
+Values outside \verb{[temp_low_limit, temp_high_limit]} are set to \code{NA} in
+\code{airtemp_C_adj} and flagged.}
 
-\item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, barometric and temperature values out of range are removed and flagged}
+\item{temp_high_limit}{Upper bound (C) for plausible barometric temperatures.}
+
+\item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric pressure.
+Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged.}
+
+\item{pressure_high_kpa}{Upper bound (kPa) for plausible barometric pressure.
+Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged.}
+
+\item{spike_threshold_kpa}{Threshold (kPa) for flagging sudden pressure
+spikes between consecutive timesteps (absolute difference in kPa).}
+
+\item{flatline_n}{Integer; number of consecutive identical values required
+to flag a potential flatline in the pressure series.}
 }
 \value{
-list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
+A data frame containing only rows for \code{select_station}, sorted by
+\code{timestamp}, with updated \verb{*_adj} columns and edit flags. The input is not
+modified in-place.
 }
 \description{
-Format barometric data for output as "clean"
+Applies automatic QA/QC rules to a barometric logger time series for one
+station: removes out-of-range pressures and temperatures, flags spikes
+and flatlines, and writes QA/QC log entries. Returns the input data with
+adjusted columns (\code{airpress_kPa_adj}, \code{airtemp_C_adj}) and boolean edit
+flags.
+}
+\details{
+If \code{airpress_kPa_adj} or \code{airtemp_C_adj} do not exist, they are created as
+copies of the raw \code{airpress_kPa} / \code{airtemp_C} columns and then modified
+by the QA/QC rules. Edit flags (\code{edit_press_high}, \code{edit_press_low},
+\code{edit_temp_range}, \code{edit_spike}, \code{edit_flatline}) are created if missing
+and set to \code{TRUE} where each rule applies.
+
+For each rule that triggers, a corresponding QA/QC log entry is appended via
+\code{\link[=make_qaqc_log_row]{make_qaqc_log_row()}} and \code{\link[=qaqc_log_append]{qaqc_log_append()}}, using metric \code{"BARO"} and
+field \code{"airpress_kPa_adj"}.
+}
+\seealso{
+\code{\link[=barometric_qaqc_all]{barometric_qaqc_all()}}, \code{\link[=add_nearest_baro]{add_nearest_baro()}}
 }

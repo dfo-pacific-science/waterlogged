@@ -1,8 +1,27 @@
+#' Dissolved oxygen QAQC
+#'
+#' Perform preliminary QAQC on dissolved oxygen data
+#' @param input_data The dataset containing raw dissolved oxygen in mg/L, percent saturation, temperature in degrees Celcius and air temperature from barometric logger in degrees Celcius
+#' @param select_station Unique identifier code for station
+#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged
+#' @param var_waterlevel_m OPTIONAL Name of variable column containing water level in meters
+#' @param var_watertemp_C_1 Name of column for water temperature (in degrees Celcius) from dissolved oxygen logger in input data
+#' @param var_watertemp_C_2 OPTIONAL Name of column for water temperature (in degrees Celcius) from waterlevel logger in input data
+#' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
+#' @param var_do_percsat Name of column for dissolved oxygen in percent air saturation in input data
+#' @param var_do_mgl Name of column for dissolved oxygen in mg per litre in input data
+#' @return Dataset of dissolved oxygen and waterlevel filtered for error values and flagged for ice, dry and disturbance
+#' @export
+#' @import dplyr
+#' @import tidyr
+#' @import ggplot2
+#' @import plotly
+
 dissox_qaqc <- function(input_data,
                         select_station,
                         log_root,
                         user = Sys.info()[["user"]]) {
-  
+
   # ---- 0. Required columns ----
   required_cols <- c(
     "site_station_code",
@@ -12,7 +31,7 @@ dissox_qaqc <- function(input_data,
     "watertemp_C",
     "airtemp_C"
   )
-  
+
   missing_cols <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
@@ -21,22 +40,22 @@ dissox_qaqc <- function(input_data,
       call. = FALSE
     )
   }
-  
+
   # ---- 1. Filter to station & sort ----
   output_data <- input_data %>%
     dplyr::filter(.data$site_station_code == !!select_station) %>%
     dplyr::arrange(.data$timestamp)
-  
+
   if (nrow(output_data) == 0) {
     warning("dissox_qaqc(): no rows for station ", select_station)
     return(output_data)
   }
-  
+
   # Ensure timestamp is POSIXct
   if (!inherits(output_data$timestamp, "POSIXct")) {
     output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
   }
-  
+
   # ---- 2. Initialise internal temp fields + *_adj columns --------------------
   # Internal temp names (consistent with plotting / other funcs)
   if (!"watertemp_C_do" %in% names(output_data)) {
@@ -45,7 +64,7 @@ dissox_qaqc <- function(input_data,
   if (!"airtemp_C_baro" %in% names(output_data)) {
     output_data$airtemp_C_baro <- output_data$airtemp_C
   }
-  
+
   # Only initialise *_adj if they don't already exist
   if (!"do_mgl_adj" %in% names(output_data)) {
     output_data$do_mgl_adj <- output_data$do_mgl
@@ -56,7 +75,7 @@ dissox_qaqc <- function(input_data,
   if (!"watertemp_C_do_adj" %in% names(output_data)) {
     output_data$watertemp_C_do_adj <- output_data$watertemp_C_do
   }
-  
+
   # ---- 3. Derived helpers & flags (vectorised) -------------------------------
   # All conditions are based on the *current* adj values so we don't
   # overwrite manual corrections.
@@ -64,19 +83,19 @@ dissox_qaqc <- function(input_data,
     dplyr::mutate(
       # temp difference for dryness test (using current temp adj)
       air_watertemp_diff = airtemp_C_baro - watertemp_C_do_adj,
-      
+
       # DO flags (using adj as working column)
       do_error         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
       do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= -1,
       do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < -1,
       do_high          = !is.na(do_mgl_adj) & do_mgl_adj > 21,
-      
+
       # temperature flags (using adj as working col)
       temp_flag_ice       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0.3,
       temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj > -1,
       temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= -1
     )
-  
+
   # ---- 4. Apply DO / temp adjustments (vectorised) ---------------------------
   output_data <- output_data %>%
     dplyr::mutate(
@@ -98,16 +117,16 @@ dissox_qaqc <- function(input_data,
         TRUE                ~ watertemp_C_do_adj
       )
     )
-  
+
   # ---- 5. 12-point dry flag (FLAG_DO_DRY) using adj DO -----------------------
   n <- nrow(output_data)
   output_data$flag_do_dry <- FALSE
-  
+
   if (n >= 12) {
     for (j in 1:(n - 11)) {
       window_diff <- output_data$air_watertemp_diff[j:(j + 11)]
       window_do   <- output_data$do_percsat_adj[j:(j + 11)]
-      
+
       if (any(!is.na(window_diff)) && any(!is.na(window_do))) {
         if (max(abs(window_diff), na.rm = TRUE) <= 2 &&
             min(window_do, na.rm = TRUE) >= 100) {
@@ -116,14 +135,14 @@ dissox_qaqc <- function(input_data,
       }
     }
   }
-  
+
   # ---- 6. Build QAQC log rows (WL-style rules list) -------------------------
   metric      <- "DO"
   fun_name    <- "dissox_qaqc"
   action      <- "AUTO_QAQC"
   manual_note <- "Automatic dissolved oxygen QA/QC; no manual note provided."
   run_time    <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
-  
+
   rules <- list(
     # DO logger error
     list(
@@ -179,11 +198,11 @@ dissox_qaqc <- function(input_data,
       action_note = "Possible dry sensor: DO %sat ≥ 100 and air–water temps within 2 °C for ≥ 12 points."
     )
   )
-  
+
   logs_list <- lapply(rules, function(r) {
     ts_sel <- output_data$timestamp[r$flag]
     if (length(ts_sel) == 0) return(NULL)
-    
+
     make_qaqc_log_row(
       timestamps  = ts_sel,
       station     = select_station,
@@ -198,7 +217,7 @@ dissox_qaqc <- function(input_data,
       run_time    = run_time
     )
   })
-  
+
   log_this <- logs_list[!vapply(logs_list, is.null, logical(1))]
   log_this <- if (length(log_this) > 0) {
     dplyr::bind_rows(log_this)
@@ -219,18 +238,18 @@ dissox_qaqc <- function(input_data,
       user           = user
     )
   }
-  
+
   # ---- 7. Append to on-disk log ---------------------------------------------
   log_path <- qaqc_log_path(log_root, select_station, metric)
-  
+
   qaqc_log_append(
     log_path = log_path,
     station  = select_station,
     metric   = metric,
     log_rows = log_this
   )
-  
+
   message("QA/QC log updated: ", log_path)
-  
+
   return(output_data)
 }

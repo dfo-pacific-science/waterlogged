@@ -22,8 +22,8 @@
 #' The function:
 #'
 #' * Reads all `*.csv` files in `path_to_raw_folder` using
-#'   [extract_alldata_from_file()] and binds them into a single data frame.
-#' * Uses [QAQC_metadata()] to clean/standardise the metadata file.
+#'   extract_alldata_from_file() and binds them into a single data frame.
+#' * Uses QAQC_metadata() to clean/standardise the metadata file.
 #' * Assigns `site_station_code` to each record based on `sn` and the
 #'   deployment/removal timestamps.
 #' * Enforces a single `metric` per folder (e.g., all barometric, all
@@ -39,14 +39,13 @@
 #'
 #' @return A list of length 2:
 #' \describe{
-#'   \item{[[1]]}{A data frame of compiled logger data (`sites_compiled`),
+#'   \item{1}{A data frame of compiled logger data (`sites_compiled`),
 #'   with `site_station_code`, `sn`, `timestamp`, `logger_type`, `metric`, and
 #'   metric-specific value columns.}
-#'   \item{[[2]]}{A `ggplot` object showing the primary value column vs time,
+#'   \item{2}{A `ggplot` object showing the primary value column vs time,
 #'   faceted by `site_station_code`, for quick visual QA/QC.}
 #' }
 #'
-#' @seealso [QAQC_metadata()], [extract_alldata_from_file()]
 #'
 #' @import ggplot2
 #' @import dplyr

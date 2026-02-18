@@ -2,36 +2,69 @@
 % Please edit documentation in R/get_logger_data.R
 \name{get_logger_data}
 \alias{get_logger_data}
-\title{Retrieve data}
+\title{Retrieve and summarise logger data}
 \usage{
 get_logger_data(
   path_to_data,
-  logger_type,
-  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
-  timestamp_timezone = "UTC",
-  data_processing = "clean",
+  data_processing = c("v1.0", "raw", "v0.1", "v0.2", "v0.3"),
+  metric = NULL,
   select_station = "all",
-  temporal_scale = "hourly"
+  temporal_scale = "none",
+  return_plots = TRUE
 )
 }
 \arguments{
-\item{path_to_data}{path to location of desired files encased in quotations}
+\item{path_to_data}{Path to the folder containing the CSV files. The function
+will search this folder and its subfolders recursively.}
 
-\item{logger_type}{either dissolvedoxygen_U26, waterlevel_U20, or baro_U20}
+\item{data_processing}{One of \code{"raw"}, \code{"v0.1"}, \code{"v0.2"},
+\code{"v0.3"}, \code{"v1.0"}, \code{"clean"}. The value is used to select
+files by version suffix. \code{"clean"} is treated as \code{"v1.0"}.
+Summarisation (i.e., \code{temporal_scale != "none"}) is only allowed for
+v1.0/clean data.}
 
-\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+\item{metric}{A character string indicating which metric group to summarise.
+Used only when \code{temporal_scale != "none"}. Accepted values (case and
+spaces ignored) are mapped to:
+\itemize{
+\item \code{"waterlevel"}: water level + water temperature
+\item \code{"dissolvedoxygen"}: DO (mg/L, \%sat) + water temperature
+\item \code{"barometric"}: barometric pressure + air temperature
+\item \code{"airtemp"}: air temperature (e.g., TidbiT)
+\item \code{"watertemp"}: water temperature (e.g., TidbiT)
+}}
 
-\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
+\item{select_station}{Either \code{"all"} (default) or one or more
+\code{site_station_code} values to filter on.}
 
-\item{data_processing}{either raw or clean, clean data has been processed via QAQC protocols, raw data should not be summarized ie. set temporal_scale to hourly}
+\item{temporal_scale}{Temporal aggregation. Case and spaces ignored and
+normalised to one of: \code{"none"}, \code{"hourly"}, \code{"daily"},
+\code{"weekly"}, \code{"monthly"}, \code{"yearly"}. Use \code{"none"} to
+return raw timestamps with no summarisation. "Hourly" aggregates to
+average-by-hour (using \code{floor_date}).}
 
-\item{select_station}{unique site_station_code}
-
-\item{temporal_scale}{either hourly, daily or monthly, daily and monthly return mean values of selected variable}
+\item{return_plots}{Logical; if \code{TRUE} and \code{temporal_scale != "none"},
+returns a list with data and ggplot objects. If \code{FALSE}, returns just}
 }
 \value{
-dataframe
+\itemize{
+\item If \code{temporal_scale == "none"}: a data frame of combined logger data.
+\item Otherwise, if \code{return_plots = FALSE}: a summarised data frame.
+\item Otherwise, a list with elements:
+\itemize{
+\item \code{data}: summarised data frame
+\item \code{plot1}, \code{plot2}, \code{plot3}: ggplot objects
+(some may be \code{NULL} depending on \code{metric}).
+}
+}
 }
 \description{
-Retrieve processed data by selecting desired variable, waterbody type, station, clean or raw, and temporal scale
+High-level helper to load logger data from disk, optionally filter by station,
+optionally summarise to a temporal scale, and optionally return plots.
+}
+\details{
+This function works with the original wide-format processed files
+(e.g. columns like \code{waterlevel_m_U20_adj}, \code{do_mgl_U26_adj}).
+Summarisation is only performed for clean data (v1.0), and only for the
+measurement variables corresponding to the chosen \code{metric}.
 }

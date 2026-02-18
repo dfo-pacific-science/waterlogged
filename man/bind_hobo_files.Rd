@@ -2,33 +2,65 @@
 % Please edit documentation in R/bind_hobo_files.R
 \name{bind_hobo_files}
 \alias{bind_hobo_files}
-\title{Bind raw dissolved oxygen data}
+\title{Bind HOBO logger CSVs and attach site metadata}
 \usage{
 bind_hobo_files(
   path_to_raw_folder,
   path_to_output_folder,
-  logger_type,
-  metadata,
-  timestamp_format = "\%m/\%d/\%Y \%H:\%M",
+  metadata_path,
   timestamp_timezone = "UTC"
 )
 }
 \arguments{
-\item{path_to_raw_folder}{The folder containing raw dissolved oxygen in mg/L from HOBO as csv files}
+\item{path_to_raw_folder}{Path to the folder containing raw HOBO CSV files
+(one or more loggers, all of the same metric). For example
+\code{"data/raw/level"} or \code{"data/testing/raw/COND"}.}
 
-\item{path_to_output_folder}{The desired folder for output of bound dissolved oxygen and barometric pressure per station}
+\item{path_to_output_folder}{Root folder where processed v0.1 CSVs will be
+written. Files are created under \verb{<path_to_output_folder>/<year>/processed},
+e.g. \code{"data/processed"}.}
 
-\item{logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20, baro_U20, conductivity_U24, watertemp_TidbiT, airtemp_TidbiT}
+\item{metadata_path}{Path to a metadata CSV that has at least logger serial
+numbers and deployment/removal information (e.g. \code{sn}, \code{metric},
+\code{site_station_code}, \code{timestamp_deploy}, \code{timestamp_remove}, \code{model}).}
 
-\item{metadata}{File containing serial number, install date, install time and status for each site_station_code}
-
-\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "\%m/\%d/\%Y \%H:\%M"}
-
-\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
+\item{timestamp_timezone}{Time zone used when filling in open-ended
+deployments (where \code{timestamp_remove} is \code{NA}). Defaults to \code{"UTC"}.}
 }
 \value{
-Station specific datasets with dissolved oxygen in percent saturation, as well as a global dataset of all stations
+A list of length 2:
+\describe{
+\item{1}{A data frame of compiled logger data (\code{sites_compiled}),
+with \code{site_station_code}, \code{sn}, \code{timestamp}, \code{logger_type}, \code{metric}, and
+metric-specific value columns.}
+\item{2}{A \code{ggplot} object showing the primary value column vs time,
+faceted by \code{site_station_code}, for quick visual QA/QC.}
+}
 }
 \description{
-Merge dissolved oxygen data from multiple loggers by site_station_code and trim for install/removal dates
+Reads all HOBO CSV files in a folder, links each logger serial number to
+deployment metadata, trims records to deployment/removal windows, standardises
+core column names by metric (barometric, waterlevel, DO, TidbiT temperature,
+conductivity), writes per-station/year v0.1 CSVs, and returns a compiled
+long data frame plus a quick QC plot.
+}
+\details{
+The function:
+\itemize{
+\item Reads all \verb{*.csv} files in \code{path_to_raw_folder} using
+extract_alldata_from_file() and binds them into a single data frame.
+\item Uses QAQC_metadata() to clean/standardise the metadata file.
+\item Assigns \code{site_station_code} to each record based on \code{sn} and the
+deployment/removal timestamps.
+\item Enforces a single \code{metric} per folder (e.g., all barometric, all
+waterlevel, all conductivity).
+\item Standardises core column names depending on logger/metric, e.g.
+\code{airpress_kPa}, \code{waterpress_kPa}, \code{watertemp_C}, \code{airtemp_C},
+\code{do_mgl}, \code{conduct_uScm}, and \code{conduct_range_used}.
+\item For conductivity (U24) loggers, unifies low/full range columns into a
+single \code{conduct_uScm} column and records which range was used.
+\item Writes one v0.1 CSV per station per year to
+\verb{<path_to_output_folder>/<year>/processed} with filenames of the form
+\verb{<site>_<LOGGER>_<startdate>_<enddate>_v0.1.csv}.
+}
 }

@@ -2,30 +2,65 @@
 % Please edit documentation in R/convert_do_mgl_percsat.R
 \name{convert_do_mgl_percsat}
 \alias{convert_do_mgl_percsat}
-\title{Dissolved oxygen conversion}
+\title{Convert dissolved oxygen (mg/L) to percent air saturation}
 \usage{
-convert_do_mgl_percsat(
-  input_data,
-  var_watertemp_C = "watertemp_C_U26",
-  var_airpress_kPa = "airpress_kPa_U20_adj",
-  var_do_mgl = "do_mgl_U26",
-  path_to_output_folder
-)
+convert_do_mgl_percsat(do_data, output_dir, version_label = "v0.3")
 }
 \arguments{
-\item{input_data}{Dataframe of time series of dissolved oxygen in mg/L, temperature in degrees Celcius, and barometric pressure in kPa}
+\item{do_data}{A data frame containing DO, temperature, barometric
+pressure, timestamp, and site identifiers. Must contain the columns:
+\code{timestamp}, \code{site_station_code}, \code{do_mgl},
+\code{watertemp_C}, and \code{airpress_kPa}.}
 
-\item{var_watertemp_C}{The variable for watertemperature in degrees Celcius}
+\item{output_dir}{Character scalar. Root folder where per-year,
+per-site output files will be written. Must already exist.}
 
-\item{var_airpress_kPa}{The variable for barometric pressure in kPa}
-
-\item{var_do_mgl}{The variable for dissolved oxygen in mg per litre}
-
-\item{path_to_output_folder}{The desired folder for output of dissolved oxygen conversion}
+\item{version_label}{Character version string appended to output filenames
+(e.g., \code{"v0.3"}).}
 }
 \value{
-output_data: data frame with dissolved oxygen in percent air saturation as a new column "do_percsat_U26"
+A data frame identical to \code{do_data} but with an additional
+numeric column \code{do_percsat} (percent air saturation).
+Files are written to disk as side effects.
 }
 \description{
-Convert dissolved oxygen from mg/L to percent air saturation
+Computes percent air saturation from dissolved oxygen concentrations
+(\code{do_mgl}), water temperature (\code{watertemp_C}), and barometric
+pressure (\code{airpress_kPa}), following standard Weiss (1970/1974)
+oxygen solubility equations.
+}
+\details{
+The function also writes per-site, per-year CSV files using the naming:
+
+\preformatted{
+  <site>_DO_<startdate>_<enddate>_<version>.csv
+}
+
+and stores them in:
+
+\preformatted{
+  <output_dir>/<year>/processed/
+}
+
+Input data must already be QA/QC'd and standardized to metric-based
+column names:
+\itemize{
+\item \code{timestamp}        (POSIXct, UTC)
+\item \code{site_station_code}
+\item \code{do_mgl}           dissolved oxygen (mg/L)
+\item \code{watertemp_C}      water temperature (°C)
+\item \code{airpress_kPa}     barometric pressure (kPa)
+}
+
+Values of \code{-888.88} in \code{do_mgl} are treated as missing.
+
+The calculation uses Weiss (1970, 1974) oxygen solubility equations.
+Barometric pressure is internally converted from kPa to atmospheres.
+}
+\references{
+Weiss, R. F. (1970). \emph{The solubility of nitrogen, oxygen and argon in water
+and seawater.} Deep-Sea Research.
+
+Weiss, R. F. (1974). \emph{Oxygen solubility in water and seawater based on
+the virial equation.} Deep-Sea Research.
 }

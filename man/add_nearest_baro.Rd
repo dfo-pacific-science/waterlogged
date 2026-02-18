@@ -6,34 +6,32 @@
 \usage{
 add_nearest_baro(
   input_data,
-  input_logger_type,
   path_to_output_folder,
-  baro_data,
-  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
-  timestamp_timezone = "UTC",
-  var_airpress_kPa = "airpress_kPa_U20",
-  var_airtemp_C = "airtemp_C_U20",
-  metadata
+  baro_data_path,
+  metric = c("water level", "DO", "conductivity", "both", "all"),
+  max_km = 30,
+  baro_site_selection = "auto",
+  metadata_path
 )
 }
 \arguments{
 \item{input_data}{The dataset containing raw dissolved oxygen in mg/L or waterlevel in kPa}
 
-\item{input_logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20}
-
 \item{path_to_output_folder}{The desired folder for output of bound dissolved oxygen and barometric pressure per station}
 
+\item{input_logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20}
+
+\item{metadata}{File containing site_station_code, latitude, and longitude}
+
 \item{baro_data}{File containing barometric pressure in kPa for barometric stations as site_code that match with those in the metadata_file under nearest_baro, secondary_baro, tertiary_baro}
+
+\item{var_airtemp_C}{The variable for air temperature in degrees Celsius from barometric logger}
+
+\item{var_airpress_kPa}{The variable for barometric pressure in kPa}
 
 \item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "\%m/\%d/\%Y \%H:\%M"}
 
 \item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
-
-\item{var_airpress_kPa}{The variable for barometric pressure in kPa}
-
-\item{var_airtemp_C}{The variable for air temperature in degrees Celsius from barometric logger}
-
-\item{metadata}{File containing site_station_code, latitude, and longitude}
 }
 \value{
 dataset with barometric data and adjustments added as new columns, as well as a saved csv

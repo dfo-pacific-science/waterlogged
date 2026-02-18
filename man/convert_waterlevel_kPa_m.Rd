@@ -8,14 +8,9 @@ convert_waterlevel_kPa_m(
   input_data,
   select_station,
   reference_data,
-  var_reference_waterlevel_m = "stage_m",
-  var_reference_timestamp = "stage_timestamp",
   reference_type = "stage",
   select_measurement = 1,
-  var_waterpress_kPa = "waterpress_kPa_U20",
-  var_watertemp_C = "watertemp_C_U20",
-  var_airpress_kPa = "airpress_kPa_U20_adj",
-  var_airtemp_C = "airtemp_C_U20_adj",
+  logger_type_expected = "u20",
   path_to_output_folder
 )
 }
@@ -26,23 +21,23 @@ convert_waterlevel_kPa_m(
 
 \item{reference_data}{File containing manual measurements of water level: required variables site_station_code, stage_timestamp, stage_m or depth_m}
 
-\item{var_reference_waterlevel_m}{Name of column for reference water level in metres}
-
-\item{var_reference_timestamp}{Name of column for reference waterlevel timestamp (as.POSIXct)}
-
 \item{reference_type}{Type of manual measurement used for correcting water level; Either stage or depth}
 
 \item{select_measurement}{Numeric; Select which manual measurement will be used for correcting (default is first measurement, 1)}
 
-\item{var_waterpress_kPa}{Name of column for water pressure (in kPa) in input data}
+\item{path_to_output_folder}{The desired folder for output of baro compensation}
 
 \item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
+
+\item{var_waterpress_kPa}{Name of column for water pressure (in kPa) in input data}
 
 \item{var_airpress_kPa}{Name of column for air pressure (in kPa) in input data}
 
 \item{var_airtemp_C}{Name of column for air temperature (in degrees Celcius) in input data}
 
-\item{path_to_output_folder}{The desired folder for output of baro compensation}
+\item{var_reference_waterlevel_m}{Name of column for reference water level in metres}
+
+\item{var_reference_timestamp}{Name of column for reference waterlevel timestamp (as.POSIXct)}
 }
 \value{
 List of 3 objects: 1. site_wl: dataframe of converted waterlevel for specified station, 2. ref_dat: dataframe of manual measurements for specified site, 3. plot of waterlevel data for specified site to aid in QAQC

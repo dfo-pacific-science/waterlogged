@@ -52,7 +52,7 @@
 #' entry is written.
 #'
 #' @seealso \code{\link{waterlevel_qaqc}}, \code{\link{dissox_qaqc}},
-#'   \code{\link{conductivity_qaqc_all}}, \code{\link{make_qaqc_log_row}},
+#'   \code{\link{make_qaqc_log_row}},
 #'   \code{\link{qaqc_log_append}}
 #'
 #' @import dplyr
@@ -88,11 +88,11 @@ adjust_logger_NA <- function(
       ". You provided: ", reason_to_adjust
     )
   }
-  
+
   if (missing(manual_note) || trimws(manual_note) == "") {
     stop("adjust_logger_NA(): 'manual_note' must be a non-empty string.")
   }
-  
+
   # Normalize metric to short code used in logs
   metric_norm <- dplyr::case_when(
     metric %in% c("waterlevel", "water level", "WL")                  ~ "WL",
@@ -108,7 +108,7 @@ adjust_logger_NA <- function(
       "'. Expected one of waterlevel, dissolvedoxygen, watertemp, barometric, conductivity."
     )
   }
-  
+
   # Map metric to primary adjusted field for logging
   primary_field <- dplyr::case_when(
     metric_norm == "WL"   ~ "waterlevel_m_adj",
@@ -118,7 +118,7 @@ adjust_logger_NA <- function(
     metric_norm == "COND" ~ "conduct_uScm_adj",
     TRUE                  ~ NA_character_
   )
-  
+
   # Which edit_* flag are we setting?
   edit_flag_col <- dplyr::case_when(
     reason_to_adjust == "ice"         ~ "edit_remove_ice",
@@ -126,16 +126,16 @@ adjust_logger_NA <- function(
     reason_to_adjust == "disturbance" ~ "edit_remove_disturbance",
     TRUE                              ~ "edit_remove_unknown"
   )
-  
+
   # ---- Subset station + sort + basic checks ---------------------------------
   df <- input_data %>%
     dplyr::filter(site_station_code == select_station) %>%
     dplyr::arrange(timestamp)
-  
+
   if (nrow(df) == 0) {
     stop("adjust_logger_NA(): no rows found for station '", select_station, "'.")
   }
-  
+
   # primary adjusted field must exist
   if (!primary_field %in% names(df)) {
     stop(
@@ -143,18 +143,18 @@ adjust_logger_NA <- function(
       "' for metric '", metric_norm, "' not found in data."
     )
   }
-  
+
   # timestamp + site required
   if (!all(c("timestamp", "site_station_code") %in% names(df))) {
     stop("adjust_logger_NA(): data must contain 'timestamp' and 'site_station_code'.")
   }
-  
+
   has_wl <- "waterlevel_m" %in% names(df)
-  
+
   # ---- Parse timestamps ------------------------------------------------------
   ts_start <- lubridate::ymd_hms(timestamp_start)
   ts_end   <- lubridate::ymd_hms(timestamp_end)
-  
+
   if (is.na(ts_start) || is.na(ts_end)) {
     stop(
       "Could not parse timestamp_start or timestamp_end with ymd_hms(). ",
@@ -164,11 +164,11 @@ adjust_logger_NA <- function(
   if (ts_end <= ts_start) {
     stop("timestamp_end must be after timestamp_start.")
   }
-  
+
   # ---- Internal flags --------------------------------------------------------
   df$in_window <- df$timestamp >= ts_start & df$timestamp <= ts_end
   df$edit_na   <- FALSE   # internal flag: rows touched by this function
-  
+
   # Ensure edit_* flag column exists and is logical
   if (!edit_flag_col %in% names(df)) {
     df[[edit_flag_col]] <- FALSE
@@ -179,15 +179,15 @@ adjust_logger_NA <- function(
     }
     df[[edit_flag_col]][is.na(df[[edit_flag_col]])] <- FALSE
   }
-  
+
   # ---- Metric-specific logic (only touch *_adj + edit_na) --------------------
   # ------------------------- WATER LEVEL --------------------------------------
   if (metric_norm == "WL") {
-    
+
     if (!"watertemp_C_adj" %in% names(df)) {
       df$watertemp_C_adj <- NA_real_
     }
-    
+
     if (reason_to_adjust == "ice") {
       df <- df %>%
         dplyr::mutate(
@@ -196,15 +196,15 @@ adjust_logger_NA <- function(
           watertemp_C_adj  = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
         )
     }
-    
+
     if (reason_to_adjust == "dry") {
-      
+
       if (apply_to_all_data) {
         dry_wl <- df %>%
           dplyr::filter(in_window, !is.na(waterlevel_m_adj)) %>%
           dplyr::summarise(dry_wl = max(waterlevel_m_adj, na.rm = TRUE)) %>%
           dplyr::pull(dry_wl)
-        
+
         if (length(dry_wl) == 0 || is.infinite(dry_wl)) {
           warning("No non-NA waterlevel_m_adj in dry window; no WL dry adjustment applied.")
         } else {
@@ -226,7 +226,7 @@ adjust_logger_NA <- function(
           )
       }
     }
-    
+
     if (reason_to_adjust == "disturbance") {
       if (keep_temp) {
         df <- df %>%
@@ -244,17 +244,17 @@ adjust_logger_NA <- function(
       }
     }
   }
-  
+
   # ------------------------- DISSOLVED OXYGEN ---------------------------------
   if (metric_norm == "DO") {
-    
+
     if (!all(c("do_mgl_adj", "do_percsat_adj") %in% names(df))) {
       stop("adjust_logger_NA(): DO metric expects 'do_mgl_adj' and 'do_percsat_adj'.")
     }
     if (!"watertemp_C_adj" %in% names(df)) {
       df$watertemp_C_adj <- NA_real_
     }
-    
+
     if (reason_to_adjust == "ice") {
       df <- df %>%
         dplyr::mutate(
@@ -264,7 +264,7 @@ adjust_logger_NA <- function(
           watertemp_C_adj = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
         )
     }
-    
+
     if (reason_to_adjust == "disturbance") {
       if (keep_temp) {
         df <- df %>%
@@ -283,15 +283,15 @@ adjust_logger_NA <- function(
           )
       }
     }
-    
+
     if (reason_to_adjust == "dry") {
-      
+
       if (apply_to_all_data && has_wl) {
         dry_wl <- df %>%
           dplyr::filter(in_window, !is.na(waterlevel_m)) %>%
           dplyr::summarise(dry_wl = max(waterlevel_m, na.rm = TRUE)) %>%
           dplyr::pull(dry_wl)
-        
+
         if (length(dry_wl) == 0 || is.infinite(dry_wl)) {
           warning("No non-NA waterlevel_m in dry window; no DO dry adjustment applied.")
         } else {
@@ -318,14 +318,14 @@ adjust_logger_NA <- function(
       }
     }
   }
-  
+
   # ------------------------- WATERTEMP (TidbiT) -------------------------------
   if (metric_norm == "WT") {
-    
+
     if (!"watertemp_C_adj" %in% names(df)) {
       stop("adjust_logger_NA(): WT metric expects 'watertemp_C_adj'.")
     }
-    
+
     if (reason_to_adjust %in% c("ice", "dry", "disturbance")) {
       df <- df %>%
         dplyr::mutate(
@@ -334,14 +334,14 @@ adjust_logger_NA <- function(
         )
     }
   }
-  
+
   # ------------------------- BAROMETRIC ---------------------------------------
   if (metric_norm == "BARO") {
-    
+
     if (!"airpress_kPa_adj" %in% names(df)) {
       stop("adjust_logger_NA(): BARO metric expects 'airpress_kPa_adj'.")
     }
-    
+
     if (reason_to_adjust %in% c("ice", "dry", "disturbance")) {
       df <- df %>%
         dplyr::mutate(
@@ -350,17 +350,17 @@ adjust_logger_NA <- function(
         )
     }
   }
-  
+
   # ------------------------- CONDUCTIVITY -------------------------------------
   if (metric_norm == "COND") {
-    
+
     if (!"conductivity_uScm_adj" %in% names(df)) {
       stop("adjust_logger_NA(): COND metric expects 'conductivity_uScm_adj'.")
     }
     if (!"watertemp_C_adj" %in% names(df)) {
       df$watertemp_C_adj <- NA_real_
     }
-    
+
     if (reason_to_adjust == "ice") {
       df <- df %>%
         dplyr::mutate(
@@ -369,7 +369,7 @@ adjust_logger_NA <- function(
           watertemp_C_adj       = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
         )
     }
-    
+
     if (reason_to_adjust == "disturbance") {
       if (keep_temp) {
         df <- df %>%
@@ -386,15 +386,15 @@ adjust_logger_NA <- function(
           )
       }
     }
-    
+
     if (reason_to_adjust == "dry") {
-      
+
       if (apply_to_all_data && has_wl) {
         dry_wl <- df %>%
           dplyr::filter(in_window, !is.na(waterlevel_m)) %>%
           dplyr::summarise(dry_wl = max(waterlevel_m, na.rm = TRUE)) %>%
           dplyr::pull(dry_wl)
-        
+
         if (length(dry_wl) == 0 || is.infinite(dry_wl)) {
           warning("No non-NA waterlevel_m in dry window; no conductivity dry adjustment applied.")
         } else {
@@ -419,32 +419,32 @@ adjust_logger_NA <- function(
       }
     }
   }
-  
+
   # ---- Update the specific edit_* column -------------------------------------
   if (any(df$edit_na, na.rm = TRUE)) {
     df[[edit_flag_col]] <- df[[edit_flag_col]] | df$edit_na
   }
-  
+
   # ---- Build & append QA/QC log entry ----------------------------------------
   ts_affected <- df$timestamp[df$edit_na]
-  
+
   if (length(ts_affected) > 0) {
-    
+
     fun_name <- "adjust_logger_NA"
     run_time <- Sys.time()
-    
+
     scope_txt <- if (apply_to_all_data) {
       "window-based threshold applied to full record"
     } else {
       "fixed time window"
     }
-    
+
     action_note <- paste0(
       "Set ", primary_field, " to NA for reason '", reason_to_adjust,
       "' using ", scope_txt, " from ", timestamp_start,
       " to ", timestamp_end, "."
     )
-    
+
     log_row <- make_qaqc_log_row(
       timestamps  = ts_affected,
       station     = select_station,
@@ -458,9 +458,9 @@ adjust_logger_NA <- function(
       user        = user,
       run_time    = run_time
     )
-    
+
     log_path <- qaqc_log_path(log_root, select_station, metric_norm)
-    
+
     if (!is.null(log_row)) {
       qaqc_log_append(
         log_path = log_path,
@@ -473,7 +473,7 @@ adjust_logger_NA <- function(
   } else {
     warning("adjust_logger_NA(): no rows were modified; no log entry written.")
   }
-  
+
   # ---- Clean up internal columns and return ----------------------------------
   df %>%
     dplyr::select(-in_window, -edit_na)

@@ -2,42 +2,91 @@
 % Please edit documentation in R/adjust_waterlevel_spike.R
 \name{adjust_waterlevel_spike}
 \alias{adjust_waterlevel_spike}
-\title{Correct water level for spikes}
+\title{Flatten a water-level spike over a specified time window}
 \usage{
 adjust_waterlevel_spike(
   input_data,
   select_station,
   timestamp_start,
   timestamp_end,
-  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S",
-  timestamp_timezone = "UTC",
   reason_to_adjust,
-  var_waterlevel_m = "waterlevel_m_U20",
-  var_watertemp_C = "watertemp_C_U20"
+  manual_note,
+  log_root,
+  user = Sys.info()[["user"]]
 )
 }
 \arguments{
-\item{input_data}{The dataset with waterlevel in metres}
+\item{input_data}{Data frame containing water-level data for one or more
+stations, including \code{timestamp}, \code{site_station_code},
+\code{waterlevel_m}, and \code{waterlevel_m_adj}.}
 
-\item{select_station}{Unique identifier code for station}
+\item{select_station}{Character; station code to adjust (value of
+\code{site_station_code}).}
 
-\item{timestamp_start}{Date and time at start of  spike; timestamp must be formatted the same as site_data}
+\item{timestamp_start, timestamp_end}{Character date-time values defining
+the spike window, in \code{"YYYY-MM-DD HH:MM:SS"} format, parsed with
+\code{lubridate::ymd_hms()}.}
 
-\item{timestamp_end}{date and time end of spike; timestamp must be formatted the same as site_data}
+\item{reason_to_adjust}{Character; reason for flattening. One of
+\code{"ice"} or \code{"disturbance"}. Used to choose the QA/QC code
+written to the log.}
 
-\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is "\%Y-\%m-\%d \%H:\%M:\%S"}
+\item{manual_note}{Character; required free-text explanation describing why
+this adjustment is being made. Stored in the QA/QC log.}
 
-\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
+\item{log_root}{Root directory where QA/QC logs are stored (for example,
+\code{"data/testing/processed"}). The actual log path is derived from
+this root, station, and metric.}
 
-\item{reason_to_adjust}{Type of event that caused spike; Either "ice" or "disturbance"}
-
-\item{var_waterlevel_m}{Name of variable column containing water level in meters}
-
-\item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
+\item{user}{Character; user name recorded in the log entry. Defaults to
+\code{Sys.info()[["user"]]}.}
 }
 \value{
-Dataset where waterlevel is flattened within the time period defined as a spike, and qaqc_adj notes AVERAGE
+A data frame for \code{select_station} with updated
+\code{waterlevel_m_adj} values and \code{edit_spike_flat} flag. The input
+columns are preserved; only adjusted values and flags are changed.
 }
 \description{
-Remove water level values within a spike, and add the average change in water level per timestamp between start and end
+Replaces a spike (or other unrealistic jump) in water level with a straight
+line between two timestamps for a single station, and records the change in
+the QA/QC log.
+}
+\details{
+The function:
+\itemize{
+\item Filters \code{input_data} to \code{select_station}.
+\item Locates the raw water level at \code{timestamp_start} and
+\code{timestamp_end}.
+\item Linearly interpolates between these two values over the full
+time window.
+\item Writes the interpolated values into \code{waterlevel_m_adj} for
+all timestamps in the window.
+\item Sets \code{edit_spike_flat = TRUE} for affected rows.
+\item Appends an entry to the QA/QC log via \code{make_qaqc_log_row()}
+and \code{qaqc_log_append()}.
+}
+
+The start and end water levels are taken from the raw
+\code{waterlevel_m} column at \code{timestamp_start} and
+\code{timestamp_end}. The interpolation is performed in time units of
+seconds and written into \code{waterlevel_m_adj}. If the function cannot
+find unique raw values at both timestamps, it errors.
+}
+\examples{
+\dontrun{
+adjusted_wl <- adjust_waterlevel_spike(
+  input_data      = waterlevel_complete_QAQC,
+  select_station  = "WL_ALBR_ST_30",
+  timestamp_start = "2025-02-11 21:00:00",
+  timestamp_end   = "2025-02-20 16:00:00",
+  reason_to_adjust = "ice",
+  manual_note      = "Suspected ice formation due to freezing temps",
+  log_root         = "data/testing/processed"
+)
+}
+
+}
+\seealso{
+\code{\link{waterlevel_qaqc}}, \code{\link{adjust_logger_NA}},
+\code{\link{make_qaqc_log_row}}, \code{\link{qaqc_log_append}}
 }

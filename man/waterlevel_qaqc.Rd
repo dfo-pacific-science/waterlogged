@@ -7,12 +7,8 @@
 waterlevel_qaqc(
   input_data,
   select_station,
-  plot_only = FALSE,
-  var_waterlevel_m = "waterlevel_m_U20",
-  var_watertemp_C = "watertemp_C_U20",
-  var_waterpress_kPa = "waterpress_kPa_U20",
-  var_airpress_kPa = "airpress_kPa_U20_adj",
-  var_airtemp_C = "airtemp_C_U20"
+  log_root,
+  user = Sys.info()[["user"]]
 )
 }
 \arguments{

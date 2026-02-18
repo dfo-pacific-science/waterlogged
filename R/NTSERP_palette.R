@@ -1,6 +1,6 @@
 #' Color-blind Friendly Palette for NTSERP lab
 #'
-#' A function that asks for the number of colors (groups) needed and then gives a visually tested color palette for use in figures. To test colors for different visuals: https://projects.susielu.com/viz-palette?colors=[%22#fe7f2d%22,%22#fcca46%22,%22#a1c181%22,%22#619b8a%22,%22#555555%22]&backgroundColor=%22white%22&fontColor=%22black%22&mode=%22normal%22
+#' A function that asks for the number of colors (groups) needed and then gives a visually tested color palette for use in figures.
 #' @param n_groups the number of colors (groups) required
 #' @param full_palette logical; if TRUE, the full palette is returned (not recommended for plots)
 #' @return list of colors suitable for colorblind viewing

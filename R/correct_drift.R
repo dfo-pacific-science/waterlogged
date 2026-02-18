@@ -10,17 +10,6 @@
 #' @param var_ref_conduct_uScm Name of column for reference conductivity (in in microSiemens per centimeter) in ref data
 #' @param var_ref_timestamp Name of column for reference measurement time
 #'
-#' @examples
-#' data_spc <- correct_drift(
-#'   input_data = readr::read_csv("inst/extdata/ex-conductivity/CO_FROG_WE_01_20240420_20240921_v0.1.csv"),
-#'   ref_data = readr::read_csv("inst/extdata/ex-site-attribute/site_station_waterquality.csv"),
-#'   select_station = "FROG_WE_01",
-#'   var_watertemp_C = "watertemp_C_U24_adj",
-#'   var_conduct_uScm = "conduct_uScm_U24_adj",
-#'   var_ref_watertemp_C = "ysi_watertemp_C",
-#'   var_ref_conduct_uScm = "ysi_conduct_uScm",
-#'   var_ref_timestamp = "ysi_timestamp"
-#' )
 #' @export
 
 correct_drift <- function(input_data,
