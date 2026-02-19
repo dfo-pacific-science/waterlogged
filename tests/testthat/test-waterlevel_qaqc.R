@@ -2,14 +2,14 @@ test_that("test waterlevel qaqc", {
 
   #bind level data
   path_to_output_folder = withr::local_tempdir()
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/level")
-  metadata_path = test_path("fixtures/data/testing/metadata/test_convert_wl_kpa_m.csv")
+  path_to_raw_folder = test_path("fixtures/level")
+  metadata_path = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
   level_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                                  path_to_output_folder = path_to_output_folder,
                                  metadata_path = metadata_path)
 
   #bind baro data
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/baro")
+  path_to_raw_folder = test_path("fixtures/baro")
   baro_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                                 path_to_output_folder = path_to_output_folder,
                                 metadata_path = metadata_path)
@@ -23,7 +23,7 @@ test_that("test waterlevel qaqc", {
                                         metadata_path = metadata_path)
 
   #convert pressure to water level
-  reference_data = test_path("fixtures/data/testing/raw/NT_manual_waterlevel_20251119.csv")
+  reference_data = test_path("fixtures/NT_manual_waterlevel_20251119.csv")
   converted_data <- convert_waterlevel_kPa_m(input_data = wl_data_with_baro[[1]],
                                              select_station = "all",
                                              reference_data = reference_data,

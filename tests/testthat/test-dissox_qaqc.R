@@ -2,20 +2,20 @@ test_that("Test dissox QAQC", {
 
   path_to_output_folder = withr::local_tempdir()
 
-  DO_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/data/testing/raw/test_convert_do_mgl_percsat/DO"),
+  DO_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_convert_do/DO"),
                               path_to_output_folder = path_to_output_folder,
-                              metadata_path = test_path("fixtures/data/testing/metadata/test_convert_do_mgl_percsat.csv"))
+                              metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
-  baro_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/data/testing/raw/test_convert_do_mgl_percsat/baro"),
+  baro_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_convert_do/baro"),
                                 path_to_output_folder = path_to_output_folder,
-                                metadata_path = test_path("fixtures/data/testing/metadata/test_convert_do_mgl_percsat.csv"))
+                                metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
   DO_with_Baro = add_nearest_baro(input_data = DO_bound[[1]],
                                   path_to_output_folder = path_to_output_folder,
                                   baro_data_path = path_to_output_folder,
                                   metric = "DO",
                                   baro_site_selection = "auto",
-                                  metadata_path = test_path("fixtures/data/testing/metadata/test_convert_do_mgl_percsat.csv"))
+                                  metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
   converted_percSat <- convert_do_mgl_percsat(DO_with_Baro[[1]],
                                               output_dir = path_to_output_folder,
@@ -48,9 +48,9 @@ test_that("Test dissox QAQC", {
 
 test_that("Test dissox QAQC missing baro data", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/DO")
+  path_to_raw_folder = test_path("fixtures/DO")
   path_to_output_folder = withr::local_tempdir()
-  metadata_path = test_path("fixtures/data/testing/raw/testing_metadata_FP.csv")
+  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
   DO_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                               path_to_output_folder = path_to_output_folder,
                               metadata_path = metadata_path)
@@ -66,20 +66,20 @@ test_that("Test dissox QAQC missing conversion", {
 
   path_to_output_folder = withr::local_tempdir()
 
-  DO_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/data/testing/raw/test_convert_do_mgl_percsat/DO"),
+  DO_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_convert_do/DO"),
                               path_to_output_folder = path_to_output_folder,
-                              metadata_path = test_path("fixtures/data/testing/metadata/test_convert_do_mgl_percsat.csv"))
+                              metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
-  baro_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/data/testing/raw/test_convert_do_mgl_percsat/baro"),
+  baro_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_convert_do/baro"),
                                 path_to_output_folder = path_to_output_folder,
-                                metadata_path = test_path("fixtures/data/testing/metadata/test_convert_do_mgl_percsat.csv"))
+                                metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
   DO_with_Baro = add_nearest_baro(input_data = DO_bound[[1]],
                                   path_to_output_folder = path_to_output_folder,
                                   baro_data_path = path_to_output_folder,
                                   metric = "DO",
                                   baro_site_selection = "auto",
-                                  metadata_path = test_path("fixtures/data/testing/metadata/test_convert_do_mgl_percsat.csv"))
+                                  metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
   expect_error(dissox_qaqc(DO_with_Baro[[1]]),
                "input_data is missing required columns: do_percsat")

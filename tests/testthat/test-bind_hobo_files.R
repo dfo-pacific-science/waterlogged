@@ -7,11 +7,11 @@ library(ggplot2)
 
 test_that("Test binding barometric files", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/baro")
+  path_to_raw_folder = test_path("fixtures/baro")
 
   path_to_output_folder = withr::local_tempdir()
 
-  metadata_path = test_path("fixtures/data/testing/raw/testing_metadata_FP.csv")
+  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
   baro_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                                 path_to_output_folder = path_to_output_folder,
@@ -27,11 +27,11 @@ test_that("Test binding barometric files", {
 
 test_that("Test binding DO files", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/DO")
+  path_to_raw_folder = test_path("fixtures/DO")
 
   path_to_output_folder = withr::local_tempdir()
 
-  metadata_path = test_path("fixtures/data/testing/raw/testing_metadata_FP.csv")
+  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
   DO_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                               path_to_output_folder = path_to_output_folder,
@@ -47,9 +47,9 @@ test_that("Test binding DO files", {
 
 test_that("Test binding COND files", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/COND")
+  path_to_raw_folder = test_path("fixtures/COND")
   path_to_output_folder = withr::local_tempdir()
-  metadata_path = test_path("fixtures/data/testing/raw/testing_metadata_FP.csv")
+  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
   cond_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                                 path_to_output_folder = path_to_output_folder,
@@ -64,11 +64,11 @@ test_that("Test binding COND files", {
 
 test_that("Test missing metadata", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_missing_metadata")
+  path_to_raw_folder = test_path("fixtures/test_missing_metadata")
 
   path_to_output_folder = withr::local_tempdir()
 
-  metadata_path = test_path("fixtures/data/testing/metadata/test_missing_metadata.csv")
+  metadata_path = test_path("fixtures/metadata/test_missing_metadata.csv")
 
 
   expect_error(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
@@ -80,11 +80,11 @@ test_that("Test missing metadata", {
 
 test_that("Test multiple metric types", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_metric_types")
+  path_to_raw_folder = test_path("fixtures/test_multiple_metric_types")
 
   path_to_output_folder = withr::local_tempdir()
 
-  metadata_path = test_path("fixtures/data/testing/metadata/test_multiple_metric_types.csv")
+  metadata_path = test_path("fixtures/metadata/test_multiple_metric_types.csv")
 
 
   expect_error(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
@@ -96,11 +96,11 @@ test_that("Test multiple metric types", {
 
 test_that("Test no csv files in input folder", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/no_csv_files_in_input_folder")
+  path_to_raw_folder = test_path("fixtures/no_csv_files_in_input_folder")
 
   path_to_output_folder = withr::local_tempdir()
 
-  metadata_path = test_path("fixtures/data/testing/metadata/no_csv_files_in_input_folder.csv")
+  metadata_path = test_path("fixtures/metadata/no_csv_files_in_input_folder.csv")
 
   expect_error(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                                path_to_output_folder = path_to_output_folder,
@@ -111,11 +111,11 @@ test_that("Test no csv files in input folder", {
 
 test_that("Test multiple date formats", {
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_date_formats/waterlevel_timestamp_wrong_format")
+  path_to_raw_folder = test_path("fixtures/test_multiple_date_formats/wrong_format")
 
   path_to_output_folder = withr::local_tempdir()
 
-  metadata_path = test_path("fixtures/data/testing/metadata/test_multiple_date_formats.csv")
+  metadata_path = test_path("fixtures/metadata/test_multiple_date_formats.csv")
 
   timestamp_wrong_format_bound = bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                   path_to_output_folder = path_to_output_folder,
@@ -123,7 +123,7 @@ test_that("Test multiple date formats", {
 
   timestamp_wrong_format_compiled = timestamp_wrong_format_bound[[1]] |> dplyr::select(-file_name) #remove file name since it wont be identical between the two files
 
-  path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_date_formats/waterlevel_timestamp_correct_format")
+  path_to_raw_folder = test_path("fixtures/test_multiple_date_formats/correct_format")
 
   timestamp_correct_format_bound = bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
                                                  path_to_output_folder = path_to_output_folder,
