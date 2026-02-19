@@ -1,4 +1,28 @@
-
+#' Validate input data for water-level kPa-to-metres conversion
+#'
+#' Internal helper called by \code{\link{convert_waterlevel_kPa_m}} to
+#' check required columns, parse timestamps, verify logger type, and
+#' warn about out-of-range values before the barometric compensation
+#' calculation.
+#'
+#' @param input_data A data frame of logger observations.  Must contain
+#'   \code{site_station_code}, \code{timestamp}, \code{waterpress_kPa},
+#'   \code{watertemp_C}, and \code{airpress_kPa}.  Optionally
+#'   \code{logger_type}.
+#' @param logger_type_expected Character scalar.  Expected pattern in the
+#'   \code{logger_type} column (matched case-insensitively).
+#'   Default \code{"u20"}.
+#'
+#' @return \code{input_data} with \code{timestamp} coerced to POSIXct
+#'   (UTC) if not already.  Warnings are emitted for out-of-range values
+#'   (per station and year) in \code{watertemp_C}
+#'   (\eqn{[-5, 40]} degrees C), \code{waterpress_kPa}
+#'   (\eqn{[80, 300]} kPa), and \code{airpress_kPa}
+#'   (\eqn{[80, 120]} kPa).
+#'
+#' @seealso \code{\link{convert_waterlevel_kPa_m}} (sole caller)
+#'
+#' @keywords internal
 QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
   
   # Required columns etc. 
@@ -54,9 +78,9 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
     
     bad_df <- df[bad, c("site_station_code", "timestamp", value_col)]
     
-    bad_summary <- bad_df %>%
-      dplyr::mutate(year = lubridate::year(timestamp)) %>%
-      dplyr::count(site_station_code, year, name = "n_bad") %>%
+    bad_summary <- bad_df |>
+      dplyr::mutate(year = lubridate::year(timestamp)) |>
+      dplyr::count(site_station_code, year, name = "n_bad") |>
       dplyr::arrange(site_station_code, year)
     
     msg_lines <- paste0(
@@ -72,13 +96,13 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
   }
   
   ## --- Range QA/QC using the helper ---------------------------------
-  # Temperature: expected [-5, 40] °C
+  # Temperature: expected [-5, 40] deg C
   warn_by_station_year(
     df        = input_data,
     value_col = "watertemp_C",
     lower     = -5,
     upper     = 40,
-    label     = "convert_waterlevel_kPa_m(): watertemp_C outside [-5, 40] °C by station/year:"
+    label     = "convert_waterlevel_kPa_m(): watertemp_C outside [-5, 40] \u00b0C by station/year:"
   )
   
   # Water pressure: very rough sanity range (adjust if you like)
@@ -108,35 +132,67 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
 
 #' QA/QC for manual stage/depth reference data
 #'
-#' Reads and validates a CSV of manual water-level measurements
-#' (stage or depth) used as reference levels for barometric
-#' compensation.
+#' Reads (from file or in-memory data frame) and validates a table of
+#' manual water-level measurements (stage or depth) used as reference
+#' levels for the kPa-to-metres barometric compensation performed by
+#' \code{\link{convert_waterlevel_kPa_m}}.
 #'
-#' Expected core columns (in addition to others you may have):
-#'   - site_station_code
-#'   - timestamp          (date-time of reference reading)
-#'   - site_comments
-#'   - stage_m and/or depth_m
+#' @param ref_path Character scalar. Path to a reference CSV file.
+#'   Required when \code{ref_data} is \code{NULL}.
+#' @param ref_data A data frame of reference measurements (alternative to
+#'   \code{ref_path} for Shiny mode). Exactly one of \code{ref_path} or
+#'   \code{ref_data} must be supplied.
 #'
-#' @param ref_path Path to the reference CSV file.
+#' @return A cleaned data frame with:
+#'   \itemize{
+#'     \item \code{timestamp} parsed to POSIXct (UTC).
+#'     \item \code{stage_m} and/or \code{depth_m} coerced to numeric.
+#'     \item \code{site_station_code} and \code{site_comments} trimmed of
+#'       whitespace.
+#'   }
 #'
-#' @return A cleaned data.frame with parsed timestamp and numeric
-#'         stage/depth columns.
+#' @details
+#' The following validation steps are applied in order:
+#' \enumerate{
+#'   \item Empty rows (all \code{NA} or blank) are dropped.
+#'   \item Required columns are checked: \code{site_station_code},
+#'     \code{timestamp}, \code{site_comments}, and at least one of
+#'     \code{stage_m} or \code{depth_m}.
+#'   \item \code{timestamp} is parsed using \code{lubridate::mdy_hm()}
+#'     first, then falls back to flexible multi-format parsing
+#'     (\code{mdy HM}, \code{ymd HMS}, etc.).
+#'   \item \code{stage_m} and \code{depth_m} are coerced to numeric;
+#'     negative values trigger a warning.
+#'   \item If no usable stage, depth, or discharge values exist, a
+#'     warning is issued.
+#'   \item Duplicate \code{(site_station_code, timestamp)} pairs are
+#'     flagged with a warning.
+#' }
+#'
+#' @seealso \code{\link{convert_waterlevel_kPa_m}} (consumes the
+#'   validated reference data), \code{\link{QAQC_metadata}} (analogous
+#'   validation for deployment metadata)
+#'
 #' @export
-QAQC_reference_data <- function(ref_path) {
+QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
   tryCatch({
-    ## 1) File exists? ----
-    if (!file.exists(ref_path)) {
-      stop("Reference file not found: ", ref_path)
+    ## 1) Dual input: accept data frame OR file path ----
+    if (!is.null(ref_data) && is.data.frame(ref_data)) {
+      ref <- ref_data
+    } else if (!is.null(ref_path)) {
+      if (!file.exists(ref_path)) {
+        stop("Reference file not found: ", ref_path)
+      }
+      ## 2) Read CSV ----
+      ref <- utils::read.csv(
+        ref_path,
+        header           = TRUE,
+        stringsAsFactors = FALSE,
+        check.names      = FALSE
+      )
+    } else {
+      stop("Must provide either 'ref_path' or 'ref_data' as a data frame.")
     }
-    
-    ## 2) Read CSV ----
-    ref <- read.csv(
-      ref_path,
-      header           = TRUE,
-      stringsAsFactors = FALSE,
-      check.names      = FALSE
-    )
     
     ## 3) Drop completely empty rows ----
     ref <- ref[rowSums(is.na(ref) | ref == "") != ncol(ref), , drop = FALSE]
@@ -193,14 +249,14 @@ QAQC_reference_data <- function(ref_path) {
     if ("stage_m" %in% names(ref)) {
       ref$stage_m <- suppressWarnings(as.numeric(ref$stage_m))
       if (any(ref$stage_m < 0, na.rm = TRUE)) {
-        warning("Some 'stage_m' values are negative – check units and data entry.")
+        warning("Some 'stage_m' values are negative - check units and data entry.")
       }
     }
     
     if ("depth_m" %in% names(ref)) {
       ref$depth_m <- suppressWarnings(as.numeric(ref$depth_m))
       if (any(ref$depth_m < 0, na.rm = TRUE)) {
-        warning("Some 'depth_m' values are negative – check units and data entry.")
+        warning("Some 'depth_m' values are negative - check units and data entry.")
       }
     }
     
@@ -252,13 +308,64 @@ QAQC_reference_data <- function(ref_path) {
 }
 
 
+#' Convert water level from kPa to metres for a single station
+#'
+#' Internal workhorse called by \code{\link{convert_waterlevel_kPa_m}}
+#' (once per station).  Filters input data and reference measurements to
+#' the target station, computes temperature-dependent water density
+#' (Kell, 1975), converts pressures to equivalent depth, derives the
+#' barometric compensation constant \emph{k} from a manual reference
+#' measurement, and produces the final water-level time series.
+#'
+#' @param input_data Data frame of logger observations (already validated
+#'   by \code{QAQC_wl_kpa_inputs}).  Must contain
+#'   \code{site_station_code}, \code{timestamp}, \code{waterpress_kPa},
+#'   \code{watertemp_C}, and \code{airpress_kPa}.
+#' @param select_station Character scalar.  The single
+#'   \code{site_station_code} to process.
+#' @param reference_data Data frame of manual reference measurements
+#'   (already validated by \code{\link{QAQC_reference_data}}).
+#' @param ref_type_clean Character scalar: \code{"stage"} or
+#'   \code{"depth"} (pre-cleaned by the parent function).
+#' @param ref_level_col Character scalar: \code{"stage_m"} or
+#'   \code{"depth_m"} (derived from \code{ref_type_clean}).
+#' @param select_measurement Integer scalar.  1-based index of the
+#'   reference measurement to use as the anchor point.  Default
+#'   \code{1}.
+#' @param path_to_output_folder Character scalar or \code{NULL}.  When
+#'   non-\code{NULL}, per-year v0.3 CSVs are written to
+#'   \code{<path>/<year>/processed/}.
+#'
+#' @param return_plots Logical; if \code{TRUE} (default), an interactive
+#'   \pkg{plotly} chart is included in the returned list.  Set to
+#'   \code{FALSE} to skip plot creation (faster, useful in Shiny or
+#'   batch pipelines).
+#'
+#' @return A three-element named list:
+#'   \describe{
+#'     \item{\code{site_wl}}{Data frame for \code{select_station} with
+#'       added columns \code{density_kgm3}, \code{density_lbft3},
+#'       \code{sensor_depth_m}, \code{baro_sensor_depth_m},
+#'       \code{waterlevel_m}, \code{waterlevel_reference}, and
+#'       \code{ref_m}.}
+#'     \item{\code{ref_dat}}{Data frame of in-range reference
+#'       measurements (\code{timestamp}, \code{ref_m}).}
+#'     \item{\code{wl_plot}}{Interactive \pkg{plotly} QAQC plot, or
+#'       \code{NULL} when \code{return_plots = FALSE}.}
+#'   }
+#'
+#' @seealso \code{\link{convert_waterlevel_kPa_m}} (public wrapper,
+#'   sole caller)
+#'
+#' @keywords internal
 convert_waterlevel_single <- function(input_data,
                                       select_station,
                                       reference_data,
                                       ref_type_clean,    # "stage" or "depth"
                                       ref_level_col,     # "stage_m" or "depth_m"
                                       select_measurement = 1,
-                                      path_to_output_folder) {
+                                      path_to_output_folder = NULL,
+                                      return_plots = TRUE) {
   
   ## A) Filter input_data to this station -----------------------
   output_data <- input_data[input_data$site_station_code == select_station, , drop = FALSE]
@@ -269,11 +376,11 @@ convert_waterlevel_single <- function(input_data,
   ts_range <- range(output_data$timestamp, na.rm = TRUE)
   
   ## B) Extract reference rows for this station -----------------
-  ref_dat <- reference_data %>%
-    dplyr::filter(site_station_code == select_station) %>%
-    dplyr::mutate(ref_m = .data[[ref_level_col]]) %>%
-    dplyr::select(timestamp, ref_m) %>%
-    dplyr::filter(!is.na(ref_m)) %>%
+  ref_dat <- reference_data |>
+    dplyr::filter(site_station_code == select_station) |>
+    dplyr::mutate(ref_m = .data[[ref_level_col]]) |>
+    dplyr::select(timestamp, ref_m) |>
+    dplyr::filter(!is.na(ref_m)) |>
     dplyr::arrange(timestamp)
   
   if (!nrow(ref_dat)) {
@@ -287,7 +394,7 @@ convert_waterlevel_single <- function(input_data,
   ref_dat$timestamp <- lubridate::round_date(ref_dat$timestamp, "hour")
   
   # Filter to logger time range
-  ref_dat <- ref_dat %>%
+  ref_dat <- ref_dat |>
     dplyr::filter(timestamp >= ts_range[1], timestamp <= ts_range[2])
   
   if (!nrow(ref_dat)) {
@@ -315,7 +422,7 @@ convert_waterlevel_single <- function(input_data,
   PSI_TO_PSF     <- 144.0
   
   ## D) Fluid density of water ----------------------------------
-  output_data <- output_data %>%
+  output_data <- output_data |>
     dplyr::mutate(
       density_kgm3 =
         (999.83952 +
@@ -329,7 +436,7 @@ convert_waterlevel_single <- function(input_data,
     )
   
   ## E) Convert pressures to depth (m) --------------------------
-  output_data <- output_data %>%
+  output_data <- output_data |>
     dplyr::mutate(
       sensor_depth_m      = FEET_TO_METERS * (KPA_TO_PSI * PSI_TO_PSF * waterpress_kPa) / density_lbft3,
       baro_sensor_depth_m = FEET_TO_METERS * (KPA_TO_PSI * PSI_TO_PSF * airpress_kPa)      / density_lbft3
@@ -358,13 +465,14 @@ convert_waterlevel_single <- function(input_data,
   k <- L_meas - (D_ref - D_baro0)
   
   ## G) Apply compensation to entire series ---------------------
-  output_data <- output_data %>%
+  output_data <- output_data |>
     dplyr::mutate(
       waterlevel_m         = sensor_depth_m - baro_sensor_depth_m + k,
       waterlevel_reference = ref_type_clean
     )
   
   ## H) QAQC plot (single station) ------------------------------
+  if (return_plots) {
   p <- ggplot2::ggplot(output_data,
                        ggplot2::aes(x = timestamp, y = waterlevel_m)) +
     ggplot2::geom_line(color = "#233d4d") +
@@ -379,41 +487,82 @@ convert_waterlevel_single <- function(input_data,
       y     = "Water level (m)"
     ) +
     ggplot2::theme_classic()
-  
+  wl_plot <- plotly::ggplotly(p)
+  } else {
+    wl_plot <- NULL
+  }
+
   ## I) Write yearly processed files ----------------------------
-  years_i <- unique(lubridate::year(output_data$timestamp))
-  
-  for (year_n in years_i) {
-    site_year_n <- dplyr::filter(output_data, lubridate::year(timestamp) == year_n)
-    if (!nrow(site_year_n)) next
-    
-    start_n <- gsub("\\D", "", as.character(min(lubridate::date(site_year_n$timestamp))))
-    end_n   <- gsub("\\D", "", as.character(max(lubridate::date(site_year_n$timestamp))))
-    
-    year_dir <- file.path(path_to_output_folder, year_n)
-    proc_dir <- file.path(year_dir, "processed")
-    
-    dir.create(year_dir, recursive = TRUE, showWarnings = FALSE)
-    dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
-    
-    # Export timestamp as character to be Excel-safe
-    site_year_n$timestamp <- format(site_year_n$timestamp, "%Y-%m-%d %H:%M:%S")
-    
-    out_file <- sprintf("%s_WL_%s_%s_v0.3.csv", select_station, start_n, end_n)
-    out_path <- file.path(proc_dir, out_file)
-    
-    utils::write.csv(site_year_n, out_path, row.names = FALSE)
-    message(sprintf("Barometric compensation (v0.3) for %s written to %s", select_station, out_path))
+  if (!is.null(path_to_output_folder)) {
+    years_i <- unique(lubridate::year(output_data$timestamp))
+
+    for (year_n in years_i) {
+      site_year_n <- dplyr::filter(output_data, lubridate::year(timestamp) == year_n)
+      if (!nrow(site_year_n)) next
+
+      start_n <- gsub("\\D", "", as.character(min(lubridate::date(site_year_n$timestamp))))
+      end_n   <- gsub("\\D", "", as.character(max(lubridate::date(site_year_n$timestamp))))
+
+      year_dir <- file.path(path_to_output_folder, year_n)
+      proc_dir <- file.path(year_dir, "processed")
+
+      dir.create(year_dir, recursive = TRUE, showWarnings = FALSE)
+      dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
+
+      # Export timestamp as character to be Excel-safe
+      site_year_n$timestamp <- format(site_year_n$timestamp, "%Y-%m-%d %H:%M:%S")
+
+      out_file <- sprintf("%s_WL_%s_%s_v0.3.csv", select_station, start_n, end_n)
+      out_path <- file.path(proc_dir, out_file)
+
+      utils::write.csv(site_year_n, out_path, row.names = FALSE)
+      message(sprintf("Barometric compensation (v0.3) for %s written to %s", select_station, out_path))
+    }
   }
   
   ## J) Return list ---------------------------------------------
   return(list(
     site_wl = output_data,
     ref_dat = ref_dat,
-    wl_plot = plotly::ggplotly(p)
+    wl_plot = wl_plot
   ))
 }
 
+#' Diagnose why reference data failed for a station
+#'
+#' Debugging helper that inspects reference data and logger timestamps
+#' to produce a human-readable explanation of why
+#' \code{\link{convert_waterlevel_single}} could not find usable
+#' reference measurements for a given station.
+#'
+#' Currently not called automatically; intended to be invoked
+#' interactively when \code{\link{convert_waterlevel_kPa_m}} errors on a
+#' specific station.
+#'
+#' @param station Character scalar.  The \code{site_station_code} that
+#'   failed.
+#' @param input_data Data frame of logger observations (must contain
+#'   \code{site_station_code} and \code{timestamp}).
+#' @param reference_df Data frame of reference measurements (must
+#'   contain \code{site_station_code}, \code{timestamp}, and the column
+#'   implied by \code{reference_type}).
+#' @param reference_type Character scalar: \code{"stage"} or
+#'   \code{"depth"}.  Determines which column (\code{stage_m} or
+#'   \code{depth_m}) is checked.
+#'
+#' @return A character string describing the likely cause:
+#'   \enumerate{
+#'     \item No rows in reference data for the station.
+#'     \item All reference values are \code{NA}.
+#'     \item Reference timestamps fall outside the logger time range
+#'       (includes the actual ranges for comparison).
+#'     \item Unknown cause (fallback message).
+#'   }
+#'
+#' @seealso \code{\link{convert_waterlevel_kPa_m}} (parent pipeline
+#'   function), \code{\link{QAQC_reference_data}} (upstream validation)
+#'
+#' @keywords internal
 diagnose_reference_failure <- function(station, input_data, reference_df, reference_type) {
   
   ref_col <- if (reference_type == "depth") "depth_m" else "stage_m"
@@ -443,7 +592,7 @@ diagnose_reference_failure <- function(station, input_data, reference_df, refere
     )
   }
   
-  # 3) After rounding timestamps – do any fall inside logger time range?
+  # 3) After rounding timestamps - do any fall inside logger time range?
   rounded_rows <- ref_rows
   rounded_rows$timestamp <- lubridate::round_date(rounded_rows$timestamp, "hour")
   

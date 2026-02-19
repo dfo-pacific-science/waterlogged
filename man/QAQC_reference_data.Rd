@@ -4,26 +4,51 @@
 \alias{QAQC_reference_data}
 \title{QA/QC for manual stage/depth reference data}
 \usage{
-QAQC_reference_data(ref_path)
+QAQC_reference_data(ref_path = NULL, ref_data = NULL)
 }
 \arguments{
-\item{ref_path}{Path to the reference CSV file.}
+\item{ref_path}{Character scalar. Path to a reference CSV file.
+Required when \code{ref_data} is \code{NULL}.}
+
+\item{ref_data}{A data frame of reference measurements (alternative to
+\code{ref_path} for Shiny mode). Exactly one of \code{ref_path} or
+\code{ref_data} must be supplied.}
 }
 \value{
-A cleaned data.frame with parsed timestamp and numeric
-stage/depth columns.
+A cleaned data frame with:
+\itemize{
+\item \code{timestamp} parsed to POSIXct (UTC).
+\item \code{stage_m} and/or \code{depth_m} coerced to numeric.
+\item \code{site_station_code} and \code{site_comments} trimmed of
+whitespace.
+}
 }
 \description{
-Reads and validates a CSV of manual water-level measurements
-(stage or depth) used as reference levels for barometric
-compensation.
+Reads (from file or in-memory data frame) and validates a table of
+manual water-level measurements (stage or depth) used as reference
+levels for the kPa-to-metres barometric compensation performed by
+\code{\link{convert_waterlevel_kPa_m}}.
 }
 \details{
-Expected core columns (in addition to others you may have):
-\itemize{
-\item site_station_code
-\item timestamp          (date-time of reference reading)
-\item site_comments
-\item stage_m and/or depth_m
+The following validation steps are applied in order:
+\enumerate{
+\item Empty rows (all \code{NA} or blank) are dropped.
+\item Required columns are checked: \code{site_station_code},
+\code{timestamp}, \code{site_comments}, and at least one of
+\code{stage_m} or \code{depth_m}.
+\item \code{timestamp} is parsed using \code{lubridate::mdy_hm()}
+first, then falls back to flexible multi-format parsing
+(\code{mdy HM}, \code{ymd HMS}, etc.).
+\item \code{stage_m} and \code{depth_m} are coerced to numeric;
+negative values trigger a warning.
+\item If no usable stage, depth, or discharge values exist, a
+warning is issued.
+\item Duplicate \code{(site_station_code, timestamp)} pairs are
+flagged with a warning.
 }
+}
+\seealso{
+\code{\link{convert_waterlevel_kPa_m}} (consumes the
+validated reference data), \code{\link{QAQC_metadata}} (analogous
+validation for deployment metadata)
 }

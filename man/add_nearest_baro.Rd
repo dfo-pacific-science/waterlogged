@@ -2,40 +2,118 @@
 % Please edit documentation in R/add_nearest_baro.R
 \name{add_nearest_baro}
 \alias{add_nearest_baro}
-\title{Barometric pressure compensation for dissolved oxygen}
+\title{Attach nearest barometric pressure data to logger time series}
 \usage{
 add_nearest_baro(
   input_data,
-  path_to_output_folder,
-  baro_data_path,
+  path_to_output_folder = NULL,
+  baro_data_path = NULL,
   metric = c("water level", "DO", "conductivity", "both", "all"),
   max_km = 30,
   baro_site_selection = "auto",
-  metadata_path
+  metadata_path = NULL,
+  metadata = NULL,
+  baro_data = NULL
 )
 }
 \arguments{
-\item{input_data}{The dataset containing raw dissolved oxygen in mg/L or waterlevel in kPa}
+\item{input_data}{A data frame of logger observations. Must contain at
+minimum: \code{timestamp} (POSIXct or parseable by
+\code{lubridate::ymd_hms()}), \code{site_station_code}, and
+\code{metric}. Typically the output of \code{\link{bind_hobo_files}}.}
 
-\item{path_to_output_folder}{The desired folder for output of bound dissolved oxygen and barometric pressure per station}
+\item{path_to_output_folder}{Character scalar. Root directory for v0.2 CSV
+output. If \code{NULL} (default), no files are written (Shiny mode).}
 
-\item{input_logger_type}{Recognised logger_types are: dissolvedoxygen_U26, waterlevel_U20}
+\item{baro_data_path}{Character scalar. Directory containing BARO CSV files
+(searched recursively). Required when \code{baro_data} is \code{NULL}.}
 
-\item{metadata}{File containing site_station_code, latitude, and longitude}
+\item{metric}{Character. Which metrics require barometric compensation.
+One of \code{"water level"}, \code{"DO"}, \code{"conductivity"},
+\code{"both"} (water level + DO), or \code{"all"}. Passed to
+\code{\link{resolve_metrics_param}} for normalisation.}
 
-\item{baro_data}{File containing barometric pressure in kPa for barometric stations as site_code that match with those in the metadata_file under nearest_baro, secondary_baro, tertiary_baro}
+\item{max_km}{Numeric or \code{NULL}. Maximum search radius (km) for
+barometric stations in auto mode. Set to \code{NULL} to disable the
+distance filter. Default is \code{30}.}
 
-\item{var_airtemp_C}{The variable for air temperature in degrees Celsius from barometric logger}
+\item{baro_site_selection}{Character. Either \code{"auto"} (default) for
+nearest-neighbour selection or a specific barometric
+\code{site_station_code} for manual selection.}
 
-\item{var_airpress_kPa}{The variable for barometric pressure in kPa}
+\item{metadata_path}{Character scalar. Path to a metadata CSV file.
+Required when \code{metadata} is \code{NULL}. The file is read and
+validated by \code{\link{QAQC_metadata}}.}
 
-\item{timestamp_format}{Formatting of timestamp column of input data, following POSTIX convention. Default is output of HOBO files to excel "\%m/\%d/\%Y \%H:\%M"}
+\item{metadata}{A data frame of station metadata (alternative to
+\code{metadata_path} for Shiny mode). Must contain at least:
+\code{site_station_code}, \code{latitude}, \code{longitude}, and
+\code{metric}. Exactly one of \code{metadata_path} or \code{metadata}
+must be supplied.}
 
-\item{timestamp_timezone}{Timezone of timestamp column of input data, following POSTIX convention. Default is UTC to force ignore daylight savings time.}
+\item{baro_data}{A data frame of barometric observations (alternative to
+\code{baro_data_path} for Shiny mode). Must contain:
+\code{site_station_code}, \code{timestamp}, and either
+\code{airpress_kPa} or \code{airpress_kPa_adj}. Optionally
+\code{airtemp_C} or \code{airtemp_C_adj}.}
 }
 \value{
-dataset with barometric data and adjustments added as new columns, as well as a saved csv
+A two-element list:
+\describe{
+\item{\code{[[1]]}}{A data frame: the input rows augmented with columns
+\code{airpress_kPa}, \code{airtemp_C}, \code{baro_site_stn_code},
+\code{baro_qaqc_adj}, \code{baro_qaqc_note}, and
+\code{baro_qaqc_code}.}
+\item{\code{[[2]]}}{A \code{ggplot2} object: faceted time series of
+barometric pressure coloured by contributing baro station, for visual
+QC of the stitch.}
+}
 }
 \description{
-Add nearest barometric logger to existing dataset of dissolved oxygen and/or water level data, based on metadata file
+Joins barometric pressure (\code{airpress_kPa}) and air temperature
+(\code{airtemp_C}) to water level, dissolved oxygen, or conductivity
+time series. The function operates in two modes:
+}
+\details{
+\describe{
+\item{\strong{Auto mode}}{(\code{baro_site_selection = "auto"}, the
+default.) Uses latitude/longitude from the metadata to find the up-to-3
+nearest barometric stations within \code{max_km} (Haversine distance).
+Overlapping series are calibrated to the nearest station via
+\code{\link{calibrate_baro_series}}, then merged into a single composite
+with \code{dplyr::coalesce()}.}
+\item{\strong{Manual mode}}{(\code{baro_site_selection = "<station_code>"})
+Uses the specified barometric station directly, without distance
+filtering or calibration.}
+}
+
+When \code{path_to_output_folder} is non-\code{NULL}, per-site, per-year
+v0.2 CSV files are written to
+\code{<path_to_output_folder>/<year>/processed/}. When \code{NULL} (Shiny
+mode), no files are written and the function is purely in-memory.
+
+\strong{Auto-mode algorithm:}
+\enumerate{
+\item Compute Haversine distances between every site and every barometric
+station listed in the metadata.
+\item Retain the nearest 3 barometric stations within \code{max_km}.
+\item For each site, read (or filter) barometric data for those stations,
+calibrate secondary/tertiary series to the nearest station using
+\code{\link{calibrate_baro_series}}, and \code{coalesce()} into a single
+composite series.
+\item Left-join the composite onto the site data by \code{timestamp}.
+}
+
+The function prefers \code{_adj} columns (post-QAQC) when present: it
+selects \code{airpress_kPa_adj} over \code{airpress_kPa} and
+\code{airtemp_C_adj} over \code{airtemp_C}.
+
+Timestamps are coerced to POSIXct (UTC) if not already.
+}
+\seealso{
+\code{\link{bind_hobo_files}} (upstream, produces v0.1 data),
+\code{\link{barometric_qaqc}} and \code{\link{barometric_qaqc_all}} (QAQC
+baro data before this step),
+\code{\link{resolve_metrics_param}},
+\code{\link{calibrate_baro_series}}
 }

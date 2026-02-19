@@ -1,5 +1,31 @@
 # ---- Helpers ---------------------------------------------------------------
 
+#' Normalise a user-supplied metric string to a canonical name
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to
+#' standardise the \code{metric} argument.  Accepts common aliases
+#' (case-insensitive, whitespace-stripped) and returns one of the five
+#' canonical metric names used throughout the package.
+#'
+#' @param metric Character scalar.  The user-supplied metric string.
+#'   Recognised aliases:
+#'   \describe{
+#'     \item{\code{"waterlevel"}}{Also \code{"stage"}.}
+#'     \item{\code{"dissolvedoxygen"}}{Also \code{"do"},
+#'       \code{"oxygen"}.}
+#'     \item{\code{"barometric"}}{Also \code{"baro"},
+#'       \code{"airpressure"}.}
+#'     \item{\code{"watertemp"}}{Also \code{"watertemperature"}.}
+#'     \item{\code{"airtemp"}}{Also \code{"airtemperature"}.}
+#'   }
+#' @param allow_all Logical.  When \code{TRUE}, the special value
+#'   \code{"all"} is accepted and returned as-is.  Default \code{FALSE}.
+#'
+#' @return A single canonical metric string.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
 normalise_metric <- function(metric, allow_all = FALSE) {
   if (is.null(metric) || length(metric) != 1L) {
     stop("`metric` must be a single, non-NULL value.", call. = FALSE)
@@ -28,6 +54,40 @@ normalise_metric <- function(metric, allow_all = FALSE) {
 }
 
 
+#' Resolve a data-processing version string to a file-matching pattern
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to normalise
+#' the \code{data_processing} argument and derive the regex pattern used
+#' to find versioned CSV files on disk.
+#'
+#' @param data_processing Character scalar.  User-supplied version label.
+#'   Recognised values (case-insensitive, whitespace-stripped):
+#'   \describe{
+#'     \item{\code{"raw"}}{Matches any \code{.csv} file.}
+#'     \item{\code{"v0.1"}}{Also \code{"v01"}, \code{"0.1"}.  Matches
+#'       \code{*v0.1.csv}.}
+#'     \item{\code{"v0.2"}}{Also \code{"v02"}, \code{"0.2"}.  Matches
+#'       \code{*v0.2.csv}.}
+#'     \item{\code{"v0.3"}}{Also \code{"v03"}, \code{"0.3"}.  Matches
+#'       \code{*v0.3.csv}.}
+#'     \item{\code{"v1.0"}}{Also \code{"v10"}, \code{"1.0"},
+#'       \code{"1"}, \code{"final"}, \code{"processed"},
+#'       \code{"clean"}.  Matches \code{*v1.0.csv}.}
+#'   }
+#'   A fuzzy fallback (partial regex) is attempted for unrecognised
+#'   inputs before erroring.
+#'
+#' @return A two-element named list:
+#'   \describe{
+#'     \item{\code{data_processing}}{Canonical version string (e.g.
+#'       \code{"v0.1"}).}
+#'     \item{\code{pattern}}{Regex suitable for
+#'       \code{list.files(pattern = ...)}.}
+#'   }
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
 resolve_data_processing_pattern <- function(data_processing) {
   
   if (is.null(data_processing) || length(data_processing) != 1L) {
@@ -84,11 +144,53 @@ resolve_data_processing_pattern <- function(data_processing) {
 
 
 
+#' Temporally aggregate clean logger data by metric
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to compute
+#' grouped (mean, min, max) summaries of QAQC'd \code{_adj} columns at
+#' the requested temporal resolution.  Each supported metric defines its
+#' own set of required columns and summary statistics.
+#'
+#' @param dat Data frame of clean logger observations.
+#'   Must contain \code{site_station_code}, \code{timestamp} (POSIXct),
+#'   and the metric-specific \code{_adj} columns (see \strong{Details}).
+#' @param metric_norm Character scalar.  One of the canonical metric
+#'   names returned by \code{normalise_metric()}: \code{"dissolvedoxygen"},
+#'   \code{"waterlevel"}, \code{"barometric"}, \code{"watertemp"}, or
+#'   \code{"airtemp"}.
+#' @param temporal_scale Character scalar.  One of \code{"hourly"},
+#'   \code{"daily"}, \code{"weekly"}, \code{"monthly"}, or
+#'   \code{"yearly"}.  Already validated upstream by
+#'   \code{\link{get_logger_data}}.
+#'
+#' @return A tibble grouped by \code{site_station_code} and
+#'   \code{time_group}, with mean/min/max columns for each metric
+#'   variable (rounded to 2 decimal places; \code{Inf}/\code{NaN}
+#'   replaced with \code{NA}).
+#'
+#' @details
+#' Required \code{_adj} columns by metric:
+#' \describe{
+#'   \item{\code{"dissolvedoxygen"}}{\code{do_mgl_adj},
+#'     \code{do_percsat_adj}, \code{watertemp_C_adj}.}
+#'   \item{\code{"waterlevel"}}{\code{waterlevel_m_adj},
+#'     \code{watertemp_C_adj}.}
+#'   \item{\code{"barometric"}}{\code{airpress_kPa_adj},
+#'     \code{airtemp_C_adj}.}
+#'   \item{\code{"watertemp"}}{\code{watertemp_C_adj}.}
+#'   \item{\code{"airtemp"}}{\code{airtemp_C_adj}.}
+#' }
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller),
+#'   \code{\link{write_clean_data}} (produces the v1.0 files typically
+#'   summarised here)
+#'
+#' @keywords internal
 summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   # temporal_scale already validated upstream
   
   # --- create time_group ---------------------------------------------
-  dat <- dat %>%
+  dat <- dat |>
     dplyr::mutate(
       time_group = dplyr::case_when(
         temporal_scale == "hourly"  ~ lubridate::floor_date(timestamp, "hour"),
@@ -121,8 +223,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
       )
     }
     
-    out <- dat %>%
-      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) %>%
+    out <- dat |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
         mean_do_mgl      = mean(do_mgl_adj,      na.rm = TRUE),
         mean_do_percsat  = mean(do_percsat_adj,  na.rm = TRUE),
@@ -150,8 +252,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
       )
     }
     
-    out <- dat %>%
-      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) %>%
+    out <- dat |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
         mean_waterlevel_m = mean(waterlevel_m_adj, na.rm = TRUE),
         mean_watertemp_C  = mean(watertemp_C_adj,  na.rm = TRUE),
@@ -176,8 +278,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
       )
     }
     
-    out <- dat %>%
-      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) %>%
+    out <- dat |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
         mean_airpress_kPa = mean(airpress_kPa_adj, na.rm = TRUE),
         mean_airtemp_C    = mean(airtemp_C_adj,    na.rm = TRUE),
@@ -201,8 +303,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
       )
     }
     
-    out <- dat %>%
-      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) %>%
+    out <- dat |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
         mean_airtemp_C = mean(airtemp_C_adj, na.rm = TRUE),
         min_airtemp_C  = min(airtemp_C_adj,  na.rm = TRUE),
@@ -223,8 +325,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
       )
     }
     
-    out <- dat %>%
-      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) %>%
+    out <- dat |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
         mean_watertemp_C = mean(watertemp_C_adj, na.rm = TRUE),
         min_watertemp_C  = min(watertemp_C_adj,  na.rm = TRUE),
@@ -237,8 +339,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   }
   
   # round numeric, clean Inf/NaN ------------------------------------------------
-  out <- out %>%
-    dplyr::mutate(dplyr::across(where(is.numeric), ~ round(.x, 2)))
+  out <- out |>
+    dplyr::mutate(dplyr::across(dplyr::where(is.numeric), ~ round(.x, 2)))
   
   out[] <- lapply(out, function(x) {
     if (is.numeric(x)) {

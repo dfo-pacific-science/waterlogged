@@ -19,7 +19,11 @@
 #'     the series up).}
 #'   }
 #'   Must contain at least two rows.
-#' @param user Character. Username for the QA/QC log; defaults to system user.
+#' @param user Character. Username for the QA/QC log. Defaults to
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #' @param manual_note Optional character note to include in the log.
 #'
 #' @return A modified data frame with updated `waterlevel_m_adj` for
@@ -49,10 +53,11 @@
 #' @export
 wl_multipoint_correction <- function(input_data,
                                       select_station,
-                                      log_root,
+                                      log_root = NULL,
                                       drift_points,
-                                      user        = Sys.info()[["user"]],
+                                      user        = NULL,
                                       manual_note = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
   
   # ---- basic checks on input_data -------------------------------------------
   required_cols <- c("site_station_code", "timestamp")
@@ -168,7 +173,7 @@ wl_multipoint_correction <- function(input_data,
   drift_summary <- paste0(
     "Multi-point linear drift correction: ",
     "from ", format(t_min, "%Y-%m-%d %H:%M:%S"), " (", drift_points$drift_m[1], " m) ",
-    "to ", format(t_max, "%Y-%m-%d %H:%M:%S"), " (", tail(drift_points$drift_m, 1), " m). ",
+    "to ", format(t_max, "%Y-%m-%d %H:%M:%S"), " (", utils::tail(drift_points$drift_m, 1), " m). ",
     "Intermediate points: ",
     paste(
       paste0("[", format(drift_points$timestamp, "%Y-%m-%d %H:%M:%S"),
@@ -196,20 +201,13 @@ wl_multipoint_correction <- function(input_data,
     user        = user,
     run_time    = run_time
   )
-  
-  log_path <- qaqc_log_path(log_root, select_station, metric)
-  
-  qaqc_log_append(
-    log_path = log_path,
-    station  = select_station,
-    metric   = metric,
-    log_rows = log_row
-  )
-  
-  message("WL drift correction applied for station ", select_station,
-          " and logged to: ", log_path)
-  
+
+  qaqc_log_maybe_append(log_root, select_station, metric, log_row)
+
+  message("WL drift correction applied for station ", select_station)
+
   # ---- stitch back into full dataset ----------------------------------------
   output_data[idx_station, ] <- station_df
+  attr(output_data, "qaqc_log") <- log_row
   output_data
 }

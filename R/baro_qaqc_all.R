@@ -36,7 +36,16 @@
 #' @param flatline_n Integer; number of consecutive identical values used to
 #'   flag potential flatlining in the pressure series.
 #' @param user Character username written into the QA/QC log. Defaults to
-#'   `Sys.info()[["user"]]`.
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
+#' @param metadata Optional data frame of station metadata (as returned by
+#'   \code{\link{QAQC_metadata}}). When supplied, \code{metadata_path} is
+#'   ignored and this data frame is used directly.
+#' @param baro_data Optional data frame of pre-loaded barometric logger
+#'   data. When supplied, \code{baro_data_path} is ignored and stations
+#'   are filtered from this data frame instead of reading CSV files.
 #'
 #'
 #' @return A single long-format data frame created by binding the QA/QC'd
@@ -45,31 +54,31 @@
 #'
 #' @seealso [barometric_qaqc()], [add_nearest_baro()]
 #'
-#' @import dplyr
-#' @importFrom lubridate ymd_hms year as_date
-#' @importFrom tibble tibble
 #' @export
 barometric_qaqc_all <- function(
-    baro_data_path,
-    metadata_path,
-    path_to_output_folder,
-    log_root,
+    baro_data_path = NULL,
+    metadata_path = NULL,
+    path_to_output_folder = NULL,
+    log_root = NULL,
     temp_low_limit     = -40,
     temp_high_limit    = 50,
     pressure_low_kpa   = 85,
     pressure_high_kpa  = 105,
     spike_threshold_kpa = 1.5,
     flatline_n          = 6,
-    user = Sys.info()[["user"]]
+    user = NULL,
+    metadata = NULL,
+    baro_data = NULL
 ) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
   # helper to escape regex specials
   escape_regex <- function(x) gsub("([][{}()+*^$|\\.?\\\\-])", "\\\\\\1", x)
 
-  metadata <- QAQC_metadata(metadata_path)
+  metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
 
-  baro_sites <- metadata %>%
-    dplyr::filter(metric == "barometric") %>%
-    dplyr::pull(site_station_code) %>%
+  baro_sites <- metadata |>
+    dplyr::filter(metric == "barometric") |>
+    dplyr::pull(site_station_code) |>
     unique()
 
   if (!length(baro_sites)) {
@@ -81,23 +90,32 @@ barometric_qaqc_all <- function(
   for (stn in baro_sites) {
     message("\n--- Barometric QA/QC for station: ", stn, " ---")
 
-    pattern <- paste0("^", escape_regex(stn), "_BARO_.*\\.csv$")
-    file_paths <- list.files(
-      baro_data_path,
-      pattern    = pattern,
-      full.names = TRUE,
-      recursive  = TRUE
-    )
+    if (!is.null(baro_data) && is.data.frame(baro_data)) {
+      raw_baro <- baro_data |>
+        dplyr::filter(site_station_code == stn)
+      if (!nrow(raw_baro)) {
+        warning("  No baro data for station ", stn, " in baro_data. Skipping.")
+        next
+      }
+    } else {
+      pattern <- paste0("^", escape_regex(stn), "_BARO_.*\\.csv$")
+      file_paths <- list.files(
+        baro_data_path,
+        pattern    = pattern,
+        full.names = TRUE,
+        recursive  = TRUE
+      )
 
-    if (!length(file_paths)) {
-      warning("  No BARO files found for station ", stn,
-              " under ", baro_data_path, ". Skipping.")
-      next
+      if (!length(file_paths)) {
+        warning("  No BARO files found for station ", stn,
+                " under ", baro_data_path, ". Skipping.")
+        next
+      }
+
+      raw_baro <- dplyr::bind_rows(
+        lapply(file_paths, utils::read.csv, stringsAsFactors = FALSE, check.names = FALSE)
+      )
     }
-
-    raw_baro <- dplyr::bind_rows(
-      lapply(file_paths, utils::read.csv, stringsAsFactors = FALSE, check.names = FALSE)
-    )
 
     # ensure timestamp
     if (!"timestamp" %in% names(raw_baro)) {
@@ -148,39 +166,41 @@ barometric_qaqc_all <- function(
     # store for combined return
     all_baro_list[[stn]] <- checked
 
-    # ---- write yearly v0.1 BARO files (adjusted) ----
-    checked_year <- checked %>%
-      dplyr::mutate(year = lubridate::year(timestamp))
+    # ---- write yearly v0.1 BARO files (adjusted, guarded) ----
+    if (!is.null(path_to_output_folder)) {
+      checked_year <- checked |>
+        dplyr::mutate(year = lubridate::year(timestamp))
 
-    years_i <- sort(unique(checked_year$year))
+      years_i <- sort(unique(checked_year$year))
 
-    for (yy in years_i) {
-      sub <- checked_year %>%
-        dplyr::filter(year == yy) %>%
-        dplyr::arrange(timestamp)
+      for (yy in years_i) {
+        sub <- checked_year |>
+          dplyr::filter(year == yy) |>
+          dplyr::arrange(timestamp)
 
-      if (!nrow(sub)) next
+        if (!nrow(sub)) next
 
-      start_date <- min(lubridate::as_date(sub$timestamp))
-      end_date   <- max(lubridate::as_date(sub$timestamp))
+        start_date <- min(lubridate::as_date(sub$timestamp))
+        end_date   <- max(lubridate::as_date(sub$timestamp))
 
-      start_str <- gsub("\\D", "", as.character(start_date))
-      end_str   <- gsub("\\D", "", as.character(end_date))
+        start_str <- gsub("\\D", "", as.character(start_date))
+        end_str   <- gsub("\\D", "", as.character(end_date))
 
-      year_dir <- file.path(path_to_output_folder, yy)
-      proc_dir <- file.path(year_dir, "processed")
-      if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
-      if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
+        year_dir <- file.path(path_to_output_folder, yy)
+        proc_dir <- file.path(year_dir, "processed")
+        if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
+        if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
 
-      sub_write <- sub %>%
-        dplyr::select(-year)
-      sub_write$timestamp <- format(sub_write$timestamp, tz = "UTC", usetz = FALSE)
+        sub_write <- sub |>
+          dplyr::select(-year)
+        sub_write$timestamp <- format(sub_write$timestamp, tz = "UTC", usetz = FALSE)
 
-      out_name <- sprintf("%s_BARO_%s_%s_v0.1.csv", stn, start_str, end_str)
-      out_path <- file.path(proc_dir, out_name)
+        out_name <- sprintf("%s_BARO_%s_%s_v0.1.csv", stn, start_str, end_str)
+        out_path <- file.path(proc_dir, out_name)
 
-      utils::write.csv(sub_write, out_path, row.names = FALSE)
-      message("  QA/QC BARO written: ", basename(out_path))
+        utils::write.csv(sub_write, out_path, row.names = FALSE)
+        message("  QA/QC BARO written: ", basename(out_path))
+      }
     }
   }
 

@@ -2,35 +2,73 @@
 % Please edit documentation in R/waterlevel_qaqc.R
 \name{waterlevel_qaqc}
 \alias{waterlevel_qaqc}
-\title{Automatic waterlevel qaqc}
+\title{Automatic QAQC for water level logger data}
 \usage{
-waterlevel_qaqc(
-  input_data,
-  select_station,
-  log_root,
-  user = Sys.info()[["user"]]
-)
+waterlevel_qaqc(input_data, select_station, log_root = NULL, user = NULL)
 }
 \arguments{
-\item{input_data}{Dataframe with water level in metres}
+\item{input_data}{A data frame of water level observations. Must contain
+the columns: \code{site_station_code}, \code{timestamp} (POSIXct or
+parseable by \code{lubridate::ymd_hms()}), \code{waterlevel_m},
+\code{watertemp_C}, \code{waterpress_kPa}, \code{airpress_kPa}, and
+\code{airtemp_C}. Typically the output of
+\code{\link{convert_waterlevel_kPa_m}} or
+\code{\link{add_nearest_baro}}.}
 
-\item{select_station}{site_station_code for desired logger station, supplied waterlevel data will be filtered by this code}
+\item{select_station}{Character scalar. The \code{site_station_code} to
+process. Only rows matching this station are retained.}
 
-\item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged}
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+log files. When non-\code{NULL}, a log CSV is written via
+\code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+mode), no file is written.}
 
-\item{var_waterlevel_m}{Name of variable column containing water level in meters}
-
-\item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
-
-\item{var_waterpress_kPa}{Name of column for water pressure (in kPa) in input data}
-
-\item{var_airpress_kPa}{Name of column for air pressure (in kPa) in input data}
-
-\item{var_airtemp_C}{Name of column for air temperature (in degrees Celcius) in input data}
+\item{user}{Character scalar. User name recorded in the QAQC log.
+Defaults to \code{NULL}, which resolves to
+\code{Sys.info()[["user"]]} (the local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
 }
 \value{
-list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
+The filtered data frame for \code{select_station}, sorted by
+\code{timestamp}, with the following additions:
+\itemize{
+\item \strong{Adjusted columns:} \code{waterlevel_m_adj},
+\code{watertemp_C_adj}.
+\item \strong{Flag columns:} \code{flag_disturbance},
+\code{neg_lt_minus1}, \code{neg_between}, \code{flag_ice},
+\code{flag_wl_dry}.
+\item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
+of QAQC log rows summarising every rule that fired.
+}
 }
 \description{
-Change all negative water level values to zero, flag water temperatures above 19C as potentially dry, flag water temperatures below 0.3C as potentially in ice, and remove water temperature values below -1C.
+Applies a suite of automated quality-control rules to water level and
+water temperature time series for a single station. Raw values are never
+modified; instead, adjusted copies (\code{waterlevel_m_adj},
+\code{watertemp_C_adj}) are created and Boolean flag columns are added
+for review.
+}
+\details{
+The following rules are applied:
+\describe{
+\item{\code{NEGATIVE_WT}}{Water temperature below \code{-1}
+degrees C removed (\code{NA}); between \code{-1} and 0
+degrees C corrected to 0.}
+\item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
+for possible ice conditions.}
+\item{\code{FLAG_DISTURBANCE}}{Consecutive water level step change
+> 0.1 m flagged as potential logger disturbance.}
+\item{\code{FLAG_WL_DRY}}{Possible dry sensor: water temperature
+> 19 degrees C, water pressure <= air pressure, or
+air--water temperature within 2 degrees C / air warmer than
+water.}
+}
+}
+\seealso{
+\code{\link{dissox_qaqc}} (analogous QAQC for dissolved oxygen),
+\code{\link{conductivity_qaqc}} (analogous for conductivity),
+\code{\link{adjust_waterlevel_spike}} (downstream spike removal),
+\code{\link{adjust_logger_NA}} (downstream manual adjustment),
+\code{\link{convert_waterlevel_kPa_m}} (upstream WL conversion)
 }

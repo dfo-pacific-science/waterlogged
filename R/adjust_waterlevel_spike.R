@@ -36,7 +36,10 @@
 #'   \code{"data/testing/processed"}). The actual log path is derived from
 #'   this root, station, and metric.
 #' @param user Character; user name recorded in the log entry. Defaults to
-#'   \code{Sys.info()[["user"]]}.
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #'
 #' @return A data frame for \code{select_station} with updated
 #'   \code{waterlevel_m_adj} values and \code{edit_spike_flat} flag. The input
@@ -51,9 +54,6 @@
 #'
 #' @seealso \code{\link{waterlevel_qaqc}}, \code{\link{adjust_logger_NA}},
 #'   \code{\link{make_qaqc_log_row}}, \code{\link{qaqc_log_append}}
-#'
-#' @import dplyr
-#' @importFrom lubridate ymd_hms
 #'
 #' @examples
 #' \dontrun{
@@ -74,9 +74,10 @@ adjust_waterlevel_spike <- function(input_data,
                                     timestamp_start,
                                     timestamp_end,
                                     reason_to_adjust, 
-                                    manual_note, 
-                                    log_root, 
-                                    user = Sys.info()[["user"]]) {
+                                    manual_note,
+                                    log_root = NULL,
+                                    user = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
   # QAQC inputs  ---------------------------------------------------
   allowed_reasons <- c("ice", "disturbance")
   
@@ -101,8 +102,8 @@ adjust_waterlevel_spike <- function(input_data,
     stop("adjust_waterlevel_spike(): 'manual_note' must be a non-empty string.")
   
   # --- Filter to selected station & sort --------------------------------------
-  waterlevel_data <- input_data %>%
-    dplyr::filter(site_station_code == !!select_station) %>%
+  waterlevel_data <- input_data |>
+    dplyr::filter(site_station_code == !!select_station) |>
     dplyr::arrange(timestamp)
   
   required_cols <- c(
@@ -138,14 +139,14 @@ adjust_waterlevel_spike <- function(input_data,
   
   # --- Get start/end water levels (raw) ---------------------------------------
 
-   start_val <- waterlevel_data %>%
-    dplyr::filter(timestamp == ts_start) %>%
-    dplyr::pull(waterlevel_m) %>%
+   start_val <- waterlevel_data |>
+    dplyr::filter(timestamp == ts_start) |>
+    dplyr::pull(waterlevel_m) |>
     round(3)
   
-  end_val <- waterlevel_data %>%
-    dplyr::filter(timestamp == ts_end) %>%
-    dplyr::pull(waterlevel_m) %>%
+  end_val <- waterlevel_data |>
+    dplyr::filter(timestamp == ts_end) |>
+    dplyr::pull(waterlevel_m) |>
     round(3)
   
   if (length(start_val) != 1L || length(end_val) != 1L) {
@@ -166,7 +167,7 @@ adjust_waterlevel_spike <- function(input_data,
   
   # --- Apply spike flattening (time-based interpolation) ----------------------
   
-  waterlevel_data <- waterlevel_data %>%
+  waterlevel_data <- waterlevel_data |>
     dplyr::mutate(
       in_event = timestamp >= ts_start & timestamp <= ts_end,
       
@@ -183,7 +184,7 @@ adjust_waterlevel_spike <- function(input_data,
         in_event,
         TRUE,
         edit_spike_flat
-      ))%>%
+      ))|>
     dplyr::select(-in_event, -interpolated_value)
   
   
@@ -216,20 +217,12 @@ adjust_waterlevel_spike <- function(input_data,
     run_time    = run_time
   )
   
-  log_path <- qaqc_log_path(log_root, select_station, metric)
-  
   if (!is.null(log_this)) {
-    qaqc_log_append(
-      log_path = log_path,
-      station  = select_station,
-      metric   = metric,
-      log_rows = log_this
-    )
-    
-    message("QA/QC log updated: ", log_path)
+    qaqc_log_maybe_append(log_root, select_station, metric, log_this)
   } else {
     warning("No rows adjusted; no log entry written.")
   }
-  
+
+  attr(waterlevel_data, "qaqc_log") <- log_this
   return(waterlevel_data)
 }

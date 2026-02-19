@@ -11,8 +11,8 @@ adjust_WL_zero(
   timestamp_start = NULL,
   timestamp_end = NULL,
   manual_note,
-  log_root,
-  user = Sys.info()[["user"]]
+  log_root = NULL,
+  user = NULL
 )
 }
 \arguments{
@@ -43,7 +43,10 @@ was applied (stored in the QA/QC log).}
 \code{qaqc_log_path()}).}
 
 \item{user}{Username written to the QA/QC log. Defaults to
-\code{Sys.info()[["user"]]}.}
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
 }
 \value{
 Modified data frame for \code{select_station} with updated

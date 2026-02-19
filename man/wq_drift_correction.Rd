@@ -6,22 +6,131 @@
 \usage{
 wq_drift_correction(
   input_data,
-  ref_data_path,
+  ref_data_path = NULL,
   select_station,
   metric,
   method = c("ratio", "offset"),
   max_ref_gap_h = 1,
   log_root = NULL,
-  user = Sys.info()[["user"]]
+  user = NULL,
+  ref_data = NULL
 )
 }
-\description{
-Forward, linear drift between visits, restarting at each visit.
-\itemize{
-\item Segment 0: from series start to first visit's end-sample.
-\item "check": end-target uses nearest logger sample at visit time; restart at that sample.
-\item "calibration": end-target uses last logger sample strictly before calibration_datetime;
-restart at first sample at/after calibration_datetime (post-cal is trusted).
-\item No segment after the last event.
+\arguments{
+\item{input_data}{Data frame of QA/QC'd logger data. Must contain
+\code{site_station_code}, \code{timestamp} (POSIXct or parseable),
+and the adjusted value column for the chosen metric
+(\code{conduct_uScm_adj}, \code{do_percsat_adj}, or
+\code{ph_adj}).}
+
+\item{ref_data_path}{Character path to a CSV file containing
+reference measurements. Set to \code{NULL} when providing
+\code{ref_data} directly (e.g., in a Shiny app). One of
+\code{ref_data_path} or \code{ref_data} must be provided.}
+
+\item{select_station}{Character. The \code{site_station_code} to
+correct. Only rows matching this station are modified; all other
+rows are returned unchanged.}
+
+\item{metric}{Character identifying the water-quality metric.
+Accepted values (case-insensitive): \code{"conductivity"},
+\code{"cond"}, \code{"dissolvedoxygen"}, \code{"do"}, \code{"ph"}.}
+
+\item{method}{One of \code{"ratio"} (multiplicative, default) or
+\code{"offset"} (additive).}
+
+\item{max_ref_gap_h}{Numeric. Maximum allowable time gap (in hours)
+between a reference measurement timestamp and the nearest logger
+sample. Reference events exceeding this gap are skipped with a
+warning. Default \code{1}.}
+
+\item{log_root}{Optional path to the QA/QC log folder. If provided,
+a log entry is written to disk. If \code{NULL}, log rows are
+still returned as an attribute on the result.}
+
+\item{user}{Character. Username recorded in QA/QC logs. Defaults to
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
+
+\item{ref_data}{Data frame of reference measurements, as an
+alternative to \code{ref_data_path}. Must contain the columns
+described in Details.}
 }
+\value{
+The input data frame with drift-corrected values written
+back to the adjusted column (\code{*_adj}), plus:
+\itemize{
+\item An \code{edit_*_drift} logical flag column (\code{TRUE}
+for corrected rows).
+\item Updated QA/QC code, note, and adjustment columns for the
+metric.
+}
+A \code{"qaqc_log"} attribute is attached containing the log
+rows as a tibble (or \code{NULL} if no rows were corrected).
+}
+\description{
+Apply forward linear drift correction to a water-quality time series
+using discrete reference measurements collected during field visits.
+The correction ramps linearly from zero at the start of each segment
+to the full correction at the visit endpoint, then restarts at the
+next segment. No correction is applied after the last visit.
+}
+\details{
+Two correction methods are available:
+\itemize{
+\item \strong{ratio} (multiplicative): each value is scaled by a
+linearly interpolated ratio between 1.0 (segment start) and the
+reference/logger ratio (segment end).
+\item \strong{offset} (additive): each value is shifted by a
+linearly interpolated offset between 0 (segment start) and the
+reference minus logger difference (segment end).
+}
+
+Two event types control how segment boundaries are determined:
+\itemize{
+\item \strong{check}: the end-target is the nearest logger sample
+to the visit timestamp; the next segment restarts at that same
+sample.
+\item \strong{calibration}: the end-target is the last logger
+sample strictly before \code{calibration_datetime}; the next
+segment restarts at the first sample at or after
+\code{calibration_datetime} (post-calibration values are
+trusted).
+}
+
+\strong{Reference data format}
+
+The reference data (CSV or data frame) must contain these columns:
+\describe{
+\item{metric}{Character. The water-quality metric (e.g.,
+\code{"conductivity"}, \code{"do"}, \code{"ph"}).}
+\item{site_station_code}{Character. Station identifier matching
+the logger data.}
+\item{timestamp}{Character or POSIXct. When the reference
+measurement was taken.}
+\item{watertemp_C}{Numeric. Water temperature at the time of
+measurement.}
+\item{value}{Numeric. The reference measurement value.}
+\item{unit}{Character. Unit of \code{value} (e.g.,
+\code{"uS/cm"}, \code{"\%sat"}, \code{"pH"}).}
+\item{event_type}{Character. One of \code{"check"},
+\code{"calibration"}, or \code{"ignore"}.}
+\item{calibration_datetime}{Character or POSIXct. Required for
+\code{"calibration"} events; the moment the sensor was
+recalibrated. \code{NA} or empty for other event types.}
+}
+
+\strong{Timezone handling}
+
+Reference timestamps are parsed into the logger's timezone, which
+is determined from the POSIXct \code{tzone} attribute or an
+optional \code{timezone} column in \code{input_data}. Falls back
+to \code{"UTC"} if neither is available.
+}
+\seealso{
+\code{\link{correct_drift}} (legacy conductivity-only
+drift correction), \code{\link{wl_multipoint_correction}} (water
+level drift correction)
 }

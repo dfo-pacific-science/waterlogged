@@ -37,7 +37,10 @@
 #'   \code{"data/testing/processed"}). The actual log path is derived from
 #'   this root, station, and metric.
 #' @param user Character; user name recorded in the log entry. Defaults to
-#'   \code{Sys.info()[["user"]]}.
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #'
 #' @return A data frame for the selected station with updated adjusted fields
 #'   and edit flags. Two internal helper columns (\code{in_window} and
@@ -55,9 +58,6 @@
 #'   \code{\link{make_qaqc_log_row}},
 #'   \code{\link{qaqc_log_append}}
 #'
-#' @import dplyr
-#' @importFrom lubridate ymd_hms
-#'
 #' @export
 adjust_logger_NA <- function(
     input_data,
@@ -69,9 +69,10 @@ adjust_logger_NA <- function(
     keep_temp         = FALSE,
     apply_to_all_data = FALSE,
     manual_note,         # required free-text explanation
-    log_root,            # root folder where /logs lives
-    user = Sys.info()[["user"]]
+    log_root = NULL,     # root folder where /logs lives (NULL for Shiny)
+    user = NULL
 ) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
   # ---- QC inputs -------------------------------------------------------------
   allowed_reasons <- c("ice", "dry", "disturbance")
   if (length(reason_to_adjust) != 1L) {
@@ -128,8 +129,8 @@ adjust_logger_NA <- function(
   )
 
   # ---- Subset station + sort + basic checks ---------------------------------
-  df <- input_data %>%
-    dplyr::filter(site_station_code == select_station) %>%
+  df <- input_data |>
+    dplyr::filter(site_station_code == select_station) |>
     dplyr::arrange(timestamp)
 
   if (nrow(df) == 0) {
@@ -189,7 +190,7 @@ adjust_logger_NA <- function(
     }
 
     if (reason_to_adjust == "ice") {
-      df <- df %>%
+      df <- df |>
         dplyr::mutate(
           edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
           waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj),
@@ -200,25 +201,25 @@ adjust_logger_NA <- function(
     if (reason_to_adjust == "dry") {
 
       if (apply_to_all_data) {
-        dry_wl <- df %>%
-          dplyr::filter(in_window, !is.na(waterlevel_m_adj)) %>%
-          dplyr::summarise(dry_wl = max(waterlevel_m_adj, na.rm = TRUE)) %>%
+        dry_wl <- df |>
+          dplyr::filter(in_window, !is.na(waterlevel_m_adj)) |>
+          dplyr::summarise(dry_wl = max(waterlevel_m_adj, na.rm = TRUE)) |>
           dplyr::pull(dry_wl)
 
         if (length(dry_wl) == 0 || is.infinite(dry_wl)) {
           warning("No non-NA waterlevel_m_adj in dry window; no WL dry adjustment applied.")
         } else {
-          df <- df %>%
+          df <- df |>
             dplyr::mutate(
               is_dry          = !is.na(waterlevel_m_adj) & waterlevel_m_adj <= dry_wl,
               edit_na         = dplyr::if_else(is_dry, TRUE, edit_na),
               waterlevel_m_adj = dplyr::if_else(is_dry, NA_real_, waterlevel_m_adj),
               watertemp_C_adj  = dplyr::if_else(is_dry, NA_real_, watertemp_C_adj)
-            ) %>%
+            ) |>
             dplyr::select(-is_dry)
         }
       } else {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
             waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj),
@@ -229,13 +230,13 @@ adjust_logger_NA <- function(
 
     if (reason_to_adjust == "disturbance") {
       if (keep_temp) {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
             waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj)
           )
       } else {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
             waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj),
@@ -256,7 +257,7 @@ adjust_logger_NA <- function(
     }
 
     if (reason_to_adjust == "ice") {
-      df <- df %>%
+      df <- df |>
         dplyr::mutate(
           edit_na         = dplyr::if_else(in_window, TRUE, edit_na),
           do_mgl_adj      = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
@@ -267,14 +268,14 @@ adjust_logger_NA <- function(
 
     if (reason_to_adjust == "disturbance") {
       if (keep_temp) {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na        = dplyr::if_else(in_window, TRUE, edit_na),
             do_mgl_adj     = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
             do_percsat_adj = dplyr::if_else(in_window, NA_real_, do_percsat_adj)
           )
       } else {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na         = dplyr::if_else(in_window, TRUE, edit_na),
             do_mgl_adj      = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
@@ -287,28 +288,28 @@ adjust_logger_NA <- function(
     if (reason_to_adjust == "dry") {
 
       if (apply_to_all_data && has_wl) {
-        dry_wl <- df %>%
-          dplyr::filter(in_window, !is.na(waterlevel_m)) %>%
-          dplyr::summarise(dry_wl = max(waterlevel_m, na.rm = TRUE)) %>%
+        dry_wl <- df |>
+          dplyr::filter(in_window, !is.na(waterlevel_m)) |>
+          dplyr::summarise(dry_wl = max(waterlevel_m, na.rm = TRUE)) |>
           dplyr::pull(dry_wl)
 
         if (length(dry_wl) == 0 || is.infinite(dry_wl)) {
           warning("No non-NA waterlevel_m in dry window; no DO dry adjustment applied.")
         } else {
-          df <- df %>%
+          df <- df |>
             dplyr::mutate(
               is_dry          = !is.na(waterlevel_m) & waterlevel_m <= dry_wl,
               edit_na         = dplyr::if_else(is_dry, TRUE, edit_na),
               do_percsat_adj  = dplyr::if_else(is_dry, NA_real_, do_percsat_adj),
               do_mgl_adj      = dplyr::if_else(is_dry, NA_real_, do_mgl_adj),
               watertemp_C_adj = dplyr::if_else(is_dry, NA_real_, watertemp_C_adj)
-            ) %>%
+            ) |>
             dplyr::select(-is_dry)
         }
       } else if (apply_to_all_data && !has_wl) {
         warning("Waterlevel column 'waterlevel_m' not found. Cannot apply DO dry adjustment to all data.")
       } else {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na         = dplyr::if_else(in_window, TRUE, edit_na),
             do_mgl_adj      = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
@@ -327,7 +328,7 @@ adjust_logger_NA <- function(
     }
 
     if (reason_to_adjust %in% c("ice", "dry", "disturbance")) {
-      df <- df %>%
+      df <- df |>
         dplyr::mutate(
           edit_na        = dplyr::if_else(in_window, TRUE, edit_na),
           watertemp_C_adj = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
@@ -343,7 +344,7 @@ adjust_logger_NA <- function(
     }
 
     if (reason_to_adjust %in% c("ice", "dry", "disturbance")) {
-      df <- df %>%
+      df <- df |>
         dplyr::mutate(
           edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
           airpress_kPa_adj = dplyr::if_else(in_window, NA_real_, airpress_kPa_adj)
@@ -362,7 +363,7 @@ adjust_logger_NA <- function(
     }
 
     if (reason_to_adjust == "ice") {
-      df <- df %>%
+      df <- df |>
         dplyr::mutate(
           edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
           conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj),
@@ -372,13 +373,13 @@ adjust_logger_NA <- function(
 
     if (reason_to_adjust == "disturbance") {
       if (keep_temp) {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
             conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj)
           )
       } else {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
             conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj),
@@ -390,27 +391,27 @@ adjust_logger_NA <- function(
     if (reason_to_adjust == "dry") {
 
       if (apply_to_all_data && has_wl) {
-        dry_wl <- df %>%
-          dplyr::filter(in_window, !is.na(waterlevel_m)) %>%
-          dplyr::summarise(dry_wl = max(waterlevel_m, na.rm = TRUE)) %>%
+        dry_wl <- df |>
+          dplyr::filter(in_window, !is.na(waterlevel_m)) |>
+          dplyr::summarise(dry_wl = max(waterlevel_m, na.rm = TRUE)) |>
           dplyr::pull(dry_wl)
 
         if (length(dry_wl) == 0 || is.infinite(dry_wl)) {
           warning("No non-NA waterlevel_m in dry window; no conductivity dry adjustment applied.")
         } else {
-          df <- df %>%
+          df <- df |>
             dplyr::mutate(
               is_dry                = !is.na(waterlevel_m) & waterlevel_m <= dry_wl,
               edit_na               = dplyr::if_else(is_dry, TRUE, edit_na),
               conductivity_uScm_adj = dplyr::if_else(is_dry, NA_real_, conductivity_uScm_adj),
               watertemp_C_adj       = dplyr::if_else(is_dry, NA_real_, watertemp_C_adj)
-            ) %>%
+            ) |>
             dplyr::select(-is_dry)
         }
       } else if (apply_to_all_data && !has_wl) {
         warning("Waterlevel column 'waterlevel_m' not found. Cannot apply conductivity dry adjustment to all data.")
       } else {
-        df <- df %>%
+        df <- df |>
           dplyr::mutate(
             edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
             conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj),
@@ -459,22 +460,17 @@ adjust_logger_NA <- function(
       run_time    = run_time
     )
 
-    log_path <- qaqc_log_path(log_root, select_station, metric_norm)
-
     if (!is.null(log_row)) {
-      qaqc_log_append(
-        log_path = log_path,
-        station  = select_station,
-        metric   = metric_norm,
-        log_rows = log_row
-      )
-      message("QA/QC log updated: ", log_path)
+      qaqc_log_maybe_append(log_root, select_station, metric_norm, log_row)
     }
   } else {
+    log_row <- NULL
     warning("adjust_logger_NA(): no rows were modified; no log entry written.")
   }
 
   # ---- Clean up internal columns and return ----------------------------------
-  df %>%
+  result <- df |>
     dplyr::select(-in_window, -edit_na)
+  attr(result, "qaqc_log") <- log_row
+  result
 }

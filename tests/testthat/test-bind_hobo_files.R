@@ -121,7 +121,7 @@ test_that("Test multiple date formats", {
                   path_to_output_folder = path_to_output_folder,
                   metadata_path = metadata_path)
 
-  timestamp_wrong_format_compiled = timestamp_wrong_format_bound[[1]] %>% select(-file_name) #remove file name since it wont be identical between the two files
+  timestamp_wrong_format_compiled = timestamp_wrong_format_bound[[1]] |> dplyr::select(-file_name) #remove file name since it wont be identical between the two files
 
   path_to_raw_folder = test_path("fixtures/data/testing/raw/test_multiple_date_formats/waterlevel_timestamp_correct_format")
 
@@ -129,7 +129,7 @@ test_that("Test multiple date formats", {
                                                  path_to_output_folder = path_to_output_folder,
                                                  metadata_path = metadata_path)
 
-  timestamp_correct_format_compiled = timestamp_correct_format_bound[[1]] %>% select(-file_name) #remove file name since it wont be identical between the two files
+  timestamp_correct_format_compiled = timestamp_correct_format_bound[[1]] |> dplyr::select(-file_name) #remove file name since it wont be identical between the two files
 
   expect_equal(timestamp_wrong_format_compiled, timestamp_correct_format_compiled)
 

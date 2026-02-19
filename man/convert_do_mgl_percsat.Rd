@@ -4,7 +4,7 @@
 \alias{convert_do_mgl_percsat}
 \title{Convert dissolved oxygen (mg/L) to percent air saturation}
 \usage{
-convert_do_mgl_percsat(do_data, output_dir, version_label = "v0.3")
+convert_do_mgl_percsat(do_data, output_dir = NULL, version_label = "v0.3")
 }
 \arguments{
 \item{do_data}{A data frame containing DO, temperature, barometric
@@ -48,7 +48,7 @@ column names:
 \item \code{timestamp}        (POSIXct, UTC)
 \item \code{site_station_code}
 \item \code{do_mgl}           dissolved oxygen (mg/L)
-\item \code{watertemp_C}      water temperature (°C)
+\item \code{watertemp_C}      water temperature (deg C)
 \item \code{airpress_kPa}     barometric pressure (kPa)
 }
 

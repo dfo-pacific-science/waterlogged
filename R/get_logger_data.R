@@ -36,7 +36,11 @@
 #'   average-by-hour (using \code{floor_date}).
 #' @param return_plots Logical; if \code{TRUE} and \code{temporal_scale != "none"},
 #'   returns a list with data and ggplot objects. If \code{FALSE}, returns just
-#%'   the data frame.
+#'   the data frame.
+#' @param input_data A data frame of logger observations (alternative to
+#'   \code{path_to_data} for Shiny mode). When supplied, file discovery is
+#'   skipped and this data frame is used directly. Exactly one of
+#'   \code{path_to_data} or \code{input_data} must be provided.
 #'
 #' @return
 #'   \itemize{
@@ -50,22 +54,22 @@
 #'       }
 #'   }
 #'
-#' @export
-#' @import dplyr
-#' @import ggplot2
-#' @import lubridate
-#' @import purrr
+#' @seealso \code{\link{write_clean_data}} (produces the v1.0 files this
+#'   function reads), \code{\link{bind_hobo_files}} (produces v0.1),
+#'   \code{\link{plot_qaqc_timeseries}} (interactive QC plotting)
 #'
+#' @export
 
 #source("R/get_logger_data_helpers.R")
 
 
-get_logger_data <- function(path_to_data,
+get_logger_data <- function(path_to_data = NULL,
                             data_processing = c("v1.0", "raw", "v0.1", "v0.2", "v0.3"),
                             metric          = NULL,
                             select_station  = "all",
                             temporal_scale  = "none",
-                            return_plots    = TRUE) {
+                            return_plots    = TRUE,
+                            input_data      = NULL) {
 
   temporal_scale <- normalise_temporal_scale(temporal_scale)
   dp_info        <- resolve_data_processing_pattern(data_processing)
@@ -82,28 +86,37 @@ get_logger_data <- function(path_to_data,
     }
   }
 
-  # find files recursively
-  file_paths <- list.files(
-    path       = path_to_data,
-    pattern    = pattern,
-    full.names = TRUE,
-    recursive  = TRUE
-  )
+  # Dual input: in-memory data frame OR file path
+  if (!is.null(input_data) && is.data.frame(input_data)) {
+    dat <- input_data
+  } else {
+    if (is.null(path_to_data)) {
+      stop("Must provide either 'path_to_data' or 'input_data' as a data frame.", call. = FALSE)
+    }
 
-  if (length(file_paths) == 0L) {
-    stop(
-      "No files found in `path_to_data` (recursively) matching pattern '", pattern, "'. ",
-      "Check the folder path, data_processing choice, and file naming.",
-      call. = FALSE
+    # find files recursively
+    file_paths <- list.files(
+      path       = path_to_data,
+      pattern    = pattern,
+      full.names = TRUE,
+      recursive  = TRUE
     )
-  }
 
-  # read and combine
-  dat <- purrr::map_df(file_paths, read_logger_file)
+    if (length(file_paths) == 0L) {
+      stop(
+        "No files found in `path_to_data` (recursively) matching pattern '", pattern, "'. ",
+        "Check the folder path, data_processing choice, and file naming.",
+        call. = FALSE
+      )
+    }
+
+    # read and combine
+    dat <- purrr::map_df(file_paths, read_logger_file)
+  }
 
   # optional station filter
   if (!identical(select_station, "all")) {
-    dat <- dat %>% dplyr::filter(site_station_code %in% select_station)
+    dat <- dat |> dplyr::filter(site_station_code %in% select_station)
   }
 
   # if no summarisation requested, return combined wide data

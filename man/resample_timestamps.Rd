@@ -11,7 +11,7 @@ resample_timestamps(
   select_station = NULL,
   metric = NULL,
   log_root = NULL,
-  user = Sys.info()[["user"]]
+  user = NULL
 )
 }
 \arguments{
@@ -37,7 +37,10 @@ station's rows and return the filtered data frame.}
 together with \code{metric} and \code{select_station}, a log entry is appended
 for this operation.}
 
-\item{user}{Username recorded in QA/QC logs. Defaults to the system user.}
+\item{user}{Username recorded in QA/QC logs. Defaults to \code{NULL},
+which resolves to \code{Sys.info()[["user"]]} (the local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
 }
 \value{
 A data frame with:

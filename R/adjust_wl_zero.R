@@ -24,7 +24,10 @@
 #' @param log_root Root folder used to build the QA/QC log path (passed to
 #'   `qaqc_log_path()`).
 #' @param user Username written to the QA/QC log. Defaults to
-#'   `Sys.info()[["user"]]`.
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #'
 #' @return Modified data frame for `select_station` with updated
 #'   `waterlevel_m_adj` and `edit_zero` flag, and a QA/QC log entry written
@@ -50,9 +53,6 @@
 #'   [adjust_logger_NA()], [make_qaqc_log_row()], [qaqc_log_path()],
 #'   [qaqc_log_append()]
 #'
-#' @import dplyr
-#' @importFrom lubridate ymd_hms
-#'
 #' @export
 adjust_WL_zero <- function(input_data,
                            select_station,
@@ -60,16 +60,17 @@ adjust_WL_zero <- function(input_data,
                            timestamp_start = NULL,
                            timestamp_end   = NULL,
                            manual_note,
-                           log_root,
-                           user = Sys.info()[["user"]]) {
+                           log_root = NULL,
+                           user = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
   # --- Basic input checks -----------------------------------------------------
   if (missing(manual_note) || trimws(manual_note) == "") {
     stop("adjust_WL_zero(): 'manual_note' must be a non-empty string.")
   }
   
   # Filter + basic structure
-  waterlevel_data <- input_data %>%
-    dplyr::filter(site_station_code == !!select_station) %>%
+  waterlevel_data <- input_data |>
+    dplyr::filter(site_station_code == !!select_station) |>
     dplyr::arrange(timestamp)
   
   required_cols <- c(
@@ -126,7 +127,7 @@ adjust_WL_zero <- function(input_data,
       stop("timestamp_end must be after timestamp_start.")
     }
     
-    window_data <- waterlevel_data %>%
+    window_data <- waterlevel_data |>
       dplyr::filter(timestamp >= ts_start, timestamp <= ts_end)
     
     if (nrow(window_data) == 0) {
@@ -156,7 +157,7 @@ adjust_WL_zero <- function(input_data,
   }
   
   # --- Apply constant offset to adjusted series -------------------------------
-  waterlevel_data <- waterlevel_data %>%
+  waterlevel_data <- waterlevel_data |>
     dplyr::mutate(
       waterlevel_m_adj = waterlevel_m_adj + offset_m,
       edit_zero        = TRUE
@@ -195,19 +196,12 @@ adjust_WL_zero <- function(input_data,
     run_time    = run_time
   )
   
-  log_path <- qaqc_log_path(log_root, select_station, metric)
-  
   if (!is.null(log_this)) {
-    qaqc_log_append(
-      log_path = log_path,
-      station  = select_station,
-      metric   = metric,
-      log_rows = log_this
-    )
-    message("QA/QC log updated: ", log_path)
+    qaqc_log_maybe_append(log_root, select_station, metric, log_this)
   } else {
     warning("No rows adjusted; no log entry written.")
   }
-  
+
+  attr(waterlevel_data, "qaqc_log") <- log_this
   return(waterlevel_data)
 }

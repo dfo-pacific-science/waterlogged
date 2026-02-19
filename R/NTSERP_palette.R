@@ -17,7 +17,7 @@ NTSERP_palette <- function(n_groups=0, full_palette = FALSE) {
   if(full_palette == TRUE) {
 
     a <- c("#000000", "#233d4d","#5A4E45", "#915e3d", "#C86F35","#fe7f2d", "#FE9234","#fda53a","#FDB840", "#fcca46", "#E6C855","#cfc664", "#B8C473","#a1c181","#91B884", "#81ae86","#71A588", "#619b8a")
-    print("WARNING: This is the full palette and colors are not easily distinguished from each other, especially for people with color-blindness. Use caution if using this full palette and consider testing combinations via Viz Palette at https://projects.susielu.com/viz-palette. YOU'VE BEEN WARNED.")
+    message("WARNING: This is the full palette and colors are not easily distinguished from each other, especially for people with color-blindness. Use caution if using this full palette and consider testing combinations via Viz Palette at https://projects.susielu.com/viz-palette. YOU'VE BEEN WARNED.")
     return(a)
   }
 
@@ -57,16 +57,16 @@ NTSERP_palette <- function(n_groups=0, full_palette = FALSE) {
 
   if(n <= 3) {
 
-    print(paste("Here's are some suggested palettes for", n, "groups. All palettes tested for visual perception via Viz Palette by Suzie Lu."))
+    message("Here's are some suggested palettes for ", n, " groups. All palettes tested for visual perception via Viz Palette by Suzie Lu.")
     return(palettes)
 
   }
   if(n>3 & n<=7) {
-    print(paste("Here's a suggested palette for", n, "groups. All palettes tested for visual perception via Viz Palette by Suzie Lu."))
+    message("Here's a suggested palette for ", n, " groups. All palettes tested for visual perception via Viz Palette by Suzie Lu.")
     return(a)
   }
 
   if(n > 7) {
-    print("Uh oh! That's too many groups! You're on your own for this one. Set full_palette to TRUE and use Viz Palette to test more combos. Good luck, cowboy!")
+    message("Uh oh! That's too many groups! You're on your own for this one. Set full_palette to TRUE and use Viz Palette to test more combos. Good luck, cowboy!")
   }
 }

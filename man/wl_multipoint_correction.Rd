@@ -7,9 +7,9 @@
 wl_multipoint_correction(
   input_data,
   select_station,
-  log_root,
+  log_root = NULL,
   drift_points,
-  user = Sys.info()[["user"]],
+  user = NULL,
   manual_note = NULL
 )
 }
@@ -30,7 +30,11 @@ the series up).}
 }
 Must contain at least two rows.}
 
-\item{user}{Character. Username for the QA/QC log; defaults to system user.}
+\item{user}{Character. Username for the QA/QC log. Defaults to
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
 
 \item{manual_note}{Optional character note to include in the log.}
 }

@@ -1,4 +1,23 @@
-
+#' Guess the data role of a logger data frame from its column names
+#'
+#' Internal helper for \code{\link{plot_qaqc_timeseries}}.  Inspects the
+#' column names of a data frame and returns a short role tag indicating
+#' the metric type.
+#'
+#' Currently not called by any function; written for possible future use
+#' if the plotting interface is generalised to accept a single
+#' unspecified data frame instead of named arguments.
+#'
+#' @param df A data frame, or \code{NULL}.
+#'
+#' @return A character scalar: one of \code{"do"} (dissolved oxygen),
+#'   \code{"cond"} (conductivity), \code{"wl"} (water level),
+#'   \code{"baro"} (barometric), \code{"none"} (if \code{df} is
+#'   \code{NULL}), or \code{"unknown"} (no recognised column pattern).
+#'
+#' @seealso \code{\link{plot_qaqc_timeseries}}
+#'
+#' @keywords internal
 guess_role_from_cols <- function(df) {
   if (is.null(df)) return("none")
   nms <- names(df)
@@ -16,6 +35,18 @@ guess_role_from_cols <- function(df) {
   "unknown"
 }
 
+#' Format a detected data role for diagnostic messages
+#'
+#' Trivial formatting helper companion to
+#' \code{guess_role_from_cols()}.  Currently unused.
+#'
+#' @param role Character scalar.  The detected role tag.
+#' @param arg Character scalar.  The argument name that was inspected.
+#'
+#' @return A formatted string \code{"<arg>: <role>"}.
+#'
+#' @keywords internal
+#' @noRd
 format_found <- function(role, arg) sprintf("%s: %s", arg, role)
 
 
@@ -43,12 +74,12 @@ normalize_qaqc_df <- function(df, station) {
   }
   
   if (!inherits(df$timestamp, "POSIXt")) {
-    df <- df %>%
+    df <- df |>
       dplyr::mutate(timestamp = lubridate::ymd_hms(.data$timestamp))
   }
   
-  df <- df %>%
-    dplyr::filter(.data$site_station_code == station) %>%
+  df <- df |>
+    dplyr::filter(.data$site_station_code == station) |>
     dplyr::arrange(.data$timestamp)
   
   if (nrow(df) == 0) return(NULL)
@@ -69,13 +100,13 @@ build_qaqc_code_points <- function(df, code_col) {
   
   code_sym <- rlang::sym(code_col)
   
-  out <- df %>%
-    dplyr::select("timestamp", !!code_sym) %>%
+  out <- df |>
+    dplyr::select("timestamp", !!code_sym) |>
     dplyr::filter(
       !is.na(!!code_sym),
       !!code_sym != ""
-    ) %>%
-    dplyr::mutate(code = factor(!!code_sym)) %>%
+    ) |>
+    dplyr::mutate(code = factor(!!code_sym)) |>
     dplyr::select("timestamp", "code")
   
   if (nrow(out) == 0) return(NULL)
@@ -96,15 +127,15 @@ build_flag_long <- function(df, flag_cols) {
   flag_cols <- intersect(flag_cols, names(df))
   if (length(flag_cols) == 0) return(NULL)
   
-  out <- df %>%
-    dplyr::select("timestamp", dplyr::all_of(flag_cols)) %>%
+  out <- df |>
+    dplyr::select("timestamp", dplyr::all_of(flag_cols)) |>
     tidyr::pivot_longer(
       cols      = dplyr::all_of(flag_cols),
       names_to  = "flag_type",
       values_to = "flag_value"
-    ) %>%
-    dplyr::filter(.data$flag_value) %>%
-    dplyr::mutate(flag_type = factor(.data$flag_type)) %>%
+    ) |>
+    dplyr::filter(.data$flag_value) |>
+    dplyr::mutate(flag_type = factor(.data$flag_type)) |>
     dplyr::select("timestamp", "flag_type")
   
   if (nrow(out) == 0) return(NULL)

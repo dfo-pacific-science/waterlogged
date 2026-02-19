@@ -81,6 +81,36 @@ make_qaqc_log_row <- function(timestamps,
   )
 }
 
+#' Conditionally append QA/QC log rows (Shiny-compatible wrapper)
+#'
+#' When `log_root` is non-NULL, writes log rows to disk via
+#' [qaqc_log_path()] + [qaqc_log_append()]. When `log_root` is NULL
+#' (typical in Shiny), disk I/O is skipped entirely.
+#'
+#' In both cases the log rows tibble is returned invisibly so callers
+#' can attach it as an attribute on the output data frame.
+#'
+#' @param log_root Character or NULL. Root directory for QA/QC logs.
+#' @param station Character. Station code.
+#' @param metric Character. Metric label.
+#' @param log_rows Data frame/tibble of log rows.
+#'
+#' @return Invisibly returns `log_rows` (or an empty tibble if input was
+#'   NULL / zero-row).
+#' @keywords internal
+qaqc_log_maybe_append <- function(log_root, station, metric, log_rows) {
+  if (is.null(log_rows) || nrow(log_rows) == 0) {
+    return(invisible(tibble::tibble()))
+  }
+  if (!is.null(log_root)) {
+    log_path <- qaqc_log_path(log_root, station, metric)
+    qaqc_log_append(log_path = log_path, station = station,
+                    metric = metric, log_rows = log_rows)
+    message("QA/QC log updated: ", log_path)
+  }
+  invisible(log_rows)
+}
+
 #' Append QA/QC log rows to disk with deduplication
 #'
 #' Appends `log_rows` to the log at `log_path`, creating the file if needed.
@@ -90,10 +120,11 @@ make_qaqc_log_row <- function(timestamps,
 #' Deduplication key:
 #' `station, metric, field, action, code, ts_start, ts_end, fun_name`.
 #'
-#' @param log_path Character. Output path (use `qaqc_log_path()`).
+#' @param log_path Character. Output path (use [qaqc_log_path()]).
 #' @param station Character. Station code.
 #' @param metric Character. Metric label.
-#' @param log_rows Data frame/tibble of log rows (from `make_qaqc_log_row()` or bind_rows).
+#' @param log_rows Data frame/tibble of log rows (from [make_qaqc_log_row()]
+#'   or [dplyr::bind_rows()]).
 #'
 #' @return Invisibly returns `log_path`.
 #' @keywords internal
@@ -106,7 +137,7 @@ qaqc_log_append <- function(log_path, station, metric, log_rows) {
   dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
   
   # Coerce time fields to character for stable CSV I/O
-  log_rows <- log_rows %>%
+  log_rows <- log_rows |>
     dplyr::mutate(
       ts_start = as.character(ts_start),
       ts_end   = as.character(ts_end),
@@ -116,7 +147,7 @@ qaqc_log_append <- function(log_path, station, metric, log_rows) {
   if (file.exists(log_path)) {
     existing <- utils::read.csv(log_path, stringsAsFactors = FALSE)
     
-    log_out <- dplyr::bind_rows(existing, log_rows) %>%
+    log_out <- dplyr::bind_rows(existing, log_rows) |>
       dplyr::distinct(
         station,
         metric,

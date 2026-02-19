@@ -1,6 +1,71 @@
+#' Write final clean data files (v1.0)
+#'
+#' Subsets QAQC'd logger data to the columns relevant for a given metric,
+#' splits by station and year, and writes per-station per-year v1.0 CSV
+#' files to a \code{<year>/clean/} directory.
+#' This is the final step in the processing pipeline, typically run after
+#' all QAQC adjustments (e.g. \code{\link{waterlevel_qaqc}},
+#' \code{\link{dissox_qaqc}}) are complete.
+#'
+#' @param input_data A data frame of QAQC'd logger observations.
+#'   Must contain at minimum \code{site_station_code}, \code{timestamp},
+#'   and the metric-specific required columns listed under \strong{Details}.
+#'   Any columns matching \code{flag_*} or \code{edit_*} are automatically
+#'   retained alongside the metric-specific columns.
+#' @param path_to_output_folder Character scalar or \code{NULL}.  Root
+#'   directory where per-year v1.0 CSVs will be written.  When
+#'   \code{NULL} (default, Shiny mode), no files are written; the
+#'   function still validates columns and returns \code{input_data}
+#'   invisibly.
+#' @param metric Character scalar identifying the data type.  Must be one
+#'   of \code{"dissolvedoxygen"}, \code{"barometric"},
+#'   \code{"waterlevel"}, \code{"watertemp"}, or \code{"airtemp"}.
+#'   Controls which columns are required and the file-name prefix (see
+#'   \strong{Details}).
+#'
+#' @return \code{input_data} returned invisibly (unmodified), allowing
+#'   the function to be used at the end of a pipe chain.
+#'
+#' @details
+#' Each metric maps to a set of required and optional columns, plus a
+#' file-name prefix:
+#'
+#' \describe{
+#'   \item{\code{"dissolvedoxygen"} (DO)}{Required:
+#'     \code{do_mgl}, \code{do_mgl_adj}, \code{do_percsat},
+#'     \code{do_percsat_adj}.
+#'     Optional: \code{watertemp_C}, \code{watertemp_C_adj}.}
+#'   \item{\code{"barometric"} (BARO)}{Required:
+#'     \code{airpress_kPa}, \code{airpress_kPa_adj}.
+#'     Optional: \code{airtemp_C}, \code{airtemp_C_adj}.}
+#'   \item{\code{"waterlevel"} (WL)}{Required:
+#'     \code{waterlevel_m}, \code{waterlevel_m_adj}.
+#'     Optional: \code{watertemp_C}, \code{watertemp_C_adj},
+#'     \code{waterlevel_reference}.}
+#'   \item{\code{"watertemp"} (WT)}{Required:
+#'     \code{watertemp_C}, \code{watertemp_C_adj}.
+#'     No optional columns.}
+#'   \item{\code{"airtemp"} (AT)}{Required:
+#'     \code{airtemp_C}.
+#'     Optional: \code{airtemp_C_adj}.}
+#' }
+#'
+#' All metrics also require \code{site_station_code} and
+#' \code{timestamp}.  Output files are written to
+#' \code{<path_to_output_folder>/<year>/clean/<station>_<prefix>_<start>_<end>_v1.0.csv}.
+#'
+#' If \code{input_data} contains a \code{metric} column whose value
+#' differs from the \code{metric} argument, a warning is issued.
+#'
+#' @seealso \code{\link{get_logger_data}} (reads the v1.0 files produced
+#'   by this function), \code{\link{waterlevel_qaqc}},
+#'   \code{\link{dissox_qaqc}}, \code{\link{barometric_qaqc}} (upstream
+#'   QAQC functions whose output is typically passed here)
+#'
+#' @export
 write_clean_data <- function(
     input_data,
-    path_to_output_folder,
+    path_to_output_folder = NULL,
     metric
 ) {
   # ---- config by metric ----
@@ -98,8 +163,8 @@ write_clean_data <- function(
     )
   }
   
-  # ensure base output folder exists
-  if (!dir.exists(path_to_output_folder)) {
+  # ensure base output folder exists (only when writing)
+  if (!is.null(path_to_output_folder) && !dir.exists(path_to_output_folder)) {
     dir.create(path_to_output_folder, recursive = TRUE)
   }
   
@@ -146,48 +211,50 @@ write_clean_data <- function(
     clean_path
   }
   
-  # ---- iterate over groups and write files -----------------------------------
-  for (i in seq_along(split_list)) {
-    df_i <- split_list[[i]]
-    if (nrow(df_i) == 0) next
-    
-    site_i <- unique(df_i$site_station_code)
-    year_i <- unique(df_i$year)
-    
-    if (length(site_i) != 1L || length(year_i) != 1L) {
-      stop("write_clean_data(): problem with split grouping (site/year not unique).")
-    }
-    
-    # date range for filename
-    start_date <- min(lubridate::as_date(df_i$timestamp))
-    end_date   <- max(lubridate::as_date(df_i$timestamp))
-    
-    start_j <- gsub("\\D", "", as.character(start_date))
-    end_j   <- gsub("\\D", "", as.character(end_date))
-    
-    # drop helper year, format timestamp
-    df_write <- df_i
-    df_write$year <- NULL
-    df_write$timestamp <- format(df_write$timestamp)
-    
-    clean_path <- ensure_clean_folder(path_to_output_folder, year_i)
-    
-    file_out <- file.path(
-      clean_path,
-      paste0(
-        site_i, "_", cfg$header, "_",
-        start_j, "_", end_j, "_v1.0.csv"
+  # ---- iterate over groups and write files (guarded for Shiny) ---------------
+  if (!is.null(path_to_output_folder)) {
+    for (i in seq_along(split_list)) {
+      df_i <- split_list[[i]]
+      if (nrow(df_i) == 0) next
+
+      site_i <- unique(df_i$site_station_code)
+      year_i <- unique(df_i$year)
+
+      if (length(site_i) != 1L || length(year_i) != 1L) {
+        stop("write_clean_data(): problem with split grouping (site/year not unique).")
+      }
+
+      # date range for filename
+      start_date <- min(lubridate::as_date(df_i$timestamp))
+      end_date   <- max(lubridate::as_date(df_i$timestamp))
+
+      start_j <- gsub("\\D", "", as.character(start_date))
+      end_j   <- gsub("\\D", "", as.character(end_date))
+
+      # drop helper year, format timestamp
+      df_write <- df_i
+      df_write$year <- NULL
+      df_write$timestamp <- format(df_write$timestamp)
+
+      clean_path <- ensure_clean_folder(path_to_output_folder, year_i)
+
+      file_out <- file.path(
+        clean_path,
+        paste0(
+          site_i, "_", cfg$header, "_",
+          start_j, "_", end_j, "_v1.0.csv"
+        )
       )
-    )
-    
-    utils::write.csv(df_write, file_out, row.names = FALSE)
-    
-    message("Clean data (v1.0) from ", site_i,
-            " written to ", year_i,
-            " (", basename(file_out), ")")
+
+      utils::write.csv(df_write, file_out, row.names = FALSE)
+
+      message("Clean data (v1.0) from ", site_i,
+              " written to ", year_i,
+              " (", basename(file_out), ")")
+    }
+
+    message("") # add line break in console
   }
-  
-  cat("\n") # add line break in console
-  
+
   invisible(input_data)
 }

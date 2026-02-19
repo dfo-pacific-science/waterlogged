@@ -14,8 +14,8 @@ adjust_logger_NA(
   keep_temp = FALSE,
   apply_to_all_data = FALSE,
   manual_note,
-  log_root,
-  user = Sys.info()[["user"]]
+  log_root = NULL,
+  user = NULL
 )
 }
 \arguments{
@@ -58,7 +58,10 @@ this adjustment is being made. Stored in the QA/QC log.}
 this root, station, and metric.}
 
 \item{user}{Character; user name recorded in the log entry. Defaults to
-\code{Sys.info()[["user"]]}.}
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
 }
 \value{
 A data frame for the selected station with updated adjusted fields

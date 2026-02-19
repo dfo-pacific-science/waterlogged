@@ -1,38 +1,41 @@
 
-#' Normalize a character vector for matching
-#'
-#' Converts strings to lower case, trims leading/trailing whitespace, and
-#' removes internal spaces. Useful for normalizing user inputs or metadata
-#' fields before comparison.
-#'
-#' @param x A character vector.
-#'
 #' Convert Fahrenheit to Celsius
 #'
-#' Converts a numeric vector of temperatures from degrees Fahrenheit (°F)
-#' to degrees Celsius (°C) using the standard linear transformation.
-#'
-#' This is an internal helper used when parsing HOBO logger files that
-#' report temperature in °F.
+#' Converts a numeric vector of temperatures from degrees Fahrenheit
+#' to degrees Celsius using the standard linear transformation.
+#' Internal helper used when parsing HOBO logger files that report
+#' temperature in Fahrenheit.
 #'
 #' @param x Numeric vector of temperatures in degrees Fahrenheit.
 #'
-#' @return A numeric vector of temperatures converted to degrees Celsius.
+#' @return A numeric vector of temperatures in degrees Celsius.
 #'
 #' @keywords internal
 convert_F_to_C <- function(x) (x - 32) * (5/9)
 
 
 #' Escape regex special characters
+#'
+#' @param x A character string.
+#'
+#' @return \code{x} with regex metacharacters escaped by backslash.
+#'
 #' @keywords internal
 escape_regex <- function(x) {
   gsub("([][{}()+*^$|\\.?\\\\-])", "\\\\\\1", x)
 }
 
 
-
-#' @return A character vector of the same length as \code{x}, normalized for
-#'   case and spacing.
+#' Normalise a character vector for matching
+#'
+#' Converts strings to lower case, trims leading/trailing whitespace,
+#' and removes internal spaces.  Useful for normalising user inputs or
+#' metadata fields before comparison.
+#'
+#' @param x A character vector.
+#'
+#' @return A character vector of the same length as \code{x}, normalised
+#'   for case and spacing.
 #'
 #' @keywords internal
 normalize_string <- function(x) {
@@ -79,17 +82,17 @@ find_na_runs <- function(df, value_col = "airpress_kPa", add_step = TRUE) {
   vcol <- rlang::sym(value_col)
 
   # ensure ordered
-  df <- df %>% arrange(timestamp)
+  df <- df |> dplyr::arrange(timestamp)
 
   # estimate native step (for regular series)
-  dt <- suppressWarnings(median(diff(df$timestamp), na.rm = TRUE))
+  dt <- suppressWarnings(stats::median(diff(df$timestamp), na.rm = TRUE))
   add_dt <- if (add_step && is.finite(as.numeric(dt))) dt else as.difftime(0, units = "secs")
 
   # logical NA vector
   is_na <- is.na(df[[value_col]])
 
   if (!any(is_na)) {
-    return(tibble(
+    return(tibble::tibble(
       gap_id = integer(), gap_start = as.POSIXct(character()), gap_end = as.POSIXct(character()),
       n_missing = integer(), duration = difftime(character(), character())
     ))
@@ -100,11 +103,11 @@ find_na_runs <- function(df, value_col = "airpress_kPa", add_step = TRUE) {
   # end   = NA now & (next non-NA or last row)
   ends   <- which(is_na & !dplyr::lead(is_na, default = FALSE))
 
-  tibble(
+  tibble::tibble(
     gap_id    = seq_along(starts),
     gap_start = df$timestamp[starts],
     gap_end   = df$timestamp[ends],
     n_missing = ends - starts + 1
-  ) %>%
-    mutate(duration = (gap_end - gap_start) + add_dt)
+  ) |>
+    dplyr::mutate(duration = (gap_end - gap_start) + add_dt)
 }

@@ -2,29 +2,127 @@
 
 #' Water-quality drift correction (COND / DO / pH)
 #'
-#' Forward, linear drift between visits, restarting at each visit.
-#' - Segment 0: from series start to first visit's end-sample.
-#' - "check": end-target uses nearest logger sample at visit time; restart at that sample.
-#' - "calibration": end-target uses last logger sample strictly before calibration_datetime;
-#'    restart at first sample at/after calibration_datetime (post-cal is trusted).
-#' - No segment after the last event.
+#' Apply forward linear drift correction to a water-quality time series
+#' using discrete reference measurements collected during field visits.
+#' The correction ramps linearly from zero at the start of each segment
+#' to the full correction at the visit endpoint, then restarts at the
+#' next segment. No correction is applied after the last visit.
+#'
+#' Two correction methods are available:
+#' \itemize{
+#'   \item \strong{ratio} (multiplicative): each value is scaled by a
+#'     linearly interpolated ratio between 1.0 (segment start) and the
+#'     reference/logger ratio (segment end).
+#'   \item \strong{offset} (additive): each value is shifted by a
+#'     linearly interpolated offset between 0 (segment start) and the
+#'     reference minus logger difference (segment end).
+#' }
+#'
+#' Two event types control how segment boundaries are determined:
+#' \itemize{
+#'   \item \strong{check}: the end-target is the nearest logger sample
+#'     to the visit timestamp; the next segment restarts at that same
+#'     sample.
+#'   \item \strong{calibration}: the end-target is the last logger
+#'     sample strictly before \code{calibration_datetime}; the next
+#'     segment restarts at the first sample at or after
+#'     \code{calibration_datetime} (post-calibration values are
+#'     trusted).
+#' }
+#'
+#' @param input_data Data frame of QA/QC'd logger data. Must contain
+#'   \code{site_station_code}, \code{timestamp} (POSIXct or parseable),
+#'   and the adjusted value column for the chosen metric
+#'   (\code{conduct_uScm_adj}, \code{do_percsat_adj}, or
+#'   \code{ph_adj}).
+#' @param ref_data_path Character path to a CSV file containing
+#'   reference measurements. Set to \code{NULL} when providing
+#'   \code{ref_data} directly (e.g., in a Shiny app). One of
+#'   \code{ref_data_path} or \code{ref_data} must be provided.
+#' @param select_station Character. The \code{site_station_code} to
+#'   correct. Only rows matching this station are modified; all other
+#'   rows are returned unchanged.
+#' @param metric Character identifying the water-quality metric.
+#'   Accepted values (case-insensitive): \code{"conductivity"},
+#'   \code{"cond"}, \code{"dissolvedoxygen"}, \code{"do"}, \code{"ph"}.
+#' @param method One of \code{"ratio"} (multiplicative, default) or
+#'   \code{"offset"} (additive).
+#' @param max_ref_gap_h Numeric. Maximum allowable time gap (in hours)
+#'   between a reference measurement timestamp and the nearest logger
+#'   sample. Reference events exceeding this gap are skipped with a
+#'   warning. Default \code{1}.
+#' @param log_root Optional path to the QA/QC log folder. If provided,
+#'   a log entry is written to disk. If \code{NULL}, log rows are
+#'   still returned as an attribute on the result.
+#' @param user Character. Username recorded in QA/QC logs. Defaults to
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
+#' @param ref_data Data frame of reference measurements, as an
+#'   alternative to \code{ref_data_path}. Must contain the columns
+#'   described in Details.
+#'
+#' @return The input data frame with drift-corrected values written
+#'   back to the adjusted column (\code{*_adj}), plus:
+#'   \itemize{
+#'     \item An \code{edit_*_drift} logical flag column (\code{TRUE}
+#'       for corrected rows).
+#'     \item Updated QA/QC code, note, and adjustment columns for the
+#'       metric.
+#'   }
+#'   A \code{"qaqc_log"} attribute is attached containing the log
+#'   rows as a tibble (or \code{NULL} if no rows were corrected).
+#'
+#' @details
+#' \strong{Reference data format}
+#'
+#' The reference data (CSV or data frame) must contain these columns:
+#' \describe{
+#'   \item{metric}{Character. The water-quality metric (e.g.,
+#'     \code{"conductivity"}, \code{"do"}, \code{"ph"}).}
+#'   \item{site_station_code}{Character. Station identifier matching
+#'     the logger data.}
+#'   \item{timestamp}{Character or POSIXct. When the reference
+#'     measurement was taken.}
+#'   \item{watertemp_C}{Numeric. Water temperature at the time of
+#'     measurement.}
+#'   \item{value}{Numeric. The reference measurement value.}
+#'   \item{unit}{Character. Unit of \code{value} (e.g.,
+#'     \code{"uS/cm"}, \code{"\%sat"}, \code{"pH"}).}
+#'   \item{event_type}{Character. One of \code{"check"},
+#'     \code{"calibration"}, or \code{"ignore"}.}
+#'   \item{calibration_datetime}{Character or POSIXct. Required for
+#'     \code{"calibration"} events; the moment the sensor was
+#'     recalibrated. \code{NA} or empty for other event types.}
+#' }
+#'
+#' \strong{Timezone handling}
+#'
+#' Reference timestamps are parsed into the logger's timezone, which
+#' is determined from the POSIXct \code{tzone} attribute or an
+#' optional \code{timezone} column in \code{input_data}. Falls back
+#' to \code{"UTC"} if neither is available.
+#'
+#' @seealso \code{\link{correct_drift}} (legacy conductivity-only
+#'   drift correction), \code{\link{wl_multipoint_correction}} (water
+#'   level drift correction)
 #'
 #' @export
-#' @import dplyr
-#' @importFrom lubridate parse_date_time ymd_hms
-#' @importFrom utils read.csv
 wq_drift_correction <- function(input_data,
-                                ref_data_path,
+                                ref_data_path = NULL,
                                 select_station,
                                 metric,
                                 method        = c("ratio", "offset"),
                                 max_ref_gap_h = 1,
                                 log_root      = NULL,
-                                user          = Sys.info()[["user"]]) {
-  
+                                user          = NULL,
+                                ref_data      = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
+
   method <- match.arg(method)
   
-  # ---------- metric → columns ----------
+  # ---------- metric -> columns ----------
   metric_norm <- normalize_string(metric)
   if (metric_norm %in% c("cond","conductivity")) {
     metric_norm    <- "conductivity"
@@ -33,7 +131,7 @@ wq_drift_correction <- function(input_data,
     note_col       <- "cond_qaqc_note"
     adjnote_col    <- "cond_qaqc_adj"
     edit_flag_col  <- "edit_cond_drift"
-    accepted_units <- c("uscm","µs/cm","μs/cm","uS/cm")
+    accepted_units <- c("uscm","\u00b5s/cm","\u03bcs/cm","uS/cm")
     metric_log     <- "COND"
   } else if (metric_norm %in% c("do","dissolvedoxygen")) {
     metric_norm    <- "dissolvedoxygen"
@@ -64,8 +162,8 @@ wq_drift_correction <- function(input_data,
     stop("wq_drift_correction(): input_data missing: ", paste(missing_logger, collapse=", "))
   }
   
-  logger_data <- input_data %>%
-    dplyr::filter(.data$site_station_code == select_station) %>%
+  logger_data <- input_data |>
+    dplyr::filter(.data$site_station_code == select_station) |>
     dplyr::arrange(.data$timestamp)
   if (!nrow(logger_data)) stop("wq_drift_correction(): no rows for '", select_station, "'.")
   
@@ -78,7 +176,7 @@ wq_drift_correction <- function(input_data,
   tz_from_posix <- attr(logger_data$timestamp, "tzone")
   tz_from_col <- NULL
   if ("timezone" %in% names(logger_data)) {
-    tz_vals <- na.omit(unique(as.character(logger_data$timezone)))
+    tz_vals <- stats::na.omit(unique(as.character(logger_data$timezone)))
     if (length(tz_vals)) tz_from_col <- tz_vals[1]
   }
   normalize_tz <- function(x) {
@@ -100,13 +198,20 @@ wq_drift_correction <- function(input_data,
   log_vals <- logger_data[[value_col]]
   time_range <- range(log_ts, na.rm = TRUE)
   
-  # ---------- reference data (base read.csv) ----------
-  if (!is.character(ref_data_path) || length(ref_data_path) != 1L) {
-    stop("wq_drift_correction(): `ref_data_path` must be a single character path.")
+  # ---------- reference data (data frame OR file path) ----------
+  if (!is.null(ref_data) && is.data.frame(ref_data)) {
+    # Use in-memory data frame directly (Shiny mode)
+    ref_data_source <- "in-memory"
+  } else if (!is.null(ref_data_path)) {
+    if (!is.character(ref_data_path) || length(ref_data_path) != 1L) {
+      stop("wq_drift_correction(): `ref_data_path` must be a single character path.")
+    }
+    if (!file.exists(ref_data_path)) stop("wq_drift_correction(): reference file not found: ", ref_data_path)
+    ref_data <- utils::read.csv(ref_data_path, stringsAsFactors = FALSE, check.names = FALSE)
+    ref_data_source <- basename(ref_data_path)
+  } else {
+    stop("wq_drift_correction(): must provide either 'ref_data_path' or 'ref_data' as a data frame.")
   }
-  if (!file.exists(ref_data_path)) stop("wq_drift_correction(): reference file not found: ", ref_data_path)
-  
-  ref_data <- utils::read.csv(ref_data_path, stringsAsFactors = FALSE, check.names = FALSE)
   
   req_ref_cols <- c("metric","site_station_code","timestamp","watertemp_C","value","unit",
                     "event_type","calibration_datetime")
@@ -117,8 +222,8 @@ wq_drift_correction <- function(input_data,
   
   ref_data$._row_id <- seq_len(nrow(ref_data))
   
-  ref_data <- ref_data %>%
-    mutate(
+  ref_data <- ref_data |>
+    dplyr::mutate(
       metric_norm_file = dplyr::case_when(
         normalize_string(.data$metric) %in% c("cond","conductivity")   ~ "conductivity",
         normalize_string(.data$metric) %in% c("do","dissolvedoxygen") ~ "dissolvedoxygen",
@@ -126,7 +231,7 @@ wq_drift_correction <- function(input_data,
         TRUE ~ NA_character_
       ),
       site_station_code = as.character(.data$site_station_code)
-    ) %>%
+    ) |>
     dplyr::filter(.data$metric_norm_file == metric_norm,
                   .data$site_station_code == select_station)
   
@@ -177,11 +282,11 @@ wq_drift_correction <- function(input_data,
     stop("Non-numeric `value` on rows: ", paste(ref_data$._row_id[is.na(ref_data$value)], collapse=", "))
   }
   
-  # keep refs if either time intersects window (±2h)
+  # keep refs if either time intersects window (+/-2h)
   win_start <- time_range[1] - 2*3600
   win_end   <- time_range[2] + 2*3600
   in_window <- function(t) !is.na(t) & t >= win_start & t <= win_end
-  ref_data <- ref_data %>%
+  ref_data <- ref_data |>
     dplyr::filter(in_window(.data$timestamp) | in_window(.data$calibration_datetime))
   
   if (!nrow(ref_data)) stop("No reference measurements within logger window for '", select_station, "'.")
@@ -194,7 +299,7 @@ wq_drift_correction <- function(input_data,
   }
   last_before_idx <- function(target_time) {
     idx <- which(log_ts < target_time)
-    if (!length(idx)) NA_integer_ else tail(idx, 1L)
+    if (!length(idx)) NA_integer_ else utils::tail(idx, 1L)
   }
   first_at_or_after_idx <- function(target_time) {
     idx <- which(log_ts >= target_time)
@@ -287,8 +392,8 @@ wq_drift_correction <- function(input_data,
     return(input_data)
   }
   
-  events <- dplyr::bind_rows(events_list) %>%
-    dplyr::arrange(.data$event_end_time) %>%
+  events <- dplyr::bind_rows(events_list) |>
+    dplyr::arrange(.data$event_end_time) |>
     dplyr::distinct(.data$event_end_time, .keep_all = TRUE)
   
   # ---------- build forward segments ----------
@@ -380,7 +485,7 @@ wq_drift_correction <- function(input_data,
     input_data[[code_col]][idx_edit] <- append_qaqc(input_data[[code_col]][idx_edit], drift_label)
     input_data[[note_col]][idx_edit] <- append_qaqc(
       input_data[[note_col]][idx_edit],
-      paste0("Forward linear drift (", method, "); refs: ", basename(ref_data_path),
+      paste0("Forward linear drift (", method, "); refs: ", ref_data_source,
              "; logger tz=", tz_logger, "; max_ref_gap_h=", max_ref_gap_h)
     )
     input_data[[adjnote_col]][idx_edit] <- append_qaqc(
@@ -393,8 +498,8 @@ wq_drift_correction <- function(input_data,
             tz_logger, ").")
   }
   
-  if (any(idx_edit) &&
-      exists("make_qaqc_log_row") && exists("qaqc_log_path") && exists("qaqc_log_append")) {
+  log_row <- NULL
+  if (any(idx_edit)) {
     ts_edit <- input_data$timestamp[idx_edit]
     log_row <- make_qaqc_log_row(
       timestamps  = ts_edit,
@@ -408,9 +513,9 @@ wq_drift_correction <- function(input_data,
       fun_name    = "wq_drift_correction",
       user        = user
     )
-    log_path <- qaqc_log_path(log_root, select_station, metric_log)
-    qaqc_log_append(log_path = log_path, station = select_station, metric = metric_log, log_rows = log_row)
+    qaqc_log_maybe_append(log_root, select_station, metric_log, log_row)
   }
-  
+
+  attr(input_data, "qaqc_log") <- log_row
   input_data
 }

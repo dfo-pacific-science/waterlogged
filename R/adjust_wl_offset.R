@@ -24,7 +24,10 @@
 #'   \code{"data/testing/processed"}). The actual log path is derived from
 #'   this root, station, and metric.
 #' @param user Character; user name recorded in the log entry. Defaults to
-#'   \code{Sys.info()[["user"]]}.
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #'
 #' @return A data frame for \code{select_station} with updated
 #'   \code{waterlevel_m_adj} values and \code{edit_offset} flag. The input
@@ -34,9 +37,6 @@
 #'   \code{\link{adjust_logger_NA}},
 #'   \code{\link{make_qaqc_log_row}},
 #'   \code{\link{qaqc_log_append}}
-#'
-#' @import dplyr
-#' @importFrom lubridate ymd_hms
 #'
 #' @examples
 #' \dontrun{
@@ -57,18 +57,18 @@ adjust_WL_offset <- function(input_data,
                                          timestamp_start,
                                          timestamp_end,
                                          manual_note,
-                                         log_root,
-                                         user = Sys.info()[["user"]]) {
-  
-  
+                                         log_root = NULL,
+                                         user = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
+
   #  QAQC inputs
   if (missing(manual_note) || trimws(manual_note) == "") {
     stop("adjust_wwl_offset(): 'manual_note' must be a non-empty string.")
   }
   
   # ---- Filter to selected station & sort -------------------------------------
-  waterlevel_data <- input_data %>%
-    dplyr::filter(site_station_code == select_station) %>%
+  waterlevel_data <- input_data |>
+    dplyr::filter(site_station_code == select_station) |>
     dplyr::arrange(timestamp)
   
   required_cols <- c(
@@ -106,14 +106,14 @@ adjust_WL_offset <- function(input_data,
   }
   
   # ---- Get start/end water levels (raw) --------------------------------------
-  before_break <- waterlevel_data %>%
-    dplyr::filter(timestamp == ts_start) %>%
-    dplyr::pull(waterlevel_m) %>%
+  before_break <- waterlevel_data |>
+    dplyr::filter(timestamp == ts_start) |>
+    dplyr::pull(waterlevel_m) |>
     round(3)
   
-  after_break <- waterlevel_data %>%
-    dplyr::filter(timestamp == ts_end) %>%
-    dplyr::pull(waterlevel_m) %>%
+  after_break <- waterlevel_data |>
+    dplyr::filter(timestamp == ts_end) |>
+    dplyr::pull(waterlevel_m) |>
     round(3)
   
   if (length(before_break) != 1L || length(after_break) != 1L) {
@@ -132,7 +132,7 @@ adjust_WL_offset <- function(input_data,
   }
   
   # ---- Apply constant offset after the break ---------------------------------
-  waterlevel_data <- waterlevel_data %>%
+  waterlevel_data <- waterlevel_data |>
     dplyr::mutate(
       after_break = timestamp >= ts_end,
       
@@ -147,7 +147,7 @@ adjust_WL_offset <- function(input_data,
         TRUE,
         edit_offset
       )
-    ) %>%
+    ) |>
     dplyr::select(-after_break)
   
   # ---- Build QA/QC log entry -------------------------------------------------
@@ -180,19 +180,12 @@ adjust_WL_offset <- function(input_data,
     run_time    = run_time
   )
   
-  log_path <- qaqc_log_path(log_root, select_station, metric)
-  
   if (!is.null(log_this)) {
-    qaqc_log_append(
-      log_path = log_path,
-      station  = select_station,
-      metric   = metric,
-      log_rows = log_this
-    )
-    message("QA/QC log updated: ", log_path)
+    qaqc_log_maybe_append(log_root, select_station, metric, log_this)
   } else {
     warning("No rows adjusted; no log entry written.")
   }
-  
+
+  attr(waterlevel_data, "qaqc_log") <- log_this
   return(waterlevel_data)
 }

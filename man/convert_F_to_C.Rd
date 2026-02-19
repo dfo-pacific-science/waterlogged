@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{convert_F_to_C}
 \alias{convert_F_to_C}
-\title{Normalize a character vector for matching}
+\title{Convert Fahrenheit to Celsius}
 \usage{
 convert_F_to_C(x)
 }
@@ -10,11 +10,12 @@ convert_F_to_C(x)
 \item{x}{Numeric vector of temperatures in degrees Fahrenheit.}
 }
 \value{
-A numeric vector of temperatures converted to degrees Celsius.
+A numeric vector of temperatures in degrees Celsius.
 }
 \description{
-Converts strings to lower case, trims leading/trailing whitespace, and
-removes internal spaces. Useful for normalizing user inputs or metadata
-fields before comparison.
+Converts a numeric vector of temperatures from degrees Fahrenheit
+to degrees Celsius using the standard linear transformation.
+Internal helper used when parsing HOBO logger files that report
+temperature in Fahrenheit.
 }
 \keyword{internal}

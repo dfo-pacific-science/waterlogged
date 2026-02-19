@@ -1,15 +1,72 @@
-#Bind_hobo_utils
-
-# READ METADATA FILE, CONVERT datetime to correct format, check that removal is after deployment
-QAQC_metadata <- function(metadata_path) {
+#' QA/QC for logger deployment metadata
+#'
+#' Reads (from file or in-memory data frame) and validates a table of
+#' logger deployment metadata used throughout the \pkg{waterlogged}
+#' pipeline.  Called internally by \code{\link{bind_hobo_files}},
+#' \code{\link{add_nearest_baro}}, \code{\link{barometric_qaqc_all}},
+#' and \code{\link{conductivity_qaqc_all}}.
+#'
+#' @param metadata_path Character scalar.
+#'   Path to a metadata CSV file.  Required when \code{metadata} is
+#'   \code{NULL}.
+#' @param metadata A data frame of deployment metadata (alternative to
+#'   \code{metadata_path} for Shiny mode).  Exactly one of
+#'   \code{metadata_path} or \code{metadata} must be supplied.
+#'
+#' @return A cleaned data frame with:
+#'   \itemize{
+#'     \item \code{timestamp_deploy} and \code{timestamp_remove} parsed
+#'       to POSIXct (UTC).
+#'     \item \code{latitude} and \code{longitude} coerced to numeric
+#'       decimal degrees.
+#'     \item \code{sn} coerced to character (preserves leading zeros).
+#'     \item \code{metric} standardised to lowercase with spaces removed.
+#'   }
+#'
+#' @details
+#' The following validation steps are applied in order:
+#' \enumerate{
+#'   \item Empty rows (all \code{NA} or blank) are dropped.
+#'   \item Required columns are checked: \code{site_station_code},
+#'     \code{timestamp_deploy}, \code{timestamp_remove}, \code{model},
+#'     \code{sn}, \code{metric}, \code{status}, \code{latitude},
+#'     \code{longitude}.
+#'   \item \code{timestamp_deploy} and \code{timestamp_remove} are
+#'     parsed using \code{lubridate::mdy_hm()} first, then fall back to
+#'     flexible multi-format parsing.  \code{NA} values in
+#'     \code{timestamp_remove} are expected for loggers still deployed.
+#'   \item Chronology is checked: deployment must precede removal.
+#'   \item \code{sn} (serial number) is coerced to character.
+#'   \item Latitude and longitude are validated: DMS / cardinal-letter
+#'     formats trigger a warning, values are coerced to numeric, and
+#'     range checks (\eqn{[-90, 90]} and \eqn{[-180, 180]}) are applied.
+#'   \item \code{metric} is standardised to lowercase with spaces removed
+#'     and validated against the allowed set: \code{"waterlevel"},
+#'     \code{"barometric"}, \code{"conductivity"},
+#'     \code{"dissolvedoxygen"}, \code{"airtemp"}, \code{"watertemp"},
+#'     \code{"light"}.
+#' }
+#'
+#' @seealso \code{\link{QAQC_reference_data}} (analogous validation for
+#'   manual stage/depth reference data),
+#'   \code{\link{bind_hobo_files}} (primary consumer of the validated
+#'   metadata)
+#'
+#' @export
+QAQC_metadata <- function(metadata_path = NULL, metadata = NULL) {
   tryCatch({
-    # 1) File check
-    if (!file.exists(metadata_path)) {
-      stop("File not found: ", metadata_path)
+    # 1) Dual input: accept data frame OR file path
+    if (!is.null(metadata) && is.data.frame(metadata)) {
+      # Use in-memory data frame directly (Shiny mode)
+    } else if (!is.null(metadata_path)) {
+      if (!file.exists(metadata_path)) {
+        stop("File not found: ", metadata_path)
+      }
+      # 2) Read CSV (quietly, no factors)
+      metadata <- utils::read.csv(metadata_path, header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
+    } else {
+      stop("Must provide either 'metadata_path' or 'metadata' as a data frame.")
     }
-    
-    # 2) Read CSV (quietly, no factors)
-    metadata <- read.csv(metadata_path, header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
     
     # Remove completely empty rows (all NA or all blank strings)
       # note: this will fail for datetime cols (not currently an issue). 
@@ -78,7 +135,7 @@ QAQC_metadata <- function(metadata_path) {
       lon_chr <- trimws(as.character(metadata$longitude))
       
       # Looks like DMS or contains N/S/E/W or degree symbols?
-      looks_non_decimal <- function(x) grepl("[NSEW°'\"\u00B0]", x, ignore.case = TRUE)
+      looks_non_decimal <- function(x) grepl("[NSEW\u00b0'\"\u00B0]", x, ignore.case = TRUE)
       bad_fmt_rows <- which((!is.na(lat_chr) & looks_non_decimal(lat_chr)) |
                               (!is.na(lon_chr) & looks_non_decimal(lon_chr)))
       if (length(bad_fmt_rows)) {
@@ -139,6 +196,42 @@ QAQC_metadata <- function(metadata_path) {
 }
 
 
+#' Parse a single raw HOBO CSV export
+#'
+#' Internal helper called by \code{\link{bind_hobo_files}} (via
+#' \code{purrr::map_df()}) to read one HOBO-exported CSV file, extract
+#' the logger serial number and channel metadata from row 2, build
+#' standardised column names, coerce measurements to numeric, and attach
+#' file-level metadata.
+#'
+#' @param file Character scalar.  Full path to a single HOBO CSV file.
+#'   The file is expected to have the standard Onset HOBOware export
+#'   layout: row 1 is a title/plot-title row, row 2 contains the column
+#'   headers (date-time format, serial number, and channel descriptors of
+#'   the form \code{"<Type>, <Unit> (LGR S/N: ...)"}).
+#'
+#' @return A tibble with columns:
+#'   \describe{
+#'     \item{\code{sn}}{Logger serial number (8-digit character).}
+#'     \item{\code{timestamp}}{Raw timestamp string (not yet parsed to
+#'       POSIXct; parsing happens downstream in
+#'       \code{\link{bind_hobo_files}}).}
+#'     \item{\emph{<measurement channels>}}{One numeric column per data
+#'       channel, named \code{"<Type> <Unit>"} (e.g.
+#'       \code{"Temp \u00b0C"}, \code{"Abs Pres kPa"}).}
+#'     \item{\code{file_name}}{Base name of the source CSV.}
+#'     \item{\code{timezone}}{Timezone string extracted from the header
+#'       row.}
+#'     \item{\code{data1_type}, \code{data1_unit}}{Type and unit of the
+#'       first data channel.}
+#'     \item{\code{data2_type}, \code{dat2_unit}}{Type and unit of the
+#'       second data channel.}
+#'   }
+#'   Rows where all measurement columns are \code{NA} are dropped.
+#'
+#' @seealso \code{\link{bind_hobo_files}} (sole caller)
+#'
+#' @keywords internal
 extract_alldata_from_file <- function(file) {
   # Read raw HOBO file as-is (no name mangling)
   data <- utils::read.csv(
@@ -178,12 +271,12 @@ extract_alldata_from_file <- function(file) {
   meta_tbl <- tibble::tibble(
     col_index  = seq_len(n_cols),
     raw_header = header_row
-  ) %>%
+  ) |>
     dplyr::filter(
       col_index >= 3,
       !is.na(raw_header),
       raw_header != ""
-    ) %>%
+    ) |>
     dplyr::mutate(
       parsed = purrr::map(raw_header, parse_type_unit),
       type   = purrr::map_chr(parsed, "type"),
@@ -241,7 +334,7 @@ extract_alldata_from_file <- function(file) {
   
   if (length(meas_cols) > 0) {
     # numeric coercion (suppress warnings from non-numeric junk)
-    data_clean <- data_clean %>%
+    data_clean <- data_clean |>
       dplyr::mutate(
         dplyr::across(
           dplyr::all_of(meas_cols),
@@ -259,7 +352,7 @@ extract_alldata_from_file <- function(file) {
   }
   
   # ---- Attach metadata columns -----------------------------------------------
-  data_clean <- data_clean %>%
+  data_clean <- data_clean |>
     dplyr::mutate(
       file_name  = file_name,
       timezone   = tz,

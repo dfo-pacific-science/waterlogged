@@ -7,13 +7,14 @@
 qaqc_log_append(log_path, station, metric, log_rows)
 }
 \arguments{
-\item{log_path}{Character. Output path (use \code{qaqc_log_path()}).}
+\item{log_path}{Character. Output path (use \code{\link[=qaqc_log_path]{qaqc_log_path()}}).}
 
 \item{station}{Character. Station code.}
 
 \item{metric}{Character. Metric label.}
 
-\item{log_rows}{Data frame/tibble of log rows (from \code{make_qaqc_log_row()} or bind_rows).}
+\item{log_rows}{Data frame/tibble of log rows (from \code{\link[=make_qaqc_log_row]{make_qaqc_log_row()}}
+or \code{\link[dplyr:bind_rows]{dplyr::bind_rows()}}).}
 }
 \value{
 Invisibly returns \code{log_path}.

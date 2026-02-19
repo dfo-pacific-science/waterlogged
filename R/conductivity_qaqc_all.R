@@ -1,22 +1,88 @@
+#' Run conductivity QAQC for all conductivity stations in metadata
+#'
+#' Reads conductivity logger data for every station listed in the metadata
+#' (where \code{metric == "conductivity"}), applies
+#' \code{\link{conductivity_qaqc}} to each station, optionally writes
+#' per-year v0.1 CSVs, and returns a combined data frame of all QAQC'd
+#' conductivity data.
+#'
+#' When reading from disk, files are expected to match the pattern
+#' \code{"<site_station_code>_<file_suffix>_*.csv"} under
+#' \code{cond_data_path} (searched recursively).
+#'
+#' @param cond_data_path Character scalar or \code{NULL}. Root directory
+#'   containing processed conductivity CSV files (searched recursively).
+#'   Required when \code{cond_data} is \code{NULL}.
+#' @param metadata_path Character scalar or \code{NULL}. Path to the
+#'   metadata CSV. Required when \code{metadata} is \code{NULL}. Must
+#'   include \code{site_station_code} and \code{metric} columns with
+#'   entries where \code{metric == "conductivity"}.
+#' @param path_to_output_folder Character scalar or \code{NULL}. Root
+#'   directory where per-year v0.1 COND CSVs will be written. When
+#'   \code{NULL} (default, Shiny mode), no files are written.
+#' @param log_root Character scalar or \code{NULL}. Root directory for
+#'   QAQC log files, passed through to \code{\link{conductivity_qaqc}}.
+#'   When \code{NULL} (default), no log files are written.
+#' @param temp_low_limit_C Numeric. Lower bound for acceptable water
+#'   temperature (passed to \code{\link{conductivity_qaqc}}). Default
+#'   \code{-2}.
+#' @param temp_high_limit_C Numeric. Upper bound for acceptable water
+#'   temperature. Default \code{40}.
+#' @param disturbance_threshold_uScm Numeric. Spike detection threshold
+#'   between consecutive samples. Default \code{200}.
+#' @param dry_threshold_uScm Numeric. Conductivity below this value flags
+#'   a probable dry sensor. Default \code{10}.
+#' @param air_water_diff_threshold_C Numeric. Maximum air--water
+#'   temperature difference to support dry inference. Default \code{2}.
+#' @param file_suffix Character scalar. Suffix used when building the
+#'   filename search pattern (e.g. \code{"COND"} matches
+#'   \code{STATION_COND_*.csv}). Default \code{"COND"}.
+#' @param user Character scalar. User name recorded in QAQC logs.
+#'   Defaults to \code{NULL}, which resolves to
+#'   \code{Sys.info()[["user"]]} (the local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
+#' @param metadata A data frame of station metadata (alternative to
+#'   \code{metadata_path} for Shiny mode). Exactly one of
+#'   \code{metadata_path} or \code{metadata} must be supplied.
+#' @param cond_data A data frame of conductivity observations (alternative
+#'   to \code{cond_data_path} for Shiny mode). Must contain
+#'   \code{site_station_code}, \code{timestamp}, \code{conduct_uScm}, and
+#'   \code{watertemp_C}. Exactly one of \code{cond_data_path} or
+#'   \code{cond_data} must be supplied.
+#'
+#' @return A single long-format data frame created by binding the QAQC'd
+#'   conductivity data for all stations. If no stations are processed
+#'   successfully, an empty tibble is returned with a warning.
+#'
+#' @seealso \code{\link{conductivity_qaqc}} (per-station QAQC called
+#'   internally), \code{\link{barometric_qaqc_all}} (analogous batch
+#'   wrapper for barometric data),
+#'   \code{\link{bind_hobo_files}} (upstream data ingestion)
+#'
+#' @export
 conductivity_qaqc_all <- function(
-    cond_data_path,
-    metadata_path,
-    path_to_output_folder,
-    log_root,
+    cond_data_path = NULL,
+    metadata_path = NULL,
+    path_to_output_folder = NULL,
+    log_root = NULL,
     temp_low_limit_C           = -2,
     temp_high_limit_C          = 40,
     disturbance_threshold_uScm = 200,
     dry_threshold_uScm         = 10,
     air_water_diff_threshold_C = 2,
-    file_suffix                = "COND",  # for pattern: STATION_COND_*.csv
-    user                       = Sys.info()[["user"]]
+    file_suffix                = "COND",
+    user                       = NULL,
+    metadata = NULL,
+    cond_data = NULL
 ) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
+
+  metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
   
-  metadata <- QAQC_metadata(metadata_path)
-  
-  cond_sites <- metadata %>%
-    dplyr::filter(metric == "conductivity") %>%
-    dplyr::pull(site_station_code) %>%
+  cond_sites <- metadata |>
+    dplyr::filter(metric == "conductivity") |>
+    dplyr::pull(site_station_code) |>
     unique()
   
   if (!length(cond_sites)) {
@@ -28,28 +94,37 @@ conductivity_qaqc_all <- function(
   for (stn in cond_sites) {
     message("\n--- Conductivity QA/QC for station: ", stn, " ---")
     
-    pattern <- paste0("^", escape_regex(stn), "_", file_suffix, "_.*\\.csv$")
-    file_paths <- list.files(
-      cond_data_path,
-      pattern    = pattern,
-      full.names = TRUE,
-      recursive  = TRUE
-    )
-    
-    if (!length(file_paths)) {
-      warning("  No ", file_suffix, " files found for station ", stn,
-              " under ", cond_data_path, ". Skipping.")
-      next
-    }
-    
-    raw_cond <- dplyr::bind_rows(
-      lapply(
-        file_paths,
-        utils::read.csv,
-        stringsAsFactors = FALSE,
-        check.names      = FALSE
+    if (!is.null(cond_data) && is.data.frame(cond_data)) {
+      raw_cond <- cond_data |>
+        dplyr::filter(site_station_code == stn)
+      if (!nrow(raw_cond)) {
+        warning("  No cond data for station ", stn, " in cond_data. Skipping.")
+        next
+      }
+    } else {
+      pattern <- paste0("^", escape_regex(stn), "_", file_suffix, "_.*\\.csv$")
+      file_paths <- list.files(
+        cond_data_path,
+        pattern    = pattern,
+        full.names = TRUE,
+        recursive  = TRUE
       )
-    )
+
+      if (!length(file_paths)) {
+        warning("  No ", file_suffix, " files found for station ", stn,
+                " under ", cond_data_path, ". Skipping.")
+        next
+      }
+
+      raw_cond <- dplyr::bind_rows(
+        lapply(
+          file_paths,
+          utils::read.csv,
+          stringsAsFactors = FALSE,
+          check.names      = FALSE
+        )
+      )
+    }
     
     # Ensure timestamp column exists & is POSIXct
     if (!"timestamp" %in% names(raw_cond)) {
@@ -116,40 +191,42 @@ conductivity_qaqc_all <- function(
     # Store for combined return
     all_cond_list[[stn]] <- checked
     
-    # ---- Write yearly v0.1 COND files --------------------------------------
-    checked_year <- checked %>%
-      dplyr::mutate(year = lubridate::year(timestamp))
-    
-    years_i <- sort(unique(checked_year$year))
-    
-    for (yy in years_i) {
-      sub <- checked_year %>%
-        dplyr::filter(year == yy) %>%
-        dplyr::arrange(timestamp)
-      
-      if (!nrow(sub)) next
-      
-      start_date <- min(lubridate::as_date(sub$timestamp))
-      end_date   <- max(lubridate::as_date(sub$timestamp))
-      
-      start_str <- gsub("\\D", "", as.character(start_date))
-      end_str   <- gsub("\\D", "", as.character(end_date))
-      
-      year_dir <- file.path(path_to_output_folder, yy)
-      proc_dir <- file.path(year_dir, "processed")
-      if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
-      if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
-      
-      sub_write <- sub %>%
-        dplyr::select(-year)
-      sub_write$timestamp <- format(sub_write$timestamp, tz = "UTC", usetz = FALSE)
-      
-      out_name <- sprintf("%s_%s_%s_%s_v0.1.csv",
-                          stn, file_suffix, start_str, end_str)
-      out_path <- file.path(proc_dir, out_name)
-      
-      utils::write.csv(sub_write, out_path, row.names = FALSE)
-      message("  QA/QC ", file_suffix, " written: ", basename(out_path))
+    # ---- Write yearly v0.1 COND files (guarded for Shiny) --------------------
+    if (!is.null(path_to_output_folder)) {
+      checked_year <- checked |>
+        dplyr::mutate(year = lubridate::year(timestamp))
+
+      years_i <- sort(unique(checked_year$year))
+
+      for (yy in years_i) {
+        sub <- checked_year |>
+          dplyr::filter(year == yy) |>
+          dplyr::arrange(timestamp)
+
+        if (!nrow(sub)) next
+
+        start_date <- min(lubridate::as_date(sub$timestamp))
+        end_date   <- max(lubridate::as_date(sub$timestamp))
+
+        start_str <- gsub("\\D", "", as.character(start_date))
+        end_str   <- gsub("\\D", "", as.character(end_date))
+
+        year_dir <- file.path(path_to_output_folder, yy)
+        proc_dir <- file.path(year_dir, "processed")
+        if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
+        if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
+
+        sub_write <- sub |>
+          dplyr::select(-year)
+        sub_write$timestamp <- format(sub_write$timestamp, tz = "UTC", usetz = FALSE)
+
+        out_name <- sprintf("%s_%s_%s_%s_v0.1.csv",
+                            stn, file_suffix, start_str, end_str)
+        out_path <- file.path(proc_dir, out_name)
+
+        utils::write.csv(sub_write, out_path, row.names = FALSE)
+        message("  QA/QC ", file_suffix, " written: ", basename(out_path))
+      }
     }
   }
   

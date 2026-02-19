@@ -5,62 +5,92 @@
 \title{Bind HOBO logger CSVs and attach site metadata}
 \usage{
 bind_hobo_files(
-  path_to_raw_folder,
-  path_to_output_folder,
-  metadata_path,
-  timestamp_timezone = "UTC"
+  path_to_raw_folder = NULL,
+  path_to_output_folder = NULL,
+  metadata_path = NULL,
+  timestamp_timezone = "UTC",
+  file_paths = NULL,
+  metadata = NULL
 )
 }
 \arguments{
-\item{path_to_raw_folder}{Path to the folder containing raw HOBO CSV files
-(one or more loggers, all of the same metric). For example
-\code{"data/raw/level"} or \code{"data/testing/raw/COND"}.}
+\item{path_to_raw_folder}{Character scalar. Path to the folder containing
+raw HOBO CSV files (one or more loggers, all of the same metric). For
+example \code{"data/raw/level"} or \code{"data/testing/raw/COND"}.
+Required when \code{file_paths} is \code{NULL}.}
 
-\item{path_to_output_folder}{Root folder where processed v0.1 CSVs will be
-written. Files are created under \verb{<path_to_output_folder>/<year>/processed},
-e.g. \code{"data/processed"}.}
+\item{path_to_output_folder}{Character scalar or \code{NULL}. Root folder
+where processed v0.1 CSVs will be written. Files are created under
+\code{<path_to_output_folder>/<year>/processed/}. When \code{NULL}
+(default, Shiny mode), no files are written.}
 
-\item{metadata_path}{Path to a metadata CSV that has at least logger serial
-numbers and deployment/removal information (e.g. \code{sn}, \code{metric},
-\code{site_station_code}, \code{timestamp_deploy}, \code{timestamp_remove}, \code{model}).}
+\item{metadata_path}{Character scalar. Path to a metadata CSV that has at
+least logger serial numbers and deployment/removal information (e.g.
+\code{sn}, \code{metric}, \code{site_station_code},
+\code{timestamp_deploy}, \code{timestamp_remove}, \code{model}).
+Required when \code{metadata} is \code{NULL}.}
 
-\item{timestamp_timezone}{Time zone used when filling in open-ended
-deployments (where \code{timestamp_remove} is \code{NA}). Defaults to \code{"UTC"}.}
+\item{timestamp_timezone}{Character scalar. Time zone used when filling in
+open-ended deployments (where \code{timestamp_remove} is \code{NA}).
+Defaults to \code{"UTC"}.}
+
+\item{file_paths}{Character vector of full file paths to HOBO CSV files
+(alternative to \code{path_to_raw_folder} for Shiny mode). Exactly one
+of \code{path_to_raw_folder} or \code{file_paths} must be supplied.}
+
+\item{metadata}{A data frame of station metadata (alternative to
+\code{metadata_path} for Shiny mode). Must contain the same columns
+expected by \code{\link{QAQC_metadata}}. Exactly one of
+\code{metadata_path} or \code{metadata} must be supplied.}
 }
 \value{
 A list of length 2:
 \describe{
-\item{1}{A data frame of compiled logger data (\code{sites_compiled}),
-with \code{site_station_code}, \code{sn}, \code{timestamp}, \code{logger_type}, \code{metric}, and
+\item{\code{[[1]]}}{A data frame of compiled logger data
+(\code{sites_compiled}), with \code{site_station_code}, \code{sn},
+\code{timestamp}, \code{logger_type}, \code{metric}, and
 metric-specific value columns.}
-\item{2}{A \code{ggplot} object showing the primary value column vs time,
-faceted by \code{site_station_code}, for quick visual QA/QC.}
+\item{\code{[[2]]}}{A \code{ggplot2} object showing the primary value
+column vs time, faceted by \code{site_station_code}, for quick visual
+QA/QC.}
 }
 }
 \description{
-Reads all HOBO CSV files in a folder, links each logger serial number to
-deployment metadata, trims records to deployment/removal windows, standardises
-core column names by metric (barometric, waterlevel, DO, TidbiT temperature,
-conductivity), writes per-station/year v0.1 CSVs, and returns a compiled
-long data frame plus a quick QC plot.
+Reads all HOBO CSV files in a folder (or from explicit file paths), links
+each logger serial number to deployment metadata, trims records to
+deployment/removal windows, standardises core column names by metric
+(barometric, waterlevel, DO, TidbiT temperature, conductivity), optionally
+writes per-station/year v0.1 CSVs, and returns a compiled long data frame
+plus a quick QC plot.
 }
 \details{
 The function:
+
 \itemize{
-\item Reads all \verb{*.csv} files in \code{path_to_raw_folder} using
-extract_alldata_from_file() and binds them into a single data frame.
-\item Uses QAQC_metadata() to clean/standardise the metadata file.
-\item Assigns \code{site_station_code} to each record based on \code{sn} and the
-deployment/removal timestamps.
-\item Enforces a single \code{metric} per folder (e.g., all barometric, all
-waterlevel, all conductivity).
+\item Reads all \code{*.csv} files in \code{path_to_raw_folder} (or uses
+\code{file_paths} directly) via \code{extract_alldata_from_file()} and
+binds them into a single data frame.
+\item Uses \code{\link{QAQC_metadata}} to clean/standardise the metadata.
+\item Assigns \code{site_station_code} to each record based on \code{sn}
+and the deployment/removal timestamps.
+\item Enforces a single \code{metric} per folder (e.g., all barometric,
+all waterlevel, all conductivity).
 \item Standardises core column names depending on logger/metric, e.g.
-\code{airpress_kPa}, \code{waterpress_kPa}, \code{watertemp_C}, \code{airtemp_C},
-\code{do_mgl}, \code{conduct_uScm}, and \code{conduct_range_used}.
-\item For conductivity (U24) loggers, unifies low/full range columns into a
-single \code{conduct_uScm} column and records which range was used.
-\item Writes one v0.1 CSV per station per year to
-\verb{<path_to_output_folder>/<year>/processed} with filenames of the form
-\verb{<site>_<LOGGER>_<startdate>_<enddate>_v0.1.csv}.
+\code{airpress_kPa}, \code{waterpress_kPa}, \code{watertemp_C},
+\code{airtemp_C}, \code{do_mgl}, \code{conduct_uScm}, and
+\code{conduct_source}.
+\item For conductivity (U24) loggers, unifies low/full range columns
+into a single \code{conduct_uScm} column and records which range was
+used in \code{conduct_source}.
+\item When \code{path_to_output_folder} is non-\code{NULL}, writes one
+v0.1 CSV per station per year to
+\code{<path_to_output_folder>/<year>/processed/} with filenames of the
+form \code{<site>_<LOGGER>_<startdate>_<enddate>_v0.1.csv}.
 }
+}
+\seealso{
+\code{\link{add_nearest_baro}} (downstream, attaches baro data
+to produce v0.2), \code{\link{barometric_qaqc_all}} (QAQC baro data
+produced by this function),
+\code{\link{QAQC_metadata}} (metadata validation)
 }

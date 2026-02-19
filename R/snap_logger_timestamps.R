@@ -34,7 +34,10 @@
 #' @param log_root Optional path to the root QA/QC log folder. If provided
 #'   together with `metric` and `select_station`, a log entry is appended
 #'   for this operation.
-#' @param user Username recorded in QA/QC logs. Defaults to the system user.
+#' @param user Username recorded in QA/QC logs. Defaults to \code{NULL},
+#'   which resolves to \code{Sys.info()[["user"]]} (the local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #'
 #' @return A data frame with:
 #'   \itemize{
@@ -64,7 +67,8 @@ resample_timestamps <- function(input_data,
                                 select_station = NULL,
                                 metric         = NULL,
                                 log_root       = NULL,
-                                user           = Sys.info()[["user"]]) {
+                                user           = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
   align <- match.arg(align)
   
   if (!"timestamp" %in% names(input_data)) {
@@ -189,17 +193,8 @@ resample_timestamps <- function(input_data,
       )
     }
     
-    log_path <- qaqc_log_path(log_root, select_station, metric)
-    
-    qaqc_log_append(
-      log_path = log_path,
-      station  = select_station,
-      metric   = metric,
-      log_rows = log_rows
-    )
-    
-    message("QA/QC log updated (resample_timestamps): ", log_path)
+    qaqc_log_maybe_append(log_root, select_station, metric, log_rows)
   }
-  
+
   return(df)
 }

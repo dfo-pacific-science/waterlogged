@@ -1,65 +1,94 @@
-#' Set an arbitrary datum for water-level time series using survey level information.
+#' Set an arbitrary datum for water-level time series
 #'
-#' Creates a consistent arbitrary elevation system for a station by anchoring the
-#' first valid levelling visit's primary benchmark (PBM) at 100.0 m and translating
-#' all other benchmarks using within-visit survey differences.
+#' Creates a consistent arbitrary elevation system for a station by
+#' anchoring the first valid levelling visit's primary benchmark (PBM) at
+#' 100.0 m and translating all other benchmarks using within-visit survey
+#' differences.  If later visits use a different PBM, its arbitrary
+#' elevation is inferred from the existing benchmark network (it is
+#' \emph{not} forced to 100.0 m).
 #'
-#' If later visits use a different PBM, its arbitrary elevation is inferred from the
-#' existing benchmark network (so it is NOT forced to 100.0 m).
+#' A single constant datum offset is computed from the first valid visit's
+#' mean water-surface elevation and applied to the station's logger stage
+#' series, producing the column \code{wl_elev_m}.
 #'
-#' The function then computes a single constant datum offset from the first valid
-#' visit's water-surface elevation and applies it to the station's logger stage series,
-#' creating `wl_elev_m`.
+#' @param input_data A data frame of logger observations (one or more
+#'   stations). Must contain \code{site_station_code}, \code{timestamp}
+#'   (POSIXct or parseable), and either \code{waterlevel_m_adj} (preferred)
+#'   or \code{waterlevel_m}.
+#' @param level_runs_path Character scalar or \code{NULL}. Path to a
+#'   levelling-runs CSV file. Required when \code{level_runs} is
+#'   \code{NULL}.
+#' @param select_station Character scalar. The \code{site_station_code} to
+#'   process.
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log entry is written via
+#'   \code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
+#' @param user Character scalar. Analyst name recorded in the QAQC log.
+#'   Defaults to \code{NULL}, which resolves to
+#'   \code{Sys.info()[["user"]]} (the local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
+#' @param level_runs A data frame of levelling-run data (alternative to
+#'   \code{level_runs_path} for Shiny mode). Exactly one of
+#'   \code{level_runs_path} or \code{level_runs} must be supplied.
 #'
-#' Grade handling:
-#' - Grade is expected in the level-runs CSV per visit.
-#' - No filtering by grade is performed.
-#' - If the first valid visit is graded "Poor" a warning is issued.
+#' @return The full \code{input_data} data frame with two columns
+#'   added/updated for \code{select_station}:
+#'   \itemize{
+#'     \item \code{wl_elev_m} -- water level on the arbitrary datum (m).
+#'     \item \code{flag_wl_datum_applied} -- logical flag (\code{TRUE} for
+#'       station rows where the datum was applied).
+#'   }
+#'   \code{attr(result, "qaqc_log")} contains a tibble with the
+#'   \code{WL_DATUM_APPLIED} log entry.
 #'
-#' Expected logger columns (in `input_data`):
-#' - `site_station_code`
-#' - `timestamp` (POSIXct or parseable)
-#' - `waterlevel_m_adj` (preferred) OR `waterlevel_m`
+#' @details
+#' \strong{Level-runs data format:}
 #'
-#' Expected level-runs CSV columns (minimum):
-#' - `site_station_code`
-#' - `visit_date`  (e.g. "2025-04-19" or Excel-like "4/19/2025")
-#' - `visit_time`  (e.g. "16:26" or "16:26:00")
-#' - `primary_bm`  (e.g. "BM1", "BM2", "TBM1" – must match a BM*/TBM* column name)
-#' - `grade`       ("Excellent", "Good", "OK", "Poor")
-#' - One or more benchmark columns named `BM*` or `TBM*`
-#'   (e.g. `BM1`, `BM2`, `TBM1`, `TBM_A`).
-#' - One or more water-surface columns named `water_elev_<n>` (e.g. water_elev_1, water_elev_2)
+#' The level-runs CSV (or data frame) must contain at minimum:
+#' \itemize{
+#'   \item \code{site_station_code}
+#'   \item \code{visit_date} (e.g. \code{"2025-04-19"} or
+#'     \code{"4/19/2025"})
+#'   \item \code{visit_time} (e.g. \code{"16:26"} or \code{"16:26:00"})
+#'   \item \code{primary_bm} -- must exactly match a \code{BM*} or
+#'     \code{TBM*} column name (e.g. \code{"BM1"}, \code{"TBM1"})
+#'   \item \code{grade} -- one of \code{"Excellent"}, \code{"Good"},
+#'     \code{"OK"}, \code{"Poor"}
+#'   \item One or more benchmark columns named \code{BM*} or \code{TBM*}
+#'   \item One or more water-surface columns named \code{water_elev_<n>}
+#'     (e.g. \code{water_elev_1}, \code{water_elev_2})
+#' }
 #'
-#' Survey values in benchmark columns and `water_elev_*` are assumed to be in the same
-#' per-visit survey coordinate system (e.g., "0.12", "0.19", "1.652", etc.).
-#' The absolute arbitrary elevation is constructed as:
-#'   abs_elev = pbm_abs + (value_raw - pbm_raw)
+#' All survey values are assumed to be in the same per-visit coordinate
+#' system.  The absolute arbitrary elevation for any value is:
+#' \code{pbm_abs + (value_raw - pbm_raw)}.
 #'
-#' QA/QC bookkeeping:
-#' - Adds/updates `wl_elev_m` for the station
-#' - Adds/updates `flag_wl_datum_applied` (TRUE for station rows with wl_elev_m)
-#' - Appends a QA/QC log entry with code `WL_DATUM_APPLIED`
+#' \strong{Grade handling:}
+#' No filtering by grade is performed, but a warning is issued if the
+#' first valid visit (the datum anchor) is graded \code{"Poor"}.
 #'
-#' @param input_data Logger data frame (one or more stations).
-#' @param level_runs_path Path to the levelling runs CSV.
-#' @param select_station Station code to process.
-#' @param log_root Root folder where QA/QC logs are stored.
-#' @param user Analyst name for the QA/QC log.
+#' \strong{Benchmark network:}
+#' The function iterates visits in chronological order. If a visit's PBM
+#' is not yet in the network, it is inferred from any co-observed
+#' benchmark that \emph{is} known. An error is raised if a visit cannot be
+#' connected to the existing network. Inconsistencies > 0.02 m for a
+#' benchmark across visits trigger a warning.
 #'
-#' @return `input_data` with `wl_elev_m` and `flag_wl_datum_applied` added/updated
-#'   for `select_station`.
+#' @seealso \code{\link{waterlevel_qaqc}} (upstream automatic QAQC),
+#'   \code{\link{convert_waterlevel_kPa_m}} (upstream kPa-to-m conversion),
+#'   \code{\link{wl_multipoint_correction}} (water level drift correction)
 #'
 #' @export
-#' @import dplyr
-#' @importFrom lubridate parse_date_time ymd_hms
-#' @importFrom utils read.csv
 wl_set_datum <- function(input_data,
-                         level_runs_path,
+                         level_runs_path = NULL,
                          select_station,
-                         log_root,
-                         user = Sys.info()[["user"]]) {
-  
+                         log_root = NULL,
+                         user = NULL,
+                         level_runs = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
+
   # ---- 0. Basic checks -------------------------------------------------------
   req_cols <- c("site_station_code", "timestamp")
   missing_logger <- setdiff(req_cols, names(input_data))
@@ -85,8 +114,8 @@ wl_set_datum <- function(input_data,
   }
   
   # subset station
-  logger_data <- input_data %>%
-    dplyr::filter(site_station_code == select_station) %>%
+  logger_data <- input_data |>
+    dplyr::filter(site_station_code == select_station) |>
     dplyr::arrange(timestamp)
   
   if (nrow(logger_data) == 0) {
@@ -104,15 +133,20 @@ wl_set_datum <- function(input_data,
     }
   }
   
-  # ---- 1. Read level runs ----------------------------------------------------
-  if (!is.character(level_runs_path) || length(level_runs_path) != 1L) {
-    stop("wl_set_datum(): `level_runs_path` must be a single file path.", call. = FALSE)
+  # ---- 1. Read level runs (data frame OR file path) --------------------------
+  if (!is.null(level_runs) && is.data.frame(level_runs)) {
+    lv <- level_runs
+  } else if (!is.null(level_runs_path)) {
+    if (!is.character(level_runs_path) || length(level_runs_path) != 1L) {
+      stop("wl_set_datum(): `level_runs_path` must be a single file path.", call. = FALSE)
+    }
+    if (!file.exists(level_runs_path)) {
+      stop("wl_set_datum(): level runs file not found: ", level_runs_path, call. = FALSE)
+    }
+    lv <- utils::read.csv(level_runs_path, stringsAsFactors = FALSE, check.names = FALSE)
+  } else {
+    stop("wl_set_datum(): must provide either 'level_runs_path' or 'level_runs' as a data frame.", call. = FALSE)
   }
-  if (!file.exists(level_runs_path)) {
-    stop("wl_set_datum(): level runs file not found: ", level_runs_path, call. = FALSE)
-  }
-  
-  lv <- utils::read.csv(level_runs_path, stringsAsFactors = FALSE, check.names = FALSE)
   
   req_lv <- c("site_station_code", "visit_date", "visit_time", "primary_bm", "grade")
   missing_lv <- setdiff(req_lv, names(lv))
@@ -125,7 +159,7 @@ wl_set_datum <- function(input_data,
   }
   
   # restrict to station
-  lv <- lv %>%
+  lv <- lv |>
     dplyr::filter(site_station_code == select_station)
   
   if (nrow(lv) == 0) {
@@ -201,7 +235,7 @@ wl_set_datum <- function(input_data,
     lv[[nm]] <- suppressWarnings(as.numeric(lv[[nm]]))
   }
   
-  lv <- lv %>% dplyr::arrange(visit_dt)
+  lv <- lv |> dplyr::arrange(visit_dt)
   
   # ---- 2. Choose first valid visit (anchor) ---------------------------------
   # valid = has primary BM value AND at least one water_elev value
@@ -397,15 +431,8 @@ wl_set_datum <- function(input_data,
     user        = user
   )
   
-  log_path <- qaqc_log_path(log_root, select_station, "WL")
-  qaqc_log_append(
-    log_path = log_path,
-    station  = select_station,
-    metric   = "WL",
-    log_rows = log_row
-  )
-  
-  message("WL datum QA/QC log updated: ", log_path)
-  
+  qaqc_log_maybe_append(log_root, select_station, "WL", log_row)
+
+  attr(input_data, "qaqc_log") <- log_row
   input_data
 }

@@ -8,7 +8,8 @@ airtemp_qaqc(
   input_data,
   select_station,
   var_airtemp_C = "airtemp_C_TidbiT",
-  plot_only = FALSE
+  plot_only = FALSE,
+  return_plots = TRUE
 )
 }
 \arguments{
@@ -19,6 +20,11 @@ airtemp_qaqc(
 \item{var_airtemp_C}{The variable for air temperature in degrees Celsius}
 
 \item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, air temperature values out of range are removed and flagged}
+
+\item{return_plots}{Logical; if \code{TRUE} (default), an interactive
+\pkg{plotly} chart is included in the returned list.  Set to
+\code{FALSE} to skip plot creation (faster, useful in Shiny or
+batch pipelines).}
 }
 \value{
 list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc

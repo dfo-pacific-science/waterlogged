@@ -1,6 +1,45 @@
-
-
-
+#' Temperature-compensate conductivity to specific conductance
+#'
+#' Converts measured electrical conductivity (EC) to specific conductance
+#' (SPC) normalised to 25 degrees C using the temperature
+#' compensation factors from ISO 27888.  A 5th-order polynomial is
+#' fitted to the published coefficient table and applied as
+#' \code{SPC = f(T) * EC}.
+#'
+#' Typically run after \code{\link{conductivity_qaqc}} (or
+#' \code{\link{conductivity_qaqc_all}}) so that the adjusted columns
+#' \code{conduct_uScm_adj} and \code{watertemp_C_adj} are available.
+#'
+#' @param input_data A data frame of conductivity observations.
+#'   Must contain \code{conduct_uScm_adj} (adjusted electrical
+#'   conductivity in uS/cm) and \code{watertemp_C_adj}
+#'   (adjusted water temperature in degrees C).
+#'   Typically the output of \code{\link{conductivity_qaqc}}.
+#'
+#' @return \code{input_data} with one column added:
+#'   \describe{
+#'     \item{\code{spc_uScm_adj}}{Specific conductance
+#'       (uS/cm at 25 degrees C).  \code{NA} where either
+#'       \code{conduct_uScm_adj} or \code{watertemp_C_adj} is
+#'       \code{NA}.}
+#'   }
+#'   A warning is issued when more than 5\% of temperature values are
+#'   \code{NA}.
+#'
+#' @details
+#' The compensation coefficients are read from
+#' \code{inst/extdata/tempcomp27888.csv} (shipped with the package),
+#' which tabulates the ISO 27888 correction factor at 0.1 degrees C
+#' resolution from 0 to 35 degrees C.
+#' The table is pivoted to long format and a 5th-order polynomial
+#' \eqn{f(T)} is fitted by ordinary least squares.  At
+#' 25 degrees C the coefficient equals 1.0 (i.e. no correction).
+#'
+#' @seealso \code{\link{conductivity_qaqc}} (upstream QAQC that produces
+#'   the \code{_adj} columns), \code{\link{wq_drift_correction}}
+#'   (optional drift correction for conductivity)
+#'
+#' @export
 conductivity_temp_compensation <- function(input_data) {
   
   # ---- Required columns ------------------------------------------------------
@@ -16,7 +55,7 @@ conductivity_temp_compensation <- function(input_data) {
   
   # ---- Temperature compensation coefficients (ISO 7888 nonlinear) -----------
   path_tcomp_tbl <- system.file("extdata", "tempcomp27888.csv", package = "waterlogged")
-  tcomp <- read.csv(path_tcomp_tbl)
+  tcomp <- utils::read.csv(path_tcomp_tbl)
   
   # tidy table: expand temp range offset columns X0..X0.9
   tlong <- tidyr::pivot_longer(
@@ -33,8 +72,8 @@ conductivity_temp_compensation <- function(input_data) {
     dplyr::arrange(temp)
   
   # fit 5th-order polynomial (same as original)
-  model5 <- lm(coef ~ poly(temp, 5, raw = TRUE), data = tlong)
-  coefs <- coef(model5)
+  model5 <- stats::lm(coef ~ poly(temp, 5, raw = TRUE), data = tlong)
+  coefs <- stats::coef(model5)
   
   tempcomp <- function(T){
     coefs[1] +

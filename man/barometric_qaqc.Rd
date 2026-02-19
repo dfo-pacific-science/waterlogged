@@ -7,8 +7,8 @@
 barometric_qaqc(
   input_data,
   select_station,
-  log_root,
-  user = Sys.info()[["user"]],
+  log_root = NULL,
+  user = NULL,
   temp_low_limit = -40,
   temp_high_limit = 50,
   pressure_low_kpa = 85,
@@ -30,7 +30,10 @@ for multiple stations.}
 workflow (e.g. \code{"data/testing/processed"}).}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
-\code{Sys.info()[["user"]]}.}
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
 
 \item{temp_low_limit}{Lower bound (C) for plausible barometric temperatures.
 Values outside \verb{[temp_low_limit, temp_high_limit]} are set to \code{NA} in

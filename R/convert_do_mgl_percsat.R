@@ -23,7 +23,7 @@
 #'   \item \code{timestamp}        (POSIXct, UTC)
 #'   \item \code{site_station_code}
 #'   \item \code{do_mgl}           dissolved oxygen (mg/L)
-#'   \item \code{watertemp_C}      water temperature (°C)
+#'   \item \code{watertemp_C}      water temperature (deg C)
 #'   \item \code{airpress_kPa}     barometric pressure (kPa)
 #' }
 #'
@@ -54,26 +54,20 @@
 #'   the virial equation.* Deep-Sea Research.
 #'
 #' @export
-#'
-#' @import dplyr
-#' @importFrom lubridate year date ymd_hms
 
 
 convert_do_mgl_percsat <- function(do_data,
-                                   output_dir,
+                                   output_dir = NULL,
                                    version_label = "v0.3") {
-  
-  # ---- output_dir required + validation ----
-  if (missing(output_dir) || is.null(output_dir)) {
-    stop("`output_dir` must be supplied — writing CSVs is mandatory.")
-  }
-  
-  if (!is.character(output_dir) || length(output_dir) != 1L) {
-    stop("`output_dir` must be a single character string path.")
-  }
-  
-  if (!dir.exists(output_dir)) {
-    stop("`output_dir` does not exist: ", output_dir)
+
+  # ---- output_dir validation (optional for Shiny) ----
+  if (!is.null(output_dir)) {
+    if (!is.character(output_dir) || length(output_dir) != 1L) {
+      stop("`output_dir` must be a single character string path.")
+    }
+    if (!dir.exists(output_dir)) {
+      stop("`output_dir` does not exist: ", output_dir)
+    }
   }
   
   # ---- required columns ------------------------------------------------------
@@ -90,7 +84,7 @@ convert_do_mgl_percsat <- function(do_data,
   }
   
   # ---- main calculation ------------------------------------------------------
-  do_data_reviewed <- do_data %>%
+  do_data_reviewed <- do_data |>
     dplyr::mutate(
       # valid rows
       valid = !is.na(do_mgl) &
@@ -128,65 +122,67 @@ convert_do_mgl_percsat <- function(do_data,
     )
   
   # strip intermediate columns for return
-  do_data_reviewed <- do_data_reviewed %>%
+  do_data_reviewed <- do_data_reviewed |>
     dplyr::select(
       -valid, -temp_K, -press_atm, -do_1atm, -u_atm,
       -theta_o, -F_p, -do_sat_real
     )
   
-  # ---- write outputs: per year × site ---------------------------------------
-  df_write <- do_data_reviewed %>%
-    dplyr::arrange(site_station_code, timestamp) %>%
-    dplyr::mutate(
-      year = lubridate::year(timestamp),
-      date = lubridate::date(timestamp)
-    )
-  
-  # unique year-site combinations
-  key_df <- df_write %>%
-    dplyr::distinct(year, site_station_code) %>%
-    dplyr::filter(!is.na(year), !is.na(site_station_code))
-  
-  if (nrow(key_df) == 0) {
-    warning("No valid year/site_station_code combinations found — no files written.")
-    return(do_data_reviewed)
+  # ---- write outputs: per year x site (guarded for Shiny) -------------------
+  if (!is.null(output_dir)) {
+    df_write <- do_data_reviewed |>
+      dplyr::arrange(site_station_code, timestamp) |>
+      dplyr::mutate(
+        year = lubridate::year(timestamp),
+        date = lubridate::date(timestamp)
+      )
+
+    # unique year-site combinations
+    key_df <- df_write |>
+      dplyr::distinct(year, site_station_code) |>
+      dplyr::filter(!is.na(year), !is.na(site_station_code))
+
+    if (nrow(key_df) == 0) {
+      warning("No valid year/site_station_code combinations found -- no files written.")
+      return(do_data_reviewed)
+    }
+
+    for (i in seq_len(nrow(key_df))) {
+      year_j <- key_df$year[i]
+      site_k <- key_df$site_station_code[i]
+
+      dat <- df_write |>
+        dplyr::filter(year == year_j, site_station_code == site_k)
+
+      if (!nrow(dat)) next
+
+      start_k <- gsub("\\D", "", as.character(min(dat$date)))
+      end_k   <- gsub("\\D", "", as.character(max(dat$date)))
+
+      year_dir <- file.path(output_dir, year_j)
+      proc_dir <- file.path(year_dir, "processed")
+
+      if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
+      if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
+
+      dat_to_write <- dat |>
+        dplyr::select(-year, -date) |>
+        dplyr::mutate(timestamp = as.character(timestamp))
+
+      out_name <- sprintf(
+        "%s_DO_%s_%s_%s.csv",
+        site_k, start_k, end_k, version_label
+      )
+      out_path <- file.path(proc_dir, out_name)
+
+      utils::write.csv(dat_to_write, out_path, row.names = FALSE)
+
+      message(sprintf(
+        "DO conversion (%s) written for %s -> %s/processed",
+        version_label, site_k, year_j
+      ))
+    }
   }
-  
-  for (i in seq_len(nrow(key_df))) {
-    year_j <- key_df$year[i]
-    site_k <- key_df$site_station_code[i]
-    
-    dat <- df_write %>%
-      dplyr::filter(year == year_j, site_station_code == site_k)
-    
-    if (!nrow(dat)) next
-    
-    start_k <- gsub("\\D", "", as.character(min(dat$date)))
-    end_k   <- gsub("\\D", "", as.character(max(dat$date)))
-    
-    year_dir <- file.path(output_dir, year_j)
-    proc_dir <- file.path(year_dir, "processed")
-    
-    if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
-    if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
-    
-    dat_to_write <- dat %>%
-      dplyr::select(-year, -date) %>%
-      dplyr::mutate(timestamp = as.character(timestamp))
-    
-    out_name <- sprintf(
-      "%s_DO_%s_%s_%s.csv",
-      site_k, start_k, end_k, version_label
-    )
-    out_path <- file.path(proc_dir, out_name)
-    
-    utils::write.csv(dat_to_write, out_path, row.names = FALSE)
-    
-    message(sprintf(
-      "DO conversion (%s) written for %s -> %s/processed",
-      version_label, site_k, year_j
-    ))
-  }
-  
+
   do_data_reviewed
 }

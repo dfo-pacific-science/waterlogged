@@ -15,7 +15,10 @@
 #'   [qaqc_log_append()], typically the same root used elsewhere in the
 #'   workflow (e.g. `"data/testing/processed"`).
 #' @param user Character username written into the QA/QC log. Defaults to
-#'   `Sys.info()[["user"]]`.
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+#'   local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
 #' @param temp_low_limit Lower bound (C) for plausible barometric temperatures.
 #'   Values outside `[temp_low_limit, temp_high_limit]` are set to `NA` in
 #'   `airtemp_C_adj` and flagged.
@@ -46,12 +49,11 @@
 #'
 #' @seealso [barometric_qaqc_all()], [add_nearest_baro()]
 #'
-#' @import dplyr
 #' @export
 barometric_qaqc <- function(input_data,
                             select_station,
-                            log_root,
-                            user = Sys.info()[["user"]],
+                            log_root = NULL,
+                            user = NULL,
                             temp_low_limit  = -40,
                             temp_high_limit = 50,
                             pressure_low_kpa  = 85,
@@ -59,10 +61,11 @@ barometric_qaqc <- function(input_data,
                             spike_threshold_kpa = 1.5,   # sudden >1.5 kPa jump
                             flatline_n = 6               # 6 consecutive identical values
 ) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
 
   # ---- 1. Filter & basic checks ---------------------------------------------
-  df <- input_data %>%
-    dplyr::filter(site_station_code == select_station) %>%
+  df <- input_data |>
+    dplyr::filter(site_station_code == select_station) |>
     dplyr::arrange(timestamp)
 
   if (nrow(df) == 0) stop("No rows for station ", select_station)
@@ -100,7 +103,7 @@ barometric_qaqc <- function(input_data,
 
 
   # ---- 3. Apply Adjustments -------------------------------------------------
-  df <- df %>%
+  df <- df |>
     dplyr::mutate(
       # Remove obviously wrong values
       airpress_kPa_adj = dplyr::if_else(bad_press_low | bad_press_high, NA_real_, airpress_kPa_adj),
@@ -131,6 +134,7 @@ barometric_qaqc <- function(input_data,
          note=paste0("Flatline >= ", flatline_n, " identical readings"))
   )
 
+  log_rows_list <- list()
   for (ev in events) {
     if (length(ev$idx) > 0) {
       ts_vals <- df$timestamp[ev$idx]
@@ -148,20 +152,19 @@ barometric_qaqc <- function(input_data,
         user       = user
       )
 
-      log_path <- qaqc_log_path(log_root, select_station, metric)
-
-      qaqc_log_append(
-        log_path = log_path,
-        station  = select_station,
-        metric   = metric,
-        log_rows = log_row
-      )
+      if (!is.null(log_row)) {
+        log_rows_list[[length(log_rows_list) + 1L]] <- log_row
+      }
     }
   }
 
+  log_this <- dplyr::bind_rows(log_rows_list)
+  qaqc_log_maybe_append(log_root, select_station, metric, log_this)
+
   message("Barometric QAQC completed for: ", select_station)
 
-  cat("\n") # add line break in console
+  message("") # add line break in console
 
+  attr(df, "qaqc_log") <- log_this
   return(df)
 }

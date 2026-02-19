@@ -1,25 +1,70 @@
-#' Automatic waterlevel qaqc
+#' Automatic QAQC for water level logger data
 #'
-#' Change all negative water level values to zero, flag water temperatures above 19C as potentially dry, flag water temperatures below 0.3C as potentially in ice, and remove water temperature values below -1C.
-#' @param input_data Dataframe with water level in metres
-#' @param select_station site_station_code for desired logger station, supplied waterlevel data will be filtered by this code
-#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged
-#' @param var_waterlevel_m Name of variable column containing water level in meters
-#' @param var_watertemp_C Name of column for water temperature (in degrees Celcius) in input data
-#' @param var_waterpress_kPa Name of column for water pressure (in kPa) in input data
-#' @param var_airpress_kPa Name of column for air pressure (in kPa) in input data
-#' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
-#' @return list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
+#' Applies a suite of automated quality-control rules to water level and
+#' water temperature time series for a single station. Raw values are never
+#' modified; instead, adjusted copies (\code{waterlevel_m_adj},
+#' \code{watertemp_C_adj}) are created and Boolean flag columns are added
+#' for review.
+#'
+#' The following rules are applied:
+#' \describe{
+#'   \item{\code{NEGATIVE_WT}}{Water temperature below \code{-1}
+#'     degrees C removed (\code{NA}); between \code{-1} and 0
+#'     degrees C corrected to 0.}
+#'   \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
+#'     for possible ice conditions.}
+#'   \item{\code{FLAG_DISTURBANCE}}{Consecutive water level step change
+#'     > 0.1 m flagged as potential logger disturbance.}
+#'   \item{\code{FLAG_WL_DRY}}{Possible dry sensor: water temperature
+#'     > 19 degrees C, water pressure <= air pressure, or
+#'     air--water temperature within 2 degrees C / air warmer than
+#'     water.}
+#' }
+#'
+#' @param input_data A data frame of water level observations. Must contain
+#'   the columns: \code{site_station_code}, \code{timestamp} (POSIXct or
+#'   parseable by \code{lubridate::ymd_hms()}), \code{waterlevel_m},
+#'   \code{watertemp_C}, \code{waterpress_kPa}, \code{airpress_kPa}, and
+#'   \code{airtemp_C}. Typically the output of
+#'   \code{\link{convert_waterlevel_kPa_m}} or
+#'   \code{\link{add_nearest_baro}}.
+#' @param select_station Character scalar. The \code{site_station_code} to
+#'   process. Only rows matching this station are retained.
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log CSV is written via
+#'   \code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
+#' @param user Character scalar. User name recorded in the QAQC log.
+#'   Defaults to \code{NULL}, which resolves to
+#'   \code{Sys.info()[["user"]]} (the local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
+#'
+#' @return The filtered data frame for \code{select_station}, sorted by
+#'   \code{timestamp}, with the following additions:
+#'   \itemize{
+#'     \item \strong{Adjusted columns:} \code{waterlevel_m_adj},
+#'       \code{watertemp_C_adj}.
+#'     \item \strong{Flag columns:} \code{flag_disturbance},
+#'       \code{neg_lt_minus1}, \code{neg_between}, \code{flag_ice},
+#'       \code{flag_wl_dry}.
+#'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
+#'       of QAQC log rows summarising every rule that fired.
+#'   }
+#'
+#' @seealso \code{\link{dissox_qaqc}} (analogous QAQC for dissolved oxygen),
+#'   \code{\link{conductivity_qaqc}} (analogous for conductivity),
+#'   \code{\link{adjust_waterlevel_spike}} (downstream spike removal),
+#'   \code{\link{adjust_logger_NA}} (downstream manual adjustment),
+#'   \code{\link{convert_waterlevel_kPa_m}} (upstream WL conversion)
+#'
 #' @export
-#' @import ggplot2
-#' @import dplyr
-#' @import tidyr
-#' @import plotly
 
 waterlevel_qaqc <- function(input_data,
                             select_station,
-                            log_root,
-                            user = Sys.info()[["user"]]) {
+                            log_root = NULL,
+                            user = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
 
   # 1. Basic checks ------------------------------------------------------------
   required_cols <- c(
@@ -41,9 +86,9 @@ waterlevel_qaqc <- function(input_data,
   }
 
   # 2. Subset to station + init adjusted cols ----------------------------------
-  output_data <- input_data %>%
-    dplyr::filter(site_station_code == select_station) %>%
-    dplyr::arrange(timestamp) %>%
+  output_data <- input_data |>
+    dplyr::filter(site_station_code == select_station) |>
+    dplyr::arrange(timestamp) |>
     dplyr::mutate(
       waterlevel_m_adj = waterlevel_m,
       watertemp_C_adj  = watertemp_C
@@ -59,7 +104,7 @@ waterlevel_qaqc <- function(input_data,
   }
 
   # 3. Apply QA/QC rules (WL + WT) --------------------------------------------
-  output_data <- output_data %>%
+  output_data <- output_data |>
     dplyr::mutate(
       # --- helper columns for waterlevel disturbance ---
       wl_lead = dplyr::lead(waterlevel_m),
@@ -79,7 +124,7 @@ waterlevel_qaqc <- function(input_data,
       wt_air_warmer = !is.na(watertemp_C) & !is.na(airtemp_C) &
         (airtemp_C - watertemp_C) < 0,
 
-      # old WL-based dry rule, updated to 19°C to match watertemp_qaqc doc
+      # old WL-based dry rule, updated to 19 deg C to match watertemp_qaqc doc
       flag_dry_wl = !is.na(waterlevel_m) & !is.na(watertemp_C) &
         !is.na(waterpress_kPa) & !is.na(airpress_kPa) &
         (watertemp_C > 19 | waterpress_kPa <= airpress_kPa),
@@ -87,16 +132,16 @@ waterlevel_qaqc <- function(input_data,
       # combine temperature-based dry signals
       flag_dry_temp = wt_high_dry | wt_air_close | wt_air_warmer,
 
-      # final dry flag (WL + WT signals) – make it WL-specific
+      # final dry flag (WL + WT signals) - make it WL-specific
       flag_wl_dry = flag_dry_wl | flag_dry_temp,
 
       # adjust temperature based on negatives
       watertemp_C_adj = dplyr::case_when(
         neg_lt_minus1 ~ NA_real_,  # remove clearly impossible temps
-        neg_between   ~ 0,         # small negatives corrected to 0 °C
+        neg_between   ~ 0,         # small negatives corrected to 0 deg C
         TRUE          ~ watertemp_C_adj
       )
-    ) %>%
+    ) |>
     # drop only internal helpers we don't want in the output
     dplyr::select(
       -wl_lead, -wl_diff,
@@ -117,13 +162,13 @@ waterlevel_qaqc <- function(input_data,
       flag        = output_data$neg_lt_minus1 | output_data$neg_between,
       field       = "watertemp_C_adj",
       code        = "NEGATIVE_WT",
-      action_note = "Negative water temperature detected; removed (< -1°C) or corrected to 0°C (-1 to 0°C)."
+      action_note = "Negative water temperature detected; removed (< -1\u00b0C) or corrected to 0\u00b0C (-1 to 0\u00b0C)."
     ),
     list(
       flag        = output_data$flag_ice %in% TRUE,
       field       = "watertemp_C_adj",
       code        = "FLAG_ICE",
-      action_note = "Possible ice conditions: water temperature < 0.3°C; flagged for review."
+      action_note = "Possible ice conditions: water temperature < 0.3\u00b0C; flagged for review."
     ),
     # WL-related rules (waterlevel_m_adj field)
     list(
@@ -136,7 +181,7 @@ waterlevel_qaqc <- function(input_data,
       flag        = output_data$flag_wl_dry %in% TRUE,
       field       = "waterlevel_m_adj",
       code        = "FLAG_WL_DRY",
-      action_note = "Possible dry sensor (warm water, low pressure, or air–water temperature behaviour); flagged."
+      action_note = "Possible dry sensor (warm water, low pressure, or air-water temperature behaviour); flagged."
     )
   )
 
@@ -177,17 +222,9 @@ waterlevel_qaqc <- function(input_data,
     )
   }
 
-  # 6. Append to on-disk log ---------------------------------------------------
-  log_path <- qaqc_log_path(log_root, select_station, metric)
+  # 6. Append to on-disk log (conditionally) ------------------------------------
+  qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
-  qaqc_log_append(
-    log_path = log_path,
-    station  = select_station,
-    metric   = metric,
-    log_rows = log_this
-  )
-
-  message("QA/QC log updated: ", as.character(log_path))
-
+  attr(output_data, "qaqc_log") <- log_this
   return(output_data)
 }

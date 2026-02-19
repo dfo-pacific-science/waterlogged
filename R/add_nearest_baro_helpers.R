@@ -132,8 +132,8 @@ calibrate_baro_series <- function(wide_press,
       alt = wide_press[[alt]][overlap]
     )
     
-    fit <- lm(ref ~ alt, data = df_ovlp)
-    coefs <- coef(fit)
+    fit <- stats::lm(ref ~ alt, data = df_ovlp)
+    coefs <- stats::coef(fit)
     intercept <- unname(coefs[1])
     slope     <- unname(coefs[2])
     r2        <- summary(fit)$r.squared

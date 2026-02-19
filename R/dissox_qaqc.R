@@ -1,26 +1,72 @@
-#' Dissolved oxygen QAQC
+#' Automatic QAQC for dissolved oxygen logger data
 #'
-#' Perform preliminary QAQC on dissolved oxygen data
-#' @param input_data The dataset containing raw dissolved oxygen in mg/L, percent saturation, temperature in degrees Celcius and air temperature from barometric logger in degrees Celcius
-#' @param select_station Unique identifier code for station
-#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged
-#' @param var_waterlevel_m OPTIONAL Name of variable column containing water level in meters
-#' @param var_watertemp_C_1 Name of column for water temperature (in degrees Celcius) from dissolved oxygen logger in input data
-#' @param var_watertemp_C_2 OPTIONAL Name of column for water temperature (in degrees Celcius) from waterlevel logger in input data
-#' @param var_airtemp_C Name of column for air temperature (in degrees Celcius) in input data
-#' @param var_do_percsat Name of column for dissolved oxygen in percent air saturation in input data
-#' @param var_do_mgl Name of column for dissolved oxygen in mg per litre in input data
-#' @return Dataset of dissolved oxygen and waterlevel filtered for error values and flagged for ice, dry and disturbance
+#' Applies a suite of automated quality-control rules to dissolved oxygen
+#' time series for a single station. Raw values are never modified; instead,
+#' adjusted copies (\code{do_mgl_adj}, \code{do_percsat_adj},
+#' \code{watertemp_C_do_adj}) are created (or updated if they already exist)
+#' and Boolean flag columns are added for review.
+#'
+#' The following rules are applied in order:
+#' \describe{
+#'   \item{\code{DO_ERROR}}{Logger error code (\code{-888.88}) in DO or
+#'     water temperature -- DO and percent sat set to \code{NA}.}
+#'   \item{\code{NEGATIVE_DO}}{DO between 0 and \code{-1} mg/L corrected to
+#'     0; DO less than \code{-1} mg/L removed (\code{NA}).}
+#'   \item{\code{OUTLIER_DO}}{DO greater than 21 mg/L removed (\code{NA}).}
+#'   \item{\code{NEGATIVE_TEMP}}{Water temperature between 0 and \code{-1}
+#'     degrees C corrected to 0.}
+#'   \item{\code{LOGGER_ICE}}{Water temperature <= \code{-1}
+#'     degrees C removed (\code{NA}).}
+#'   \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
+#'     for possible ice conditions.}
+#'   \item{\code{FLAG_DO_DRY}}{Sliding 12-point window where percent sat
+#'     >= 100 and air--water temperature difference <= 2
+#'     degrees C, indicating a potentially dry sensor.}
+#' }
+#'
+#' @param input_data A data frame containing dissolved oxygen observations.
+#'   Must include the columns: \code{site_station_code}, \code{timestamp}
+#'   (POSIXct or parseable by \code{lubridate::ymd_hms()}), \code{do_mgl},
+#'   \code{do_percsat}, \code{watertemp_C}, and \code{airtemp_C}. Typically
+#'   the output of \code{\link{convert_do_mgl_percsat}} or
+#'   \code{\link{add_nearest_baro}}.
+#' @param select_station Character scalar. The \code{site_station_code} to
+#'   process. Only rows matching this station are retained.
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log CSV is written via
+#'   \code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
+#' @param user Character scalar. User name recorded in the QAQC log.
+#'   Defaults to \code{NULL}, which resolves to
+#'   \code{Sys.info()[["user"]]} (the local OS user).
+#'   In Shiny apps, pass the logged-in user explicitly
+#'   (e.g. \code{session$user}).
+#'
+#' @return The filtered data frame for \code{select_station}, sorted by
+#'   \code{timestamp}, with the following additions:
+#'   \itemize{
+#'     \item \strong{Adjusted columns:} \code{do_mgl_adj},
+#'       \code{do_percsat_adj}, \code{watertemp_C_do_adj}.
+#'     \item \strong{Flag columns:} \code{do_error}, \code{do_neg_between},
+#'       \code{do_neg_lt_minus1}, \code{do_high}, \code{temp_flag_ice},
+#'       \code{temp_neg_between}, \code{temp_neg_leq_minus1},
+#'       \code{flag_do_dry}.
+#'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
+#'       of QAQC log rows summarising every rule that fired.
+#'   }
+#'
+#' @seealso \code{\link{waterlevel_qaqc}} (analogous QAQC for water level),
+#'   \code{\link{conductivity_qaqc}} (analogous for conductivity),
+#'   \code{\link{adjust_logger_NA}} (downstream manual adjustment),
+#'   \code{\link{convert_do_mgl_percsat}} (upstream DO conversion)
+#'
 #' @export
-#' @import dplyr
-#' @import tidyr
-#' @import ggplot2
-#' @import plotly
 
 dissox_qaqc <- function(input_data,
                         select_station,
-                        log_root,
-                        user = Sys.info()[["user"]]) {
+                        log_root = NULL,
+                        user = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
 
   # ---- 0. Required columns ----
   required_cols <- c(
@@ -42,8 +88,8 @@ dissox_qaqc <- function(input_data,
   }
 
   # ---- 1. Filter to station & sort ----
-  output_data <- input_data %>%
-    dplyr::filter(.data$site_station_code == !!select_station) %>%
+  output_data <- input_data |>
+    dplyr::filter(.data$site_station_code == !!select_station) |>
     dplyr::arrange(.data$timestamp)
 
   if (nrow(output_data) == 0) {
@@ -79,7 +125,7 @@ dissox_qaqc <- function(input_data,
   # ---- 3. Derived helpers & flags (vectorised) -------------------------------
   # All conditions are based on the *current* adj values so we don't
   # overwrite manual corrections.
-  output_data <- output_data %>%
+  output_data <- output_data |>
     dplyr::mutate(
       # temp difference for dryness test (using current temp adj)
       air_watertemp_diff = airtemp_C_baro - watertemp_C_do_adj,
@@ -97,7 +143,7 @@ dissox_qaqc <- function(input_data,
     )
 
   # ---- 4. Apply DO / temp adjustments (vectorised) ---------------------------
-  output_data <- output_data %>%
+  output_data <- output_data |>
     dplyr::mutate(
       # DO adjustments, applied to adj column only
       do_mgl_adj = dplyr::case_when(
@@ -176,26 +222,26 @@ dissox_qaqc <- function(input_data,
       flag        = output_data$temp_neg_between %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "NEGATIVE_TEMP",
-      action_note = "DO water temp between 0 and -1 °C corrected to 0 °C."
+      action_note = "DO water temp between 0 and -1 \u00b0C corrected to 0 \u00b0C."
     ),
     list(
       flag        = output_data$temp_neg_leq_minus1 %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "LOGGER_ICE",
-      action_note = "DO water temp ≤ -1 °C removed (set to NA)."
+      action_note = "DO water temp <= -1 \u00b0C removed (set to NA)."
     ),
     list(
       flag        = output_data$temp_flag_ice %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "FLAG_ICE",
-      action_note = "Possible ice conditions: DO water temp < 0.3 °C; flagged for review."
+      action_note = "Possible ice conditions: DO water temp < 0.3 \u00b0C; flagged for review."
     ),
-    # dry periods (12-point rule) – DO-specific
+    # dry periods (12-point rule) - DO-specific
     list(
       flag        = output_data$flag_do_dry %in% TRUE,
       field       = "do_mgl_adj",
       code        = "FLAG_DO_DRY",
-      action_note = "Possible dry sensor: DO %sat ≥ 100 and air–water temps within 2 °C for ≥ 12 points."
+      action_note = "Possible dry sensor: DO %sat >= 100 and air-water temps within 2 \u00b0C for >= 12 points."
     )
   )
 
@@ -239,17 +285,9 @@ dissox_qaqc <- function(input_data,
     )
   }
 
-  # ---- 7. Append to on-disk log ---------------------------------------------
-  log_path <- qaqc_log_path(log_root, select_station, metric)
+  # ---- 7. Append to on-disk log (conditionally) ------------------------------
+  qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
-  qaqc_log_append(
-    log_path = log_path,
-    station  = select_station,
-    metric   = metric,
-    log_rows = log_this
-  )
-
-  message("QA/QC log updated: ", log_path)
-
+  attr(output_data, "qaqc_log") <- log_this
   return(output_data)
 }

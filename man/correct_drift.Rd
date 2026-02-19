@@ -2,7 +2,7 @@
 % Please edit documentation in R/correct_drift.R
 \name{correct_drift}
 \alias{correct_drift}
-\title{Conductivity logger drift correction}
+\title{Conductivity drift correction (legacy)}
 \usage{
 correct_drift(
   input_data,
@@ -12,26 +12,83 @@ correct_drift(
   var_conduct_uScm = "conduct_uScm_U24_adj",
   var_ref_watertemp_C,
   var_ref_conduct_uScm,
-  var_ref_timestamp
+  var_ref_timestamp,
+  return_plots = TRUE
 )
 }
 \arguments{
-\item{input_data}{The logger dataset containing raw conductivity in uS/cm and temperature in degrees Celcius}
+\item{input_data}{A data frame of logger observations. Must contain
+\code{site_station_code}, \code{timestamp}, and the columns named by
+\code{var_conduct_uScm} and \code{var_watertemp_C}.}
 
-\item{ref_data}{The reference dataset containing discrete conductivity and temperature measurements}
+\item{ref_data}{A data frame of discrete reference measurements. Must
+contain \code{site_station_code} and the columns named by
+\code{var_ref_conduct_uScm}, \code{var_ref_watertemp_C}, and
+\code{var_ref_timestamp}.}
 
-\item{select_station}{Unique identifier code for station}
+\item{select_station}{Character scalar. The \code{site_station_code} to
+process.}
 
-\item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
+\item{var_watertemp_C}{Character. Column name for water temperature in the
+logger data. Default \code{"watertemp_C_U24_adj"}.}
 
-\item{var_conduct_uScm}{Name of column for conductivity data (in microSiemens per centimeter) in input data}
+\item{var_conduct_uScm}{Character. Column name for conductivity in the
+logger data. Default \code{"conduct_uScm_U24_adj"}.}
 
-\item{var_ref_watertemp_C}{Name of column for reference water temperature (in degrees Celcius) in ref data}
+\item{var_ref_watertemp_C}{Character. Column name for reference water
+temperature in \code{ref_data}.}
 
-\item{var_ref_conduct_uScm}{Name of column for reference conductivity (in in microSiemens per centimeter) in ref data}
+\item{var_ref_conduct_uScm}{Character. Column name for reference
+conductivity in \code{ref_data}.}
 
-\item{var_ref_timestamp}{Name of column for reference measurement time}
+\item{var_ref_timestamp}{Character. Column name for the reference
+measurement timestamp in \code{ref_data}.}
+
+\item{return_plots}{Logical; if \code{TRUE} (default), an interactive
+\pkg{plotly} chart is included in the returned list.  Set to
+\code{FALSE} to skip plot creation (faster, useful in Shiny or
+batch pipelines).}
+}
+\value{
+A four-element list:
+\describe{
+\item{\code{[[1]]}}{Data frame of drift-corrected logger data.
+Includes \code{*_dc} columns (drift-corrected conductivity and
+temperature) and updated \code{co_qaqc_*} audit columns.}
+\item{\code{[[2]]}}{Data frame of reference measurements filtered to
+the logger time range.}
+\item{\code{[[3]]}}{A \code{plotly} interactive plot comparing raw,
+drift-corrected, and reference conductivity.}
+\item{\code{[[4]]}}{Data frame of calibration deviations > 10 percent
+(empty if none).}
+}
 }
 \description{
-Correct raw conductivity data for sensor drift based on discrete reference measurements
+\ifelse{html}{\out{<span style="color:
+red;">[Superseded]</span>}}{\strong{[Superseded]}} -- prefer
+\code{\link{wq_drift_correction}}, which uses standardised column names,
+supports multiple water-quality parameters, and integrates with the QAQC
+logging system.
+}
+\details{
+Corrects raw conductivity (and water temperature) for sensor drift using
+discrete reference measurements. A multiplicative correction factor is
+computed at each reference point and linearly interpolated between points
+using elapsed-time ratios.
+
+Reference measurements are matched to logger timestamps using
+\code{fuzzyjoin::difference_left_join()} with progressively wider
+tolerance windows (29 min, then 60 min, then 120 min). If no reference
+measurement aligns with the first logger reading, a dummy reference is
+created assuming perfect calibration at deployment.
+
+The drift factor at each reference point is the ratio of reference to
+logger value. Between reference points the factor is linearly
+interpolated by elapsed time, and the corrected value is
+\code{raw * factor}.
+}
+\seealso{
+\code{\link{wq_drift_correction}} (preferred replacement;
+supports conductivity, DO, and pH with standardised column names and
+QAQC log integration)
 }

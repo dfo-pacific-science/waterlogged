@@ -6,6 +6,12 @@
 \usage{
 escape_regex(x)
 }
+\arguments{
+\item{x}{A character string.}
+}
+\value{
+\code{x} with regex metacharacters escaped by backslash.
+}
 \description{
 Escape regex special characters
 }

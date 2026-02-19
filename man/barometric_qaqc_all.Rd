@@ -5,17 +5,19 @@
 \title{Run barometric QA/QC for all baro stations in metadata}
 \usage{
 barometric_qaqc_all(
-  baro_data_path,
-  metadata_path,
-  path_to_output_folder,
-  log_root,
+  baro_data_path = NULL,
+  metadata_path = NULL,
+  path_to_output_folder = NULL,
+  log_root = NULL,
   temp_low_limit = -40,
   temp_high_limit = 50,
   pressure_low_kpa = 85,
   pressure_high_kpa = 105,
   spike_threshold_kpa = 1.5,
   flatline_n = 6,
-  user = Sys.info()[["user"]]
+  user = NULL,
+  metadata = NULL,
+  baro_data = NULL
 )
 }
 \arguments{
@@ -56,7 +58,18 @@ spikes between consecutive timesteps.}
 flag potential flatlining in the pressure series.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
-\code{Sys.info()[["user"]]}.}
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
+local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
+
+\item{metadata}{Optional data frame of station metadata (as returned by
+\code{\link{QAQC_metadata}}). When supplied, \code{metadata_path} is
+ignored and this data frame is used directly.}
+
+\item{baro_data}{Optional data frame of pre-loaded barometric logger
+data. When supplied, \code{baro_data_path} is ignored and stations
+are filtered from this data frame instead of reading CSV files.}
 }
 \value{
 A single long-format data frame created by binding the QA/QC'd

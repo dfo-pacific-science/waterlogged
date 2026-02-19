@@ -2,79 +2,103 @@
 % Please edit documentation in R/wl_set_datum.R
 \name{wl_set_datum}
 \alias{wl_set_datum}
-\title{Set an arbitrary datum for water-level time series using survey level information.}
+\title{Set an arbitrary datum for water-level time series}
 \usage{
 wl_set_datum(
   input_data,
-  level_runs_path,
+  level_runs_path = NULL,
   select_station,
-  log_root,
-  user = Sys.info()[["user"]]
+  log_root = NULL,
+  user = NULL,
+  level_runs = NULL
 )
 }
 \arguments{
-\item{input_data}{Logger data frame (one or more stations).}
+\item{input_data}{A data frame of logger observations (one or more
+stations). Must contain \code{site_station_code}, \code{timestamp}
+(POSIXct or parseable), and either \code{waterlevel_m_adj} (preferred)
+or \code{waterlevel_m}.}
 
-\item{level_runs_path}{Path to the levelling runs CSV.}
+\item{level_runs_path}{Character scalar or \code{NULL}. Path to a
+levelling-runs CSV file. Required when \code{level_runs} is
+\code{NULL}.}
 
-\item{select_station}{Station code to process.}
+\item{select_station}{Character scalar. The \code{site_station_code} to
+process.}
 
-\item{log_root}{Root folder where QA/QC logs are stored.}
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+log files. When non-\code{NULL}, a log entry is written via
+\code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+mode), no file is written.}
 
-\item{user}{Analyst name for the QA/QC log.}
+\item{user}{Character scalar. Analyst name recorded in the QAQC log.
+Defaults to \code{NULL}, which resolves to
+\code{Sys.info()[["user"]]} (the local OS user).
+In Shiny apps, pass the logged-in user explicitly
+(e.g. \code{session$user}).}
+
+\item{level_runs}{A data frame of levelling-run data (alternative to
+\code{level_runs_path} for Shiny mode). Exactly one of
+\code{level_runs_path} or \code{level_runs} must be supplied.}
 }
 \value{
-\code{input_data} with \code{wl_elev_m} and \code{flag_wl_datum_applied} added/updated
-for \code{select_station}.
+The full \code{input_data} data frame with two columns
+added/updated for \code{select_station}:
+\itemize{
+\item \code{wl_elev_m} -- water level on the arbitrary datum (m).
+\item \code{flag_wl_datum_applied} -- logical flag (\code{TRUE} for
+station rows where the datum was applied).
+}
+\code{attr(result, "qaqc_log")} contains a tibble with the
+\code{WL_DATUM_APPLIED} log entry.
 }
 \description{
-Creates a consistent arbitrary elevation system for a station by anchoring the
-first valid levelling visit's primary benchmark (PBM) at 100.0 m and translating
-all other benchmarks using within-visit survey differences.
+Creates a consistent arbitrary elevation system for a station by
+anchoring the first valid levelling visit's primary benchmark (PBM) at
+100.0 m and translating all other benchmarks using within-visit survey
+differences.  If later visits use a different PBM, its arbitrary
+elevation is inferred from the existing benchmark network (it is
+\emph{not} forced to 100.0 m).
 }
 \details{
-If later visits use a different PBM, its arbitrary elevation is inferred from the
-existing benchmark network (so it is NOT forced to 100.0 m).
+A single constant datum offset is computed from the first valid visit's
+mean water-surface elevation and applied to the station's logger stage
+series, producing the column \code{wl_elev_m}.
 
-The function then computes a single constant datum offset from the first valid
-visit's water-surface elevation and applies it to the station's logger stage series,
-creating \code{wl_elev_m}.
+\strong{Level-runs data format:}
 
-Grade handling:
-\itemize{
-\item Grade is expected in the level-runs CSV per visit.
-\item No filtering by grade is performed.
-\item If the first valid visit is graded "Poor" a warning is issued.
-}
-
-Expected logger columns (in \code{input_data}):
+The level-runs CSV (or data frame) must contain at minimum:
 \itemize{
 \item \code{site_station_code}
-\item \code{timestamp} (POSIXct or parseable)
-\item \code{waterlevel_m_adj} (preferred) OR \code{waterlevel_m}
+\item \code{visit_date} (e.g. \code{"2025-04-19"} or
+\code{"4/19/2025"})
+\item \code{visit_time} (e.g. \code{"16:26"} or \code{"16:26:00"})
+\item \code{primary_bm} -- must exactly match a \code{BM*} or
+\code{TBM*} column name (e.g. \code{"BM1"}, \code{"TBM1"})
+\item \code{grade} -- one of \code{"Excellent"}, \code{"Good"},
+\code{"OK"}, \code{"Poor"}
+\item One or more benchmark columns named \code{BM*} or \code{TBM*}
+\item One or more water-surface columns named \code{water_elev_<n>}
+(e.g. \code{water_elev_1}, \code{water_elev_2})
 }
 
-Expected level-runs CSV columns (minimum):
-\itemize{
-\item \code{site_station_code}
-\item \code{visit_date}  (e.g. "2025-04-19" or Excel-like "4/19/2025")
-\item \code{visit_time}  (e.g. "16:26" or "16:26:00")
-\item \code{primary_bm}  (e.g. "BM1", "BM2", "TBM1" – must match a BM*/TBM* column name)
-\item \code{grade}       ("Excellent", "Good", "OK", "Poor")
-\item One or more benchmark columns named \verb{BM*} or \verb{TBM*}
-(e.g. \code{BM1}, \code{BM2}, \code{TBM1}, \code{TBM_A}).
-\item One or more water-surface columns named \verb{water_elev_<n>} (e.g. water_elev_1, water_elev_2)
-}
+All survey values are assumed to be in the same per-visit coordinate
+system.  The absolute arbitrary elevation for any value is:
+\code{pbm_abs + (value_raw - pbm_raw)}.
 
-Survey values in benchmark columns and \verb{water_elev_*} are assumed to be in the same
-per-visit survey coordinate system (e.g., "0.12", "0.19", "1.652", etc.).
-The absolute arbitrary elevation is constructed as:
-abs_elev = pbm_abs + (value_raw - pbm_raw)
+\strong{Grade handling:}
+No filtering by grade is performed, but a warning is issued if the
+first valid visit (the datum anchor) is graded \code{"Poor"}.
 
-QA/QC bookkeeping:
-\itemize{
-\item Adds/updates \code{wl_elev_m} for the station
-\item Adds/updates \code{flag_wl_datum_applied} (TRUE for station rows with wl_elev_m)
-\item Appends a QA/QC log entry with code \code{WL_DATUM_APPLIED}
+\strong{Benchmark network:}
+The function iterates visits in chronological order. If a visit's PBM
+is not yet in the network, it is inferred from any co-observed
+benchmark that \emph{is} known. An error is raised if a visit cannot be
+connected to the existing network. Inconsistencies > 0.02 m for a
+benchmark across visits trigger a warning.
 }
+\seealso{
+\code{\link{waterlevel_qaqc}} (upstream automatic QAQC),
+\code{\link{convert_waterlevel_kPa_m}} (upstream kPa-to-m conversion),
+\code{\link{wl_multipoint_correction}} (water level drift correction)
 }

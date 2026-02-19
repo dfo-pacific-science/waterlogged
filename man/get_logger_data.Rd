@@ -5,12 +5,13 @@
 \title{Retrieve and summarise logger data}
 \usage{
 get_logger_data(
-  path_to_data,
+  path_to_data = NULL,
   data_processing = c("v1.0", "raw", "v0.1", "v0.2", "v0.3"),
   metric = NULL,
   select_station = "all",
   temporal_scale = "none",
-  return_plots = TRUE
+  return_plots = TRUE,
+  input_data = NULL
 )
 }
 \arguments{
@@ -44,7 +45,13 @@ return raw timestamps with no summarisation. "Hourly" aggregates to
 average-by-hour (using \code{floor_date}).}
 
 \item{return_plots}{Logical; if \code{TRUE} and \code{temporal_scale != "none"},
-returns a list with data and ggplot objects. If \code{FALSE}, returns just}
+returns a list with data and ggplot objects. If \code{FALSE}, returns just
+the data frame.}
+
+\item{input_data}{A data frame of logger observations (alternative to
+\code{path_to_data} for Shiny mode). When supplied, file discovery is
+skipped and this data frame is used directly. Exactly one of
+\code{path_to_data} or \code{input_data} must be provided.}
 }
 \value{
 \itemize{
@@ -67,4 +74,9 @@ This function works with the original wide-format processed files
 (e.g. columns like \code{waterlevel_m_U20_adj}, \code{do_mgl_U26_adj}).
 Summarisation is only performed for clean data (v1.0), and only for the
 measurement variables corresponding to the chosen \code{metric}.
+}
+\seealso{
+\code{\link{write_clean_data}} (produces the v1.0 files this
+function reads), \code{\link{bind_hobo_files}} (produces v0.1),
+\code{\link{plot_qaqc_timeseries}} (interactive QC plotting)
 }
