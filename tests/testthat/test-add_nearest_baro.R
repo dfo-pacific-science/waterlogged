@@ -45,3 +45,50 @@ test_that("Test add nearest baro", {
   expect_s3_class(multi_plots, "ggplot")
 
 })
+
+test_that("Test offset baro data", {
+
+  path_to_raw_folder = test_path("fixtures/test_cond_dry/COND")
+  path_to_output_folder = withr::local_tempdir()
+  metadata_path = test_path("fixtures/metadata/test_cond_dry.csv")
+
+  cond_bound <- suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                                 path_to_output_folder = path_to_output_folder,
+                                                 metadata_path = metadata_path))
+
+  baro_bound <- suppressMessages(bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_cond_dry/baro"),
+                                                 path_to_output_folder = path_to_output_folder,
+                                                 metadata_path = test_path("fixtures/metadata/test_cond_dry.csv")))
+
+  #test expected warning when baro data is offset
+  expect_warning(suppressMessages(add_nearest_baro(input_data = cond_bound[[1]],
+                                                   path_to_output_folder = path_to_output_folder,
+                                                   baro_data_path = path_to_output_folder,
+                                                   metric = "conductivity",
+                                                   baro_site_selection = "auto",
+                                                   metadata_path = test_path("fixtures/metadata/test_cond_dry.csv"))),
+                 "Baro data is offset")
+
+  #test expected warning when baro data is offset by a negative time
+  cond_data_5_min_offset = cond_bound[[1]] %>% dplyr::mutate(timestamp = timestamp - (5*60))
+
+  expect_warning(suppressMessages(add_nearest_baro(input_data = cond_data_5_min_offset,
+                                                   path_to_output_folder = path_to_output_folder,
+                                                   baro_data_path = path_to_output_folder,
+                                                   metric = "conductivity",
+                                                   baro_site_selection = "auto",
+                                                   metadata_path = test_path("fixtures/metadata/test_cond_dry.csv"))),
+                                  "Baro data is offset")
+
+  #test expected warning when baro data is offset by a negative time
+  cond_data_random_offset = cond_bound[[1]] %>% dplyr::mutate(timestamp = timestamp - runif(nrow(cond_bound[[1]]), min = 0, max = (30*60)))
+
+  expect_warning(suppressMessages(add_nearest_baro(input_data = cond_data_random_offset,
+                   path_to_output_folder = path_to_output_folder,
+                   baro_data_path = path_to_output_folder,
+                   metric = "conductivity",
+                   baro_site_selection = "auto",
+                   metadata_path = test_path("fixtures/metadata/test_cond_dry.csv"))),
+                 "Baro data didnt match timestamps")
+
+})

@@ -1,0 +1,4 @@
+site_station_code,timestamp_deploy,timestamp_remove,model,sn,metric,status,latitude,longitude
+DARL_ST_30,10/18/2023 14:00,6/3/2025 8:00,HOBO_U20,20810312,barometric,logging,51.320648,-120.180203
+DARL_ST_30,6/3/2025 10:00,10/24/2025 10:00,HOBO_U20,20810312,barometric,logging,51.320648,-120.180203
+DARL_ST_30,5/4/2023 15:11,6/3/2025 9:15,HOBO_U24,21245037,conductivity,removed,51.320648,-120.180203
