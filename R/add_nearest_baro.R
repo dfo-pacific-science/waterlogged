@@ -101,7 +101,6 @@ add_nearest_baro <- function(input_data,
                              metadata = NULL,
                              baro_data = NULL) {
 
-
   metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
 
   # allow NULL or numeric for max_km ------------------------------------------
@@ -468,6 +467,43 @@ add_nearest_baro <- function(input_data,
           by = "timestamp"
         ) |>
         dplyr::arrange(site_station_code, timestamp)
+
+      #Check if the join worked. It will fail if logger timestamps are offset
+      pct <- pct_missing(df_with_baro_list[[site_i]]$airpress_kPa)
+      if (!is.na(pct) && pct > 0) {
+
+        #check if timestamps are offset
+        start_timestemp_site_data = min(site_data$timestamp)
+        timestemp_after_site_data = min(wide_baro_df_site$timestamp[wide_baro_df_site$timestamp > start_timestemp_site_data])
+        timestemp_before_site_data = max(wide_baro_df_site$timestamp[wide_baro_df_site$timestamp < start_timestemp_site_data])
+        offset_before_site_data = timestemp_before_site_data - start_timestemp_site_data
+        offset_after_site_data = timestemp_after_site_data - start_timestemp_site_data
+
+        if(abs(offset_before_site_data) < abs(offset_after_site_data)) {
+          offset_baro_data = offset_before_site_data
+        } else {
+          offset_baro_data = offset_after_site_data
+        }
+        timestamp_site_data = site_data %>% dplyr::select(site_data_timestamp = timestamp)
+        timestamp_baro_data = wide_baro_df_site %>% dplyr::select(baro_data_timestamp = timestamp)
+        timestamp_baro_data = timestamp_baro_data %>% dplyr::mutate(offset_timestamp_baro_data = baro_data_timestamp - offset_baro_data)
+
+        ofset_test = timestamp_site_data %>% dplyr::left_join(timestamp_baro_data, by = dplyr::join_by(site_data_timestamp == offset_timestamp_baro_data))
+
+        pct <- pct_missing(ofset_test$baro_data_timestamp)
+
+        if(!is.na(pct) && pct == 0) {
+
+          warning(paste0("add_nearest_baro(): Baro data is offset by ", round(offset_baro_data, 2), " mins and doesnt match timestamps for site ", site_i, ". Try running snap_logger_timestamps before adding nearest baro."))
+
+        } else {
+
+          warning(sprintf("add_nearest_baro(): Baro data didnt match timestamps for %.1f%% of timestamps for site %s.", pct, site_i))
+
+        }
+
+      }
+
     }
 
     df_with_baro <- dplyr::bind_rows(df_with_baro_list)
