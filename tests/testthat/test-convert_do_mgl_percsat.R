@@ -18,7 +18,7 @@ test_that("Test convert do mgl percsat", {
                                   metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
   converted_percSat <- convert_do_mgl_percsat(DO_with_Baro[[1]],
-                                              output_dir = path_to_output_folder,
+                                              path_to_output_folder = path_to_output_folder,
                                               version_label = "v0.3")
 
   expect_contains(colnames(converted_percSat), "do_percsat")
@@ -33,6 +33,6 @@ test_that("Check for required air pressure column", {
                               metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
   expect_error(converted_percSat <- convert_do_mgl_percsat(DO_bound[[1]],
-                                                           output_dir = path_to_output_folder,
+                                                           path_to_output_folder = path_to_output_folder,
                                                            version_label = "v0.3"), "Missing required columns: airpress_kPa")
 })
