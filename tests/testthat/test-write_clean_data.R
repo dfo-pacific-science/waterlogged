@@ -111,3 +111,74 @@ test_that("test write clean data without qaqc", {
     "Missing required column")
 
 })
+
+test_that("test write clean data for conductivity", {
+
+  path_to_raw_folder = test_path("fixtures/COND")
+  path_to_output_folder = withr::local_tempdir()
+  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
+
+  expect_warning(cond_bound <- suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                                                path_to_output_folder = path_to_output_folder,
+                                                                metadata_path = metadata_path)),
+                 "Some files are in different units")
+
+  sites_compiled = cond_bound[[1]]
+
+
+  #set temp high limit to 39 to make sure there is flags and log is written
+  cond_complete_QAQC = suppressMessages(conductivity_qaqc(sites_compiled,
+                                                          log_root = path_to_output_folder,
+                                                          select_station = "MILE_WE_40"))
+
+  expect_false(dir.exists(file.path(path_to_output_folder, "2025/clean")))
+
+  output.files = list.files(path_to_output_folder, recursive = TRUE)
+  matches = grepl("2024/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
+  expect_false(any(matches))
+  matches = grepl("2025/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
+  expect_false(any(matches))
+
+  write_clean_data(
+    input_data = sites_compiled,
+    path_to_output_folder = path_to_output_folder,
+    metric = "conductivity")
+
+  #check clean data exists after
+  expect_true(dir.exists(file.path(path_to_output_folder, "2025/clean")))
+
+  output.files = list.files(path_to_output_folder, recursive = TRUE)
+  matches = grepl("2025/clean/MILE_WE_40_CO", output.files, ignore.case = FALSE, perl = TRUE)
+  expect_true(any(matches))
+  matches = grepl("2025/clean/TUMT_WE_40_CO", output.files, ignore.case = FALSE, perl = TRUE)
+  expect_true(any(matches))
+})
+
+test_that("test write clean data for wrong metric", {
+
+  path_to_raw_folder = test_path("fixtures/COND")
+  path_to_output_folder = withr::local_tempdir()
+  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
+
+  expect_warning(cond_bound <- suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                                                path_to_output_folder = path_to_output_folder,
+                                                                metadata_path = metadata_path)),
+                 "Some files are in different units")
+
+  sites_compiled = cond_bound[[1]]
+
+
+  #set temp high limit to 39 to make sure there is flags and log is written
+  cond_complete_QAQC = suppressMessages(conductivity_qaqc(sites_compiled,
+                                                          log_root = path_to_output_folder,
+                                                          select_station = "MILE_WE_40"))
+
+  expect_error(write_clean_data(
+    input_data = sites_compiled,
+    path_to_output_folder = path_to_output_folder,
+    metric = "fish"), "Unsupported metric")
+
+
+
+})
+

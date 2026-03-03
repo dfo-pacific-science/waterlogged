@@ -130,15 +130,28 @@ write_clean_data <- function(
         "airtemp_C"
       ),
       optional = c("airtemp_C_adj")
+    ),
+    conductivity = list(
+      header   = "CO",
+      required = c(
+        "site_station_code",
+        "timestamp",
+        "conduct_uScm"
+      ),
+      optional = c(
+        "conduct_uScm_adj",
+        "watertemp_C",
+        "watertemp_C_adj"
+      )
     )
   )
-  
+
   cfg <- metric_config[[metric]]
   if (is.null(cfg)) {
-    stop("write_clean_data(): Unsupported metric: ", metric, 
-         "\nExpected metrics are: \"dissolvedoxygen\", \"barometric\", \"waterlevel\", \"watertemp\", \"airtemp\"")
+    stop("write_clean_data(): Unsupported metric: ", metric,
+         "\nExpected metrics are: \"dissolvedoxygen\", \"barometric\", \"waterlevel\", \"watertemp\", \"airtemp\", \"conductivity\"")
   }
-  
+
   # optional safety: if there's a metric column, make sure it matches
   if ("metric" %in% names(input_data)) {
     metric_in_data <- unique(input_data$metric)
@@ -152,7 +165,7 @@ write_clean_data <- function(
               metric_in_data, "'). Using argument.")
     }
   }
-  
+
   # ---- required columns must exist ------------------------------------------
   missing_required <- setdiff(cfg$required, names(input_data))
   if (length(missing_required) > 0) {
@@ -162,35 +175,35 @@ write_clean_data <- function(
       paste(missing_required, collapse = ", ")
     )
   }
-  
+
   # ensure base output folder exists (only when writing)
   if (!is.null(path_to_output_folder) && !dir.exists(path_to_output_folder)) {
     dir.create(path_to_output_folder, recursive = TRUE)
   }
-  
+
   # columns to keep: required + optional (if present) + any flag_/edit_ cols
   base_cols <- c(
     cfg$required,
     intersect(cfg$optional, names(input_data))
   )
-  
+
   flag_cols <- grep("^flag_", names(input_data), value = TRUE)
   edit_cols <- grep("^edit_", names(input_data), value = TRUE)
-  
+
   cols_to_keep <- unique(c(base_cols, flag_cols, edit_cols))
-  
+
   # ---- subset and add year ---------------------------------------------------
   output_data <- input_data[, cols_to_keep, drop = FALSE]
-  
+
   if (!("timestamp" %in% names(output_data))) {
     stop("write_clean_data(): 'timestamp' column missing after subsetting.")
   }
   if (!("site_station_code" %in% names(output_data))) {
     stop("write_clean_data(): 'site_station_code' column missing after subsetting.")
   }
-  
+
   output_data$year <- lubridate::year(output_data$timestamp)
-  
+
   # ---- split by station + year using base R ---------------------------------
   split_list <- split(
     output_data,
@@ -200,7 +213,7 @@ write_clean_data <- function(
     ),
     drop = TRUE
   )
-  
+
   # helper: ensure year/clean folders exist and return clean path
   ensure_clean_folder <- function(base_path, year) {
     year_chr  <- as.character(year)
@@ -210,7 +223,7 @@ write_clean_data <- function(
     if (!dir.exists(clean_path)) dir.create(clean_path)
     clean_path
   }
-  
+
   # ---- iterate over groups and write files (guarded for Shiny) ---------------
   if (!is.null(path_to_output_folder)) {
     for (i in seq_along(split_list)) {
