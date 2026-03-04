@@ -67,12 +67,12 @@ adjust_WL_zero <- function(input_data,
   if (missing(manual_note) || trimws(manual_note) == "") {
     stop("adjust_WL_zero(): 'manual_note' must be a non-empty string.")
   }
-  
+
   # Filter + basic structure
   waterlevel_data <- input_data |>
     dplyr::filter(site_station_code == !!select_station) |>
     dplyr::arrange(timestamp)
-  
+
   required_cols <- c(
     "timestamp",
     "site_station_code",
@@ -86,37 +86,21 @@ adjust_WL_zero <- function(input_data,
       paste(missing_cols, collapse = ", ")
     )
   }
-  
+
   if (nrow(waterlevel_data) == 0) {
     stop("adjust_WL_zero(): no rows found for station '", select_station, "'.")
   }
-  
+
   # Ensure edit_zero flag exists
   if (!"edit_zero" %in% names(waterlevel_data)) {
     waterlevel_data$edit_zero <- FALSE
   }
-  
-  # --- Determine change_value -------------------------------------------------
-  # Case 1: change_value explicitly supplied
-  if (!is.null(change_value)) {
-    if (!is.numeric(change_value) || length(change_value) != 1L || is.na(change_value)) {
-      stop("adjust_WL_zero(): 'change_value' must be a single numeric value (m).")
-    }
-    offset_m     <- change_value
-    window_text  <- NA_character_
-    
-  } else {
-    # Case 2: change_value == NULL → compute from window
-    if (is.null(timestamp_start) || is.null(timestamp_end)) {
-      stop(
-        "adjust_WL_zero(): When 'change_value' is NULL, both ",
-        "'timestamp_start' and 'timestamp_end' must be supplied."
-      )
-    }
-    
+
+  # Validate timestamps
+  if (!is.null(timestamp_start) & !is.null(timestamp_end)) {
     ts_start <- lubridate::ymd_hms(timestamp_start)
     ts_end   <- lubridate::ymd_hms(timestamp_end)
-    
+
     if (is.na(ts_start) || is.na(ts_end)) {
       stop(
         "Could not parse timestamp_start or timestamp_end with ymd_hms(). ",
@@ -126,43 +110,74 @@ adjust_WL_zero <- function(input_data,
     if (ts_end <= ts_start) {
       stop("timestamp_end must be after timestamp_start.")
     }
-    
+
+  }
+
+  # --- Determine change_value -------------------------------------------------
+  # Case 1: change_value explicitly supplied
+  if (!is.null(change_value)) {
+    if (!is.numeric(change_value) || length(change_value) != 1L || is.na(change_value)) {
+      stop("adjust_WL_zero(): 'change_value' must be a single numeric value (m).")
+    }
+    offset_m     <- change_value
+    window_text  <- NA_character_
+
+  } else {
+    # Case 2: change_value == NULL → compute from window
+    if (is.null(timestamp_start) || is.null(timestamp_end)) {
+      stop(
+        "adjust_WL_zero(): When 'change_value' is NULL, both ",
+        "'timestamp_start' and 'timestamp_end' must be supplied."
+      )
+    }
+
     window_data <- waterlevel_data |>
       dplyr::filter(timestamp >= ts_start, timestamp <= ts_end)
-    
+
     if (nrow(window_data) == 0) {
       stop(
         "adjust_WL_zero(): No rows found between timestamp_start and timestamp_end ",
         "for station ", select_station, "."
       )
     }
-    
+
     # Prefer adjusted series if present, fall back to raw waterlevel_m
     mean_wl <- if ("waterlevel_m_adj" %in% names(window_data)) {
       mean(window_data$waterlevel_m_adj, na.rm = TRUE)
     } else {
       mean(window_data$waterlevel_m, na.rm = TRUE)
     }
-    
+
     if (is.na(mean_wl)) {
       stop(
         "adjust_WL_zero(): All water level values in the specified window are NA; ",
         "cannot compute automatic zero shift."
       )
     }
-    
+
     # Shift so that mean in the window becomes ~0
     offset_m    <- -mean_wl
     window_text <- paste0(timestamp_start, " to ", timestamp_end)
   }
-  
+
   # --- Apply constant offset to adjusted series -------------------------------
-  waterlevel_data <- waterlevel_data |>
+  if (!is.null(timestamp_start) & !is.null(timestamp_end)) {
+
+    waterlevel_data <- waterlevel_data |>
     dplyr::mutate(
-      waterlevel_m_adj = waterlevel_m_adj + offset_m,
-      edit_zero        = TRUE
+      waterlevel_m_adj = dplyr::case_when(timestamp >= ts_start & timestamp <= ts_end ~ waterlevel_m_adj + offset_m,
+                                   TRUE ~ waterlevel_m_adj),
+      edit_zero        = dplyr::case_when(timestamp >= ts_start & timestamp <= ts_end ~ TRUE,
+                                   TRUE ~ FALSE)
     )
-  
+  } else {
+    waterlevel_data <- waterlevel_data |>
+      dplyr::mutate(
+        waterlevel_m_adj = waterlevel_m_adj + offset_m,
+        edit_zero        = TRUE
+      )
+  }
+
   # --- Build QA/QC log entry --------------------------------------------------
   metric   <- "WL"
   field    <- "waterlevel_m_adj"
@@ -170,9 +185,9 @@ adjust_WL_zero <- function(input_data,
   fun_name <- "adjust_WL_zero"
   run_time <- Sys.time()
   code     <- "SHIFT_CORRECTION"
-  
+
   ts_affected <- waterlevel_data$timestamp  # entire series shifted
-  
+
   auto_note <- if (!is.na(window_text)) {
     paste0(
       "Automatic zero shift computed from mean adjusted water level between ",
@@ -181,7 +196,7 @@ adjust_WL_zero <- function(input_data,
   } else {
     paste0("User-specified zero shift of ", round(offset_m, 3), " m applied.")
   }
-  
+
   log_this <- make_qaqc_log_row(
     timestamps  = ts_affected,
     station     = select_station,
@@ -195,7 +210,7 @@ adjust_WL_zero <- function(input_data,
     user        = user,
     run_time    = run_time
   )
-  
+
   if (!is.null(log_this)) {
     qaqc_log_maybe_append(log_root, select_station, metric, log_this)
   } else {
