@@ -14,7 +14,7 @@
 #' and stores them in:
 #'
 #' \preformatted{
-#'   <output_dir>/<year>/processed/
+#'   <path_to_output_folder>/<year>/processed/
 #' }
 #'
 #' Input data must already be QA/QC'd and standardized to metric-based
@@ -29,16 +29,16 @@
 #'
 #' Values of \code{-888.88} in \code{do_mgl} are treated as missing.
 #'
-#' @param do_data A data frame containing DO, temperature, barometric
+#' @param input_data A data frame containing DO, temperature, barometric
 #'   pressure, timestamp, and site identifiers. Must contain the columns:
 #'   \code{timestamp}, \code{site_station_code}, \code{do_mgl},
 #'   \code{watertemp_C}, and \code{airpress_kPa}.
-#' @param output_dir Character scalar. Root folder where per-year,
+#' @param path_to_output_folder Character scalar. Root folder where per-year,
 #'   per-site output files will be written. Must already exist.
 #' @param version_label Character version string appended to output filenames
 #'   (e.g., \code{"v0.3"}).
 #'
-#' @return A data frame identical to \code{do_data} but with an additional
+#' @return A data frame identical to \code{input_data} but with an additional
 #'   numeric column \code{do_percsat} (percent air saturation).
 #'   Files are written to disk as side effects.
 #'
@@ -56,45 +56,45 @@
 #' @export
 
 
-convert_do_mgl_percsat <- function(do_data,
-                                   output_dir = NULL,
+convert_do_mgl_percsat <- function(input_data,
+                                   path_to_output_folder = NULL,
                                    version_label = "v0.3") {
 
-  # ---- output_dir validation (optional for Shiny) ----
-  if (!is.null(output_dir)) {
-    if (!is.character(output_dir) || length(output_dir) != 1L) {
-      stop("`output_dir` must be a single character string path.")
+  # ---- path_to_output_folder validation (optional for Shiny) ----
+  if (!is.null(path_to_output_folder)) {
+    if (!is.character(path_to_output_folder) || length(path_to_output_folder) != 1L) {
+      stop("`path_to_output_folder` must be a single character string path.")
     }
-    if (!dir.exists(output_dir)) {
-      stop("`output_dir` does not exist: ", output_dir)
+    if (!dir.exists(path_to_output_folder)) {
+      stop("`path_to_output_folder` does not exist: ", path_to_output_folder)
     }
   }
-  
+
   # ---- required columns ------------------------------------------------------
   req <- c("timestamp", "site_station_code", "do_mgl", "watertemp_C", "airpress_kPa")
-  missing <- setdiff(req, names(do_data))
-  
+  missing <- setdiff(req, names(input_data))
+
   if (length(missing) > 0) {
     stop("Missing required columns: ", paste(missing, collapse = ", "))
   }
-  
+
   # Ensure timestamp is POSIXct (UTC)
-  if (!inherits(do_data$timestamp, "POSIXct")) {
-    do_data$timestamp <- lubridate::ymd_hms(do_data$timestamp, tz = "UTC")
+  if (!inherits(input_data$timestamp, "POSIXct")) {
+    input_data$timestamp <- lubridate::ymd_hms(input_data$timestamp, tz = "UTC")
   }
-  
+
   # ---- main calculation ------------------------------------------------------
-  do_data_reviewed <- do_data |>
+  do_data_reviewed <- input_data |>
     dplyr::mutate(
       # valid rows
       valid = !is.na(do_mgl) &
         do_mgl != -888.88 &
         !is.na(watertemp_C) &
         !is.na(airpress_kPa),
-      
+
       temp_K    = 273.15 + watertemp_C,
       press_atm = airpress_kPa / 101.325,
-      
+
       do_1atm = exp(
         -139.34411 +
           (1.575701e5  / temp_K) -
@@ -102,34 +102,34 @@ convert_do_mgl_percsat <- function(do_data,
           (1.243800e10 / temp_K^3) -
           (8.621949e11 / temp_K^4)
       ),
-      
+
       u_atm = exp(11.8571 - (3840.70 / temp_K) - (216961 / temp_K^2)),
-      
+
       theta_o = 0.000975 -
         1.426e-5 * watertemp_C +
         6.436e-8 * watertemp_C^2,
-      
+
       F_p = ((press_atm - u_atm) * (1 - theta_o * press_atm)) /
         ((1 - u_atm) * (1 - theta_o)),
-      
+
       do_sat_real = do_1atm * F_p,
-      
+
       do_percsat = dplyr::case_when(
         valid & !is.na(do_sat_real) & do_sat_real > 0 ~
           signif(100 * (do_mgl / do_sat_real), 4),
         TRUE ~ NA_real_
       )
     )
-  
+
   # strip intermediate columns for return
   do_data_reviewed <- do_data_reviewed |>
     dplyr::select(
       -valid, -temp_K, -press_atm, -do_1atm, -u_atm,
       -theta_o, -F_p, -do_sat_real
     )
-  
+
   # ---- write outputs: per year x site (guarded for Shiny) -------------------
-  if (!is.null(output_dir)) {
+  if (!is.null(path_to_output_folder)) {
     df_write <- do_data_reviewed |>
       dplyr::arrange(site_station_code, timestamp) |>
       dplyr::mutate(
@@ -159,7 +159,7 @@ convert_do_mgl_percsat <- function(do_data,
       start_k <- gsub("\\D", "", as.character(min(dat$date)))
       end_k   <- gsub("\\D", "", as.character(max(dat$date)))
 
-      year_dir <- file.path(output_dir, year_j)
+      year_dir <- file.path(path_to_output_folder, year_j)
       proc_dir <- file.path(year_dir, "processed")
 
       if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
