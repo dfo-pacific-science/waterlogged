@@ -9,7 +9,7 @@ add_nearest_baro(
   path_to_output_folder = NULL,
   baro_data_path = NULL,
   metric = c("water level", "DO", "conductivity", "both", "all"),
-  max_km = 30,
+  max_km = NULL,
   baro_site_selection = "auto",
   metadata_path = NULL,
   metadata = NULL,
@@ -34,8 +34,9 @@ One of \code{"water level"}, \code{"DO"}, \code{"conductivity"},
 \code{\link{resolve_metrics_param}} for normalisation.}
 
 \item{max_km}{Numeric or \code{NULL}. Maximum search radius (km) for
-barometric stations in auto mode. Set to \code{NULL} to disable the
-distance filter. Default is \code{30}.}
+barometric stations in auto mode. Default is \code{NULL} (no distance
+limit — all barometric stations are considered). Set to a positive number
+to restrict candidates to stations within that radius.}
 
 \item{baro_site_selection}{Character. Either \code{"auto"} (default) for
 nearest-neighbour selection or a specific barometric
@@ -52,10 +53,13 @@ validated by \code{\link{QAQC_metadata}}.}
 must be supplied.}
 
 \item{baro_data}{A data frame of barometric observations (alternative to
-\code{baro_data_path} for Shiny mode). Must contain:
+\code{baro_data_path}). This is the recommended approach for cross-year
+workflows: run \code{\link{barometric_qaqc_all}} on your QAQC'd baro
+files and pass the combined output directly. Must contain:
 \code{site_station_code}, \code{timestamp}, and either
 \code{airpress_kPa} or \code{airpress_kPa_adj}. Optionally
-\code{airtemp_C} or \code{airtemp_C_adj}.}
+\code{airtemp_C} or \code{airtemp_C_adj}. Exactly one of
+\code{baro_data_path} or \code{baro_data} must be supplied.}
 }
 \value{
 A two-element list:
@@ -78,7 +82,8 @@ time series. The function operates in two modes:
 \describe{
 \item{\strong{Auto mode}}{(\code{baro_site_selection = "auto"}, the
 default.) Uses latitude/longitude from the metadata to find the up-to-3
-nearest barometric stations within \code{max_km} (Haversine distance).
+nearest barometric stations (Haversine distance). When \code{max_km} is
+non-\code{NULL}, candidates are limited to that radius.
 Overlapping series are calibrated to the nearest station via
 \code{\link{calibrate_baro_series}}, then merged into a single composite
 with \code{dplyr::coalesce()}.}
@@ -96,7 +101,8 @@ mode), no files are written and the function is purely in-memory.
 \enumerate{
 \item Compute Haversine distances between every site and every barometric
 station listed in the metadata.
-\item Retain the nearest 3 barometric stations within \code{max_km}.
+\item Retain the nearest 3 barometric stations (optionally filtered to
+within \code{max_km} when non-\code{NULL}).
 \item For each site, read (or filter) barometric data for those stations,
 calibrate secondary/tertiary series to the nearest station using
 \code{\link{calibrate_baro_series}}, and \code{coalesce()} into a single

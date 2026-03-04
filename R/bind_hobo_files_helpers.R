@@ -84,6 +84,7 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL) {
     
     # 4) Parse timestamps (expect mdy_hm; auto-UTC)
     parse_dt <- function(x) {
+      if (inherits(x, "POSIXct")) return(x)
       x_chr <- as.character(x)
       p1 <- try(lubridate::mdy_hm(x_chr, tz = "UTC", quiet = TRUE), silent = TRUE)
       if (!inherits(p1, "try-error") && !all(is.na(p1))) return(p1)

@@ -7,7 +7,8 @@
 #' \describe{
 #'   \item{\strong{Auto mode}}{(\code{baro_site_selection = "auto"}, the
 #'     default.) Uses latitude/longitude from the metadata to find the up-to-3
-#'     nearest barometric stations within \code{max_km} (Haversine distance).
+#'     nearest barometric stations (Haversine distance). When \code{max_km} is
+#'     non-\code{NULL}, candidates are limited to that radius.
 #'     Overlapping series are calibrated to the nearest station via
 #'     \code{\link{calibrate_baro_series}}, then merged into a single composite
 #'     with \code{dplyr::coalesce()}.}
@@ -34,8 +35,9 @@
 #'   \code{"both"} (water level + DO), or \code{"all"}. Passed to
 #'   \code{\link{resolve_metrics_param}} for normalisation.
 #' @param max_km Numeric or \code{NULL}. Maximum search radius (km) for
-#'   barometric stations in auto mode. Set to \code{NULL} to disable the
-#'   distance filter. Default is \code{30}.
+#'   barometric stations in auto mode. Default is \code{NULL} (no distance
+#'   limit — all barometric stations are considered). Set to a positive number
+#'   to restrict candidates to stations within that radius.
 #' @param baro_site_selection Character. Either \code{"auto"} (default) for
 #'   nearest-neighbour selection or a specific barometric
 #'   \code{site_station_code} for manual selection.
@@ -48,10 +50,13 @@
 #'   \code{metric}. Exactly one of \code{metadata_path} or \code{metadata}
 #'   must be supplied.
 #' @param baro_data A data frame of barometric observations (alternative to
-#'   \code{baro_data_path} for Shiny mode). Must contain:
+#'   \code{baro_data_path}). This is the recommended approach for cross-year
+#'   workflows: run \code{\link{barometric_qaqc_all}} on your QAQC'd baro
+#'   files and pass the combined output directly. Must contain:
 #'   \code{site_station_code}, \code{timestamp}, and either
 #'   \code{airpress_kPa} or \code{airpress_kPa_adj}. Optionally
-#'   \code{airtemp_C} or \code{airtemp_C_adj}.
+#'   \code{airtemp_C} or \code{airtemp_C_adj}. Exactly one of
+#'   \code{baro_data_path} or \code{baro_data} must be supplied.
 #'
 #' @return A two-element list:
 #'   \describe{
@@ -69,7 +74,8 @@
 #' \enumerate{
 #'   \item Compute Haversine distances between every site and every barometric
 #'     station listed in the metadata.
-#'   \item Retain the nearest 3 barometric stations within \code{max_km}.
+#'   \item Retain the nearest 3 barometric stations (optionally filtered to
+#'     within \code{max_km} when non-\code{NULL}).
 #'   \item For each site, read (or filter) barometric data for those stations,
 #'     calibrate secondary/tertiary series to the nearest station using
 #'     \code{\link{calibrate_baro_series}}, and \code{coalesce()} into a single
@@ -95,13 +101,18 @@ add_nearest_baro <- function(input_data,
                              path_to_output_folder = NULL,
                              baro_data_path = NULL,
                              metric = c("water level", "DO", "conductivity", "both", "all"),
-                             max_km = 30,
+                             max_km = NULL,
                              baro_site_selection = "auto",
                              metadata_path = NULL,
                              metadata = NULL,
                              baro_data = NULL) {
 
   metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
+
+  # validate baro input --------------------------------------------------------
+  if (is.null(baro_data_path) && is.null(baro_data)) {
+    stop("add_nearest_baro(): Must provide either 'baro_data_path' or 'baro_data'.", call. = FALSE)
+  }
 
   # allow NULL or numeric for max_km ------------------------------------------
   if (!is.null(max_km) && !is.numeric(max_km)) {
@@ -238,7 +249,9 @@ add_nearest_baro <- function(input_data,
       file <- dplyr::rename(file, timestamp = !!rlang::sym(ts_cand[1]))
     }
 
-    file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+    if (!inherits(file$timestamp, "POSIXct")) {
+      file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+    }
 
     press_col <- if ("airpress_kPa_adj" %in% names(file)) "airpress_kPa_adj" else "airpress_kPa"
     temp_col  <- if ("airtemp_C_adj"   %in% names(file)) "airtemp_C_adj"   else "airtemp_C"
@@ -317,7 +330,11 @@ add_nearest_baro <- function(input_data,
       site_baro_rank_raw |> dplyr::filter(dist_m <= max_km * 1000, rank <= 3)
     }
 
-    baro_site_station_codes <- unique(site_baro_rank$baro_code)
+    input_sites <- unique(input_data$site_station_code)
+    baro_site_station_codes <- site_baro_rank |>
+      dplyr::filter(site_code %in% input_sites) |>
+      dplyr::pull(baro_code) |>
+      unique()
 
     baro_press_list <- list()
     baro_temp_list  <- list()
@@ -349,7 +366,9 @@ add_nearest_baro <- function(input_data,
         file <- dplyr::rename(file, timestamp = !!rlang::sym(ts_cand[1]))
       }
 
-      file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+      if (!inherits(file$timestamp, "POSIXct")) {
+        file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+      }
 
       press_col <- if ("airpress_kPa_adj" %in% names(file)) "airpress_kPa_adj" else "airpress_kPa"
       temp_col  <- if ("airtemp_C_adj"   %in% names(file)) "airtemp_C_adj"   else "airtemp_C"
@@ -547,7 +566,7 @@ add_nearest_baro <- function(input_data,
           proc_dir <- file.path(path_to_output_folder, yy, "processed")
           dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
 
-          site_year$timestamp <- as.character(site_year$timestamp)
+          site_year$timestamp <- format(site_year$timestamp, "%Y-%m-%d %H:%M:%S")
 
           out_name <- sprintf("%s_%s_%s_%s_v0.2.csv", site_i, metric_header, start_str, end_str)
           out_path <- file.path(proc_dir, out_name)
@@ -560,11 +579,23 @@ add_nearest_baro <- function(input_data,
   }
 
   # ---- QC plot (guarded) ----
+  n_baro <- length(unique(stats::na.omit(df_with_baro$baro_site_stn_code)))
+  pal <- if (n_baro <= 1) {
+    "#233d4d"
+  } else if (n_baro <= 3) {
+    suppressMessages(NTSERP_palette(n_groups = n_baro))[[1]]
+  } else if (n_baro <= 7) {
+    suppressMessages(NTSERP_palette(n_groups = n_baro))
+  } else {
+    suppressMessages(NTSERP_palette(full_palette = TRUE))[seq_len(n_baro)]
+  }
+
   qc_plot <- df_with_baro |>
     dplyr::filter(!is.na(site_station_code)) |>
     ggplot2::ggplot(ggplot2::aes(x = timestamp, y = airpress_kPa, color = baro_site_stn_code)) +
     ggplot2::geom_line(linewidth = 0.6) +
     ggplot2::geom_point(size = 0.7, alpha = 0.7) +
+    ggplot2::scale_color_manual(values = pal) +
     ggplot2::facet_wrap(~ site_station_code, scales = "free_x") +
     ggplot2::theme_classic() +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 90, hjust = 1)) +

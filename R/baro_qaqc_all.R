@@ -129,7 +129,9 @@ barometric_qaqc_all <- function(
       }
       raw_baro <- dplyr::rename(raw_baro, timestamp = !!rlang::sym(ts_cand[1]))
     }
-    raw_baro$timestamp <- lubridate::ymd_hms(raw_baro$timestamp, tz = "UTC")
+    if (!inherits(raw_baro$timestamp, "POSIXct")) {
+      raw_baro$timestamp <- lubridate::ymd_hms(raw_baro$timestamp, tz = "UTC")
+    }
 
     # ensure site_station_code
     if (!"site_station_code" %in% names(raw_baro)) {
