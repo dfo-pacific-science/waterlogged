@@ -147,7 +147,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
         "`conduct_uScm` column and record the source in `conduct_source`."
       )
     } else {
-      warning("Some files are in different units (refer to 'file_summary').")
+      warning("Some files are in different units.")
     }
   }
 
