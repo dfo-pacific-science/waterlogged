@@ -4,22 +4,26 @@
 \alias{convert_do_mgl_percsat}
 \title{Convert dissolved oxygen (mg/L) to percent air saturation}
 \usage{
-convert_do_mgl_percsat(do_data, output_dir = NULL, version_label = "v0.3")
+convert_do_mgl_percsat(
+  input_data,
+  path_to_output_folder = NULL,
+  version_label = "v0.3"
+)
 }
 \arguments{
-\item{do_data}{A data frame containing DO, temperature, barometric
+\item{input_data}{A data frame containing DO, temperature, barometric
 pressure, timestamp, and site identifiers. Must contain the columns:
 \code{timestamp}, \code{site_station_code}, \code{do_mgl},
 \code{watertemp_C}, and \code{airpress_kPa}.}
 
-\item{output_dir}{Character scalar. Root folder where per-year,
+\item{path_to_output_folder}{Character scalar. Root folder where per-year,
 per-site output files will be written. Must already exist.}
 
 \item{version_label}{Character version string appended to output filenames
 (e.g., \code{"v0.3"}).}
 }
 \value{
-A data frame identical to \code{do_data} but with an additional
+A data frame identical to \code{input_data} but with an additional
 numeric column \code{do_percsat} (percent air saturation).
 Files are written to disk as side effects.
 }
@@ -39,7 +43,7 @@ The function also writes per-site, per-year CSV files using the naming:
 and stores them in:
 
 \preformatted{
-  <output_dir>/<year>/processed/
+  <path_to_output_folder>/<year>/processed/
 }
 
 Input data must already be QA/QC'd and standardized to metric-based

@@ -58,7 +58,7 @@ reference_file  <- system.file("extdata/water_level/stage_readings.csv", package
 level_runs_file <- system.file("extdata/water_level/benchmarks.csv", package = "waterlogged")
 ```
 
-## Step 1: Bind Raw Barometric Logger Files (v0.1)
+## Bind Raw Barometric Logger Files (v0.1)
 
 Reads all raw HOBO CSV files from the baro folder, parses them, and links each reading to its deployment in the metadata.
 
@@ -96,7 +96,7 @@ head(baro_data)
 baro_plot
 ```
 
-## Step 2: Quality-Check All Barometric Data
+## Quality-Check All Barometric Data
 
 Runs automatic quality checks on the barometric data and flags problematic readings.
 
@@ -136,7 +136,7 @@ cat("  Adjusted NAs in airpress_kPa_adj:",
     sum(is.na(baro_qc$airpress_kPa_adj)), "\n")
 ```
 
-## Step 3: Bind Raw Water Level Logger Files (v0.1)
+## Bind Raw Water Level Logger Files (v0.1)
 
 Same as Step 1, but for the water level loggers instead of baro. The ALBR_ST_30 water level logger (HOBO U20, SN 20533550) was downloaded twice — once in April 2025 and once in October 2025. This step combines both downloads into one continuous record.
 
@@ -165,7 +165,7 @@ head(level_data)
 level_plot
 ```
 
-## Step 4: Attach Barometric Data to Water Level (v0.2)
+## Attach Barometric Data to Water Level (v0.2)
 
 For each water level reading, finds the nearest barometric station and attaches the matching air pressure and temperature values.
 
@@ -212,7 +212,7 @@ cat("Stations in wl_data:   ", paste(unique(wl_data$site_station_code), collapse
 wl_baro_plot
 ```
 
-## Step 5: Convert Pressure (kPa) to Water Level (metres) (v0.3)
+## Convert Pressure (kPa) to Water Level (metres) (v0.3)
 
 Converts the raw pressure readings into actual water depth/stage in metres, using physics and a field reference measurement.
 
@@ -258,7 +258,7 @@ head(site_wl[, c("timestamp", "waterpress_kPa", "airpress_kPa",
                   "watertemp_C", "waterlevel_m", "ref_m")])
 ```
 
-## Step 6: Automatic Water Level QAQC
+## Automatic Water Level QAQC
 
 Runs automatic quality checks on the computed water level data and flags suspicious values. Even after a good conversion, the data may contain artifacts from ice formation, sensor drying out, or physical disturbances (e.g., a flood moving the logger).
 
@@ -300,7 +300,7 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 }
 ```
 
-## Step 7: Visual Review
+## Visual Review
 
 Creates an interactive multi-panel plot for reviewing the data. Before making manual corrections, you need to see the data. The plot shows raw vs adjusted values with flag indicators so you can decide what needs fixing.
 
@@ -314,15 +314,16 @@ How to use the plot:
 
 This is an iterative process: view the plot, identify a problem period, apply a correction, re-plot to verify, and repeat until satisfied.
 
-```{r visual-review}
+```{r visual-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
-  select_station = "ALBR_ST_30"
+  select_station = "ALBR_ST_30",
+  static         = TRUE
 )
 ```
 
-## Step 8: Manual Adjustments (Examples)
+## Manual Adjustments (Examples)
 
 This section demonstrates the manual correction tools available. In a real project, you would apply these only after reviewing the plot and identifying specific problem periods.
 
@@ -401,7 +402,7 @@ plot_qaqc_timeseries(
 )
 ```
 
-## Step 9 (Optional): Set Datum from Level Runs
+## Set Datum from Level Runs (Optional)
 
 Converts water level from relative stage (metres above an arbitrary reference) to absolute elevation (metres above sea level) using surveyed benchmark data.
 
@@ -419,7 +420,7 @@ wl_datum <- wl_set_datum(
 head(wl_datum$wl_elev_m)
 ```
 
-## Step 10: Export Clean Data (v1.0)
+## Export Clean Data (v1.0)
 
 Writes the final cleaned data to CSV files, one per station per year. This creates the deliverable output — the clean, quality-controlled water level record ready for analysis, reporting, or sharing.
 

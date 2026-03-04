@@ -59,7 +59,7 @@ cond_folder    <- system.file("extdata/conductivity/COND", package = "waterlogge
 reference_file <- system.file("extdata/conductivity/field_references.csv", package = "waterlogged")
 ```
 
-## Step 1: Bind Raw Conductivity Logger Files (v0.1)
+## Bind Raw Conductivity Logger Files (v0.1)
 
 Reads the raw HOBO U24 conductivity logger CSV and links it to the deployment metadata.
 
@@ -115,7 +115,7 @@ head(cond_data[, c("timestamp", "conduct_uScm", "watertemp_C",
 cond_plot
 ```
 
-## Step 2: Automatic Conductivity QAQC
+## Automatic Conductivity QAQC
 
 Runs automatic quality checks on the conductivity data and flags suspicious values.
 
@@ -162,7 +162,7 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 }
 ```
 
-## Step 3: Visual Review
+## Visual Review
 
 Creates an interactive plot for reviewing the conductivity data.
 
@@ -175,14 +175,15 @@ How to read the plot:
 
 Look for: sudden jumps (disturbance, debris on sensor), flat low readings (sensor out of water), and gradual drift from biofouling.
 
-```{r visual-review}
+```{r visual-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   cond_data      = cond_qc,
-  select_station = "TUMT_WE_40"
+  select_station = "TUMT_WE_40",
+  static         = TRUE
 )
 ```
 
-## Step 4: Drift Correction
+## Drift Correction
 
 Adjusts the logged conductivity to match field reference measurements, correcting for sensor drift between site visits.
 
@@ -232,7 +233,7 @@ if (!is.null(drift_log) && nrow(drift_log) > 0) {
 }
 ```
 
-## Step 5: Temperature Compensation (Specific Conductance)
+## Temperature Compensation (Specific Conductance)
 
 Converts electrical conductivity (EC) to specific conductance (SPC) normalized to 25 °C.
 
@@ -266,7 +267,7 @@ sample_rows <- cond_qc[as.integer(seq(1, nrow(cond_qc), length.out = 6)),
 print(sample_rows)
 ```
 
-## Step 6: Manual Adjustments (Examples)
+## Manual Adjustments (Examples)
 
 This section demonstrates how to manually remove bad data. Apply these only after reviewing the plot and identifying specific problem periods.
 
@@ -313,18 +314,19 @@ plot_qaqc_timeseries(
 )
 ```
 
-## Step 7: Final Review
+## Final Review
 
 Re-plot the data after all corrections to verify the final result.
 
-```{r final-review}
+```{r final-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   cond_data      = cond_qc,
-  select_station = "TUMT_WE_40"
+  select_station = "TUMT_WE_40",
+  static         = TRUE
 )
 ```
 
-## Step 8: Export Clean Data
+## Export Clean Data
 
 As of this writing, `write_clean_data()` does not support the "conductivity" metric. It supports "dissolvedoxygen", "barometric", "waterlevel", "watertemp", and "airtemp". This is a known gap in the package. For now, you can export the data manually:
 

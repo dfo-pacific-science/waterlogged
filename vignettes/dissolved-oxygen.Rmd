@@ -59,7 +59,7 @@ do_folder      <- system.file("extdata/dissolved_oxygen/DO", package = "waterlog
 reference_file <- system.file("extdata/dissolved_oxygen/field_references.csv", package = "waterlogged")
 ```
 
-## Step 1: Bind and QAQC Barometric Data
+## Bind and QAQC Barometric Data
 
 Reads all barometric logger CSVs, combines them, and runs quality checks (out-of-range, spikes, flatlines).
 
@@ -94,7 +94,7 @@ cat("  Spikes flagged: ", sum(baro_qc$edit_spike, na.rm = TRUE), "\n")
 cat("  Flatlines:      ", sum(baro_qc$edit_flatline, na.rm = TRUE), "\n")
 ```
 
-## Step 2: Bind Raw Dissolved Oxygen Logger Files (v0.1)
+## Bind Raw Dissolved Oxygen Logger Files (v0.1)
 
 Reads the raw HOBO U26 DO logger CSV and links it to the metadata.
 
@@ -128,7 +128,7 @@ cat("DO range:", round(min(do_data$do_mgl, na.rm = TRUE), 2), "to",
 do_plot
 ```
 
-## Step 3: Attach Barometric Data (v0.2)
+## Attach Barometric Data (v0.2)
 
 Finds the nearest barometric station to COOK_WE_40 and joins the air pressure and temperature readings to each DO timestamp.
 
@@ -159,7 +159,7 @@ cat("Missing baro data:", baro_na, "of", nrow(do_data), "rows",
     paste0("(", round(baro_na / nrow(do_data) * 100, 1), "%)"), "\n")
 ```
 
-## Step 4: Convert DO mg/L to Percent Saturation (v0.3)
+## Convert DO mg/L to Percent Saturation (v0.3)
 
 Calculates percent air saturation (%sat) from the DO concentration, water temperature, and atmospheric pressure.
 
@@ -179,7 +179,7 @@ head(do_data[, c("timestamp", "do_mgl", "watertemp_C",
                   "airpress_kPa", "do_percsat")])
 ```
 
-## Step 5: Automatic DO QAQC
+## Automatic DO QAQC
 
 Runs automatic quality checks on the dissolved oxygen data and creates adjusted columns with problematic values corrected or removed.
 
@@ -219,7 +219,7 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 }
 ```
 
-## Step 6: Visual Review
+## Visual Review
 
 Creates an interactive multi-panel plot for reviewing the DO data. Before applying drift correction or manual adjustments, you need to see the data.
 
@@ -231,15 +231,16 @@ How to read the plot:
 - Use the range slider at the bottom to zoom into specific periods
 - Hover over points for exact values
 
-```{r visual-review}
+```{r visual-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   do_data        = do_qc,
   baro_data      = baro_qc,
-  select_station = "COOK_WE_40"
+  select_station = "COOK_WE_40",
+  static         = TRUE
 )
 ```
 
-## Step 7: Drift Correction
+## Drift Correction
 
 Adjusts the logged DO data to match field reference measurements, correcting for gradual sensor drift between site visits.
 
@@ -287,7 +288,7 @@ if (!is.null(drift_log) && nrow(drift_log) > 0) {
 }
 ```
 
-## Step 8: Manual Adjustments (Examples)
+## Manual Adjustments (Examples)
 
 This section demonstrates how to manually remove bad data. In a real project, you would apply these only after reviewing the plot and identifying specific problem periods.
 
@@ -354,19 +355,20 @@ plot_qaqc_timeseries(
 )
 ```
 
-## Step 9: Final Review
+## Final Review
 
 Re-plot the data after all corrections to verify the final result. The adjusted traces should look reasonable with no obvious artifacts. Compare raw (light) vs adjusted (dark) to see exactly what changed.
 
-```{r final-review}
+```{r final-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   do_data        = do_qc,
   baro_data      = baro_qc,
-  select_station = "COOK_WE_40"
+  select_station = "COOK_WE_40",
+  static         = TRUE
 )
 ```
 
-## Step 10: Export Clean Data (v1.0)
+## Export Clean Data (v1.0)
 
 Writes the final cleaned data to CSV files, one per station per year.
 

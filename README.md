@@ -55,102 +55,63 @@ may be out of water). Manual investigation of each station is then performed
 using interactive time-series plots. All processing is recorded in QAQC log
 files and as flag/edit columns in the data.
 
-### Step 0: File management
+### Water Level (HOBO U20)
 
-- Download data from HOBO loggers and export files as CSV.
-- Organize files by logger type/metric, year, and processing stage (raw,
-  processed, clean).
-- Ensure correct formatting of the logger management metadata file.
-- Save an R script recording all function inputs for each logger type and
-  year processed.
+- **`bind_hobo_files()`** — read raw baro CSVs, link to metadata, combine
+  by station → v0.1
+- **`barometric_qaqc_all()`** — auto QAQC all baro stations (range, spikes,
+  flatlines)
+- **`bind_hobo_files()`** — read raw water level CSVs → v0.1
+- **`add_nearest_baro()`** — attach nearest baro station by geographic
+  proximity → v0.2
+- **`convert_waterlevel_kPa_m()`** — convert pressure to water level in
+  metres using baro compensation and a field reference → v0.3
+- **`waterlevel_qaqc()`** — auto QAQC (negative temps, ice, step
+  disturbances, dry sensor)
+- **`plot_qaqc_timeseries()`** — multi-panel time-series plot for visual
+  review
+- Manual corrections as needed: **`adjust_logger_NA()`**,
+  **`adjust_WL_offset()`**, **`adjust_waterlevel_spike()`**,
+  **`wl_multipoint_correction()`**
+- **`wl_set_datum()`** — (optional) convert stage to elevation using survey
+  benchmarks
+- **`write_clean_data()`** — export final dataset per station/year → v1.0
 
-### Step 1: Import and standardize logger data
+### Dissolved Oxygen (HOBO U26)
 
-- **`bind_hobo_files()`** reads raw HOBO CSV files, links each logger to
-  deployment metadata from the logger management file, binds data by station
-  code, and trims to install/retrieval timestamps. Outputs v0.1 files.
-- **`resample_timestamps()`** aligns (snaps) logger timestamps to a regular
-  interval (e.g., 5, 10, 15, 30 min) without changing the sampling
-  frequency.
-- **`barometric_qaqc_all()`** runs automatic QAQC on all barometric
-  stations listed in the metadata file.
+- **`bind_hobo_files()`** — read raw baro CSVs → v0.1
+- **`barometric_qaqc_all()`** — auto QAQC all baro stations
+- **`bind_hobo_files()`** — read raw DO CSVs → v0.1
+- **`add_nearest_baro()`** — attach nearest baro station → v0.2
+- **`convert_do_mgl_percsat()`** — compute percent saturation from mg/L,
+  temperature, and pressure → v0.3
+- **`dissox_qaqc()`** — auto QAQC (errors, negative DO, high outliers, ice,
+  dry sensor)
+- **`plot_qaqc_timeseries()`** — visual review
+- **`wq_drift_correction()`** — correct sensor drift using field reference
+  measurements
+- Manual corrections as needed: **`adjust_logger_NA()`** (ice, dry,
+  disturbance)
+- **`write_clean_data()`** — export → v1.0
 
-The following steps depend on the type of data being processed:
+### Conductivity (HOBO U24)
 
-- For dissolved oxygen or water level, continue to Step 2.
-- For barometric, conductivity, or temperature (TidbiT), skip to Step 3.
+No barometric data required.
 
-### Step 2: Unit conversion
+- **`bind_hobo_files()`** — read raw conductivity CSVs → v0.1
+- **`conductivity_qaqc()`** — auto QAQC (spikes, ice, temp range, dry
+  sensor)
+- **`plot_qaqc_timeseries()`** — visual review
+- **`wq_drift_correction()`** — correct sensor drift using field reference
+  measurements
+- **`conductivity_temp_compensation()`** — convert EC to specific
+  conductance (SPC) at 25 °C
+- Manual corrections as needed: **`adjust_logger_NA()`** (ice, dry,
+  disturbance)
+- **`write_clean_data()`** — export → v1.0
 
-These steps require hourly barometric pressure data in kPa (from Step 1).
+### Shared Utilities
 
-- **`add_nearest_baro()`** attaches the nearest barometric logger's data to
-  each DO or water level station, either automatically (by geographic
-  proximity) or by manual station assignment. Outputs v0.2 files.
-- **`convert_do_mgl_percsat()`** computes percent air saturation of
-  dissolved oxygen from mg/L, water temperature, and barometric pressure.
-  Outputs v0.3 files.
-- **`convert_waterlevel_kPa_m()`** converts water level from kPa to metres
-  using barometric compensation and reference data. Outputs v0.3 files.
-
-### Step 3: Automatic quality assurance
-
-Each function applies range checks, removes error codes, flags extreme
-outliers, and flags data that may be erroneous due to dry or ice conditions.
-
-- **`waterlevel_qaqc()`** -- water level and water temperature data.
-- **`dissox_qaqc()`** -- dissolved oxygen (mg/L and %sat) and water
-  temperature data.
-- **`conductivity_qaqc()`** -- conductivity and water temperature data.
-- **`barometric_qaqc()`** -- barometric pressure and air temperature data
-  (single station).
-- **`watertemp_qaqc()`** -- water temperature data from TidbiT loggers.
-- **`airtemp_qaqc()`** -- air temperature data.
-
-### Step 4: Manual quality assurance
-
-Use **`plot_qaqc_timeseries()`** to generate interactive plotly time-series
-overlays for visual inspection (e.g., compare water temperature from a water
-level logger to air temperature from a barometric logger at the same site).
-
-Adjustment functions for targeted corrections:
-
-- **`adjust_logger_NA()`** -- set values to NA over a time window (dry,
-  disturbed, in ice).
-- **`adjust_WL_offset()`** -- apply a constant offset to water level after
-  a cable break or logger shift.
-- **`adjust_WL_zero()`** -- shift water level up or down when a logger is
-  known to be dry but does not read zero.
-- **`adjust_waterlevel_spike()`** -- flatten water level spikes caused by
-  snow/ice/sediment buildup using linear interpolation.
-- **`wl_set_datum()`** -- set an arbitrary datum for water level series
-  using survey-grade level run data.
-
-Drift correction functions:
-
-- **`wl_multipoint_correction()`** -- multi-point linear drift correction
-  for water level.
-- **`wq_drift_correction()`** -- forward linear drift correction for
-  conductivity, dissolved oxygen, or pH.
-- **`correct_drift()`** -- conductivity drift correction based on discrete
-  reference measurements.
-
-All corrections are recorded in QAQC log files. When `log_root` is
-provided, logs are written to disk; otherwise, log rows are returned as a
-data frame attribute (`attr(result, "qaqc_log")`).
-
-### Step 5: Export clean data
-
-- **`write_clean_data()`** writes the final dataset per station and year
-  with the naming convention `<station>_<metric>_<start>_<end>_v1.0.csv`.
-
-A script that includes all code up to this point should be saved. Any
-revisions to the clean dataset should be saved with a new suffix (e.g.,
-v1.1) and noted in the QAQC script.
-
-### Step 6: Retrieve and summarize clean data
-
-- **`get_logger_data()`** retrieves data by processing stage, station code,
-  and logger type.
-- Clean (v1.0) data can be summarized to hourly, daily, weekly, monthly, or
-  yearly temporal scales (mean, min, max, range) with optional plots.
+- **`resample_timestamps()`** — snap logger timestamps to a regular interval
+- **`get_logger_data()`** — retrieve processed data by stage, station, and
+  logger type
