@@ -9,7 +9,8 @@ plot_qaqc_timeseries(
   do_data = NULL,
   baro_data = NULL,
   cond_data = NULL,
-  select_station
+  select_station,
+  static = FALSE
 )
 }
 \arguments{
@@ -23,20 +24,24 @@ and WL data contain barometric columns, those are used.}
 \item{cond_data}{Optional data frame of conductivity records.}
 
 \item{select_station}{Character station code to plot.}
+
+\item{static}{Logical. If \code{FALSE} (default), returns an interactive
+Plotly \code{htmlwidget} with a range-slider for navigation. If
+\code{TRUE}, returns a static \code{patchwork} / \code{gg} object
+suitable for PDF output. Requires the \pkg{patchwork} package.}
 }
 \value{
-A Plotly \code{htmlwidget} object.
+When \code{static = FALSE}, a Plotly \code{htmlwidget}. When
+\code{static = TRUE}, a \code{patchwork} object (inherits \code{gg}).
 }
 \description{
-Creates an interactive multi-panel Plotly widget showing:
-water level (WL), dissolved oxygen (DO), barometric pressure (BARO),
-and conductivity (COND) time series (raw vs. adjusted), corresponding
-logger/air temperatures, and QA/QC flags.
+Creates a multi-panel plot showing water level (WL), dissolved oxygen (DO),
+barometric pressure (BARO), and conductivity (COND) time series (raw vs.
+adjusted), corresponding logger/air temperatures, and QA/QC flags.
 }
 \details{
 Each data set is filtered to \code{select_station}, and any available
-QA/QC flags are shown in separate panels. A common time axis with
-rangeslider is used for navigation.
+QA/QC flags are shown in separate panels.
 }
 \examples{
 \dontrun{

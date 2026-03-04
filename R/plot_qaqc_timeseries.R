@@ -1,13 +1,11 @@
 #' Plot QA/QC time series for logger data
 #'
-#' Creates an interactive multi-panel Plotly widget showing:
-#' water level (WL), dissolved oxygen (DO), barometric pressure (BARO),
-#' and conductivity (COND) time series (raw vs. adjusted), corresponding
-#' logger/air temperatures, and QA/QC flags.
+#' Creates a multi-panel plot showing water level (WL), dissolved oxygen (DO),
+#' barometric pressure (BARO), and conductivity (COND) time series (raw vs.
+#' adjusted), corresponding logger/air temperatures, and QA/QC flags.
 #'
 #' Each data set is filtered to \code{select_station}, and any available
-#' QA/QC flags are shown in separate panels. A common time axis with
-#' rangeslider is used for navigation.
+#' QA/QC flags are shown in separate panels.
 #'
 #' @param wl_data   Optional data frame of water-level records.
 #' @param do_data   Optional data frame of dissolved-oxygen records.
@@ -15,8 +13,13 @@
 #'   and WL data contain barometric columns, those are used.
 #' @param cond_data Optional data frame of conductivity records.
 #' @param select_station Character station code to plot.
+#' @param static Logical. If \code{FALSE} (default), returns an interactive
+#'   Plotly \code{htmlwidget} with a range-slider for navigation. If
+#'   \code{TRUE}, returns a static \code{patchwork} / \code{gg} object
+#'   suitable for PDF output. Requires the \pkg{patchwork} package.
 #'
-#' @return A Plotly \code{htmlwidget} object.
+#' @return When \code{static = FALSE}, a Plotly \code{htmlwidget}. When
+#'   \code{static = TRUE}, a \code{patchwork} object (inherits \code{gg}).
 #' @export
 #'
 #' @examples
@@ -33,7 +36,8 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
                                  do_data   = NULL,
                                  baro_data = NULL,
                                  cond_data = NULL,
-                                 select_station) {
+                                 select_station,
+                                 static = FALSE) {
   
   cols <- qaqc_plot_cols()
   
@@ -98,7 +102,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
       ) +
       ggplot2::theme_classic()
     
-    panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_do))))
+    panels  <- c(panels, list(p_do))
     heights <- c(heights, 0.22)
     
     # 2) DO temperature panel
@@ -146,7 +150,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_do_temp))))
+      panels  <- c(panels, list(p_do_temp))
       heights <- c(heights, 0.18)
     }
     
@@ -190,7 +194,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_do_qaqc))))
+      panels  <- c(panels, list(p_do_qaqc))
       heights <- c(heights, 0.10)
     }
   }
@@ -218,7 +222,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
       ) +
       ggplot2::theme_classic()
     
-    panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_co))))
+    panels  <- c(panels, list(p_co))
     heights <- c(heights, 0.22)
     
     # 2) Conductivity temperature panel
@@ -266,7 +270,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_co_temp))))
+      panels  <- c(panels, list(p_co_temp))
       heights <- c(heights, 0.18)
     }
     
@@ -299,7 +303,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_co_qaqc))))
+      panels  <- c(panels, list(p_co_qaqc))
       heights <- c(heights, 0.10)
     }
   }
@@ -327,7 +331,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
       ) +
       ggplot2::theme_classic()
     
-    panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_wl))))
+    panels  <- c(panels, list(p_wl))
     heights <- c(heights, 0.20)
     
     # WL temperature panel
@@ -368,7 +372,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
       ) +
       ggplot2::theme_classic()
     
-    panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_wl_temp))))
+    panels  <- c(panels, list(p_wl_temp))
     heights <- c(heights, 0.18)
     
     # WL flags
@@ -408,7 +412,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_wl_qaqc))))
+      panels  <- c(panels, list(p_wl_qaqc))
       heights <- c(heights, 0.10)
     }
   }
@@ -451,7 +455,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_baro_temp))))
+      panels  <- c(panels, list(p_baro_temp))
       heights <- c(heights, 0.18)
     }
     
@@ -477,7 +481,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
       ) +
       ggplot2::theme_classic()
     
-    panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_baro_press))))
+    panels  <- c(panels, list(p_baro_press))
     heights <- c(heights, 0.20)
     
     # BARO flags panel
@@ -509,7 +513,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ) +
         ggplot2::theme_classic()
       
-      panels  <- c(panels, list(suppressWarnings(plotly::ggplotly(p_baro_qaqc))))
+      panels  <- c(panels, list(p_baro_qaqc))
       heights <- c(heights, 0.10)
     }
   }
@@ -518,23 +522,32 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
   if (!length(panels)) {
     stop("plot_qaqc_timeseries(): no panels were built.")
   }
-  
+
   heights <- heights / sum(heights)
-  
-  plots <- plotly::subplot(
-    panels,
-    nrows   = length(panels),
-    shareX  = TRUE,
-    heights = heights,
-    margin  = 0.03
-  ) |>
-    plotly::layout(
-      xaxis = list(
-        rangeslider = list(visible = TRUE),
-        type        = "date"
-      ),
-      plot_bgcolor = "#e5ecf6"
-    )
-  
-  plots
+
+  if (static) {
+    if (!requireNamespace("patchwork", quietly = TRUE)) {
+      stop("plot_qaqc_timeseries(static = TRUE) requires the 'patchwork' ",
+           "package. Install it with install.packages('patchwork').")
+    }
+    patchwork::wrap_plots(panels, ncol = 1, heights = heights)
+  } else {
+    plotly_panels <- lapply(panels, function(p) {
+      suppressWarnings(plotly::ggplotly(p))
+    })
+    plotly::subplot(
+      plotly_panels,
+      nrows   = length(plotly_panels),
+      shareX  = TRUE,
+      heights = heights,
+      margin  = 0.03
+    ) |>
+      plotly::layout(
+        xaxis = list(
+          rangeslider = list(visible = TRUE),
+          type        = "date"
+        ),
+        plot_bgcolor = "#e5ecf6"
+      )
+  }
 }

@@ -122,7 +122,7 @@ waterlevel_qaqc <- function(input_data,
       wt_air_close  = !is.na(watertemp_C) & !is.na(airtemp_C) &
         abs(watertemp_C - airtemp_C) < 2,
       wt_air_warmer = !is.na(watertemp_C) & !is.na(airtemp_C) &
-        (airtemp_C - watertemp_C) < 0,
+        (airtemp_C - watertemp_C) > 0,
 
       # old WL-based dry rule, updated to 19 deg C to match watertemp_qaqc doc
       flag_dry_wl = !is.na(waterlevel_m) & !is.na(watertemp_C) &

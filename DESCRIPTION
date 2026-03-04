@@ -26,6 +26,7 @@ Imports:
     tidyr
 Suggests:
     knitr,
+    patchwork,
     rmarkdown,
     testthat (>= 3.0.0),
     withr
