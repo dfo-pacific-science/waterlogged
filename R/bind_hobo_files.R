@@ -122,11 +122,20 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     )
   }
 
+  # link sn to site_station_code in metadata
+  metadat_link <- metadata |> dplyr::filter(sn %in% unique(hobo_data_raw$sn))
+
+  measurement_type <- unique(metadat_link$metric)
+
   # Safely check units for channel 1 and (if present) channel 2
   units1_mixed <- length(unique(hobo_data_raw$data1_unit)) > 1
 
-  units2_mixed <- "dat2_unit" %in% names(hobo_data_raw) &&
-    length(unique(hobo_data_raw$dat2_unit)) > 1
+  if(length(measurement_type) == 1 && measurement_type == "airtemp") {
+    units2_mixed = FALSE
+  } else {
+    units2_mixed <- "dat2_unit" %in% names(hobo_data_raw) &&
+      length(unique(hobo_data_raw$dat2_unit)) > 1
+  }
 
   is_conductivity_folder <- any(grepl("conduct", tolower(hobo_data_raw$data1_type)))
 
@@ -164,11 +173,6 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
     warning(paste("NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
   }
-
-  # link sn to site_station_code in metadata
-  metadat_link <- metadata |> dplyr::filter(sn %in% unique(hobo_data_raw$sn))
-
-  measurement_type <- unique(metadat_link$metric)
 
   # make dummy columns and datasets to fill in
   hobo_data_raw$site_station_code <- NA
@@ -306,24 +310,24 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   }
 
   # TIDBIT WATER TEMP LOGGER -------------------------------------------
-  if (colnames(sites_compiled)[3] == "Temp \u00b0C" && logger_type == "tidbit") {
+  if (colnames(sites_compiled)[3] == "Temp \u00b0C" && measurement_type == "watertemp") {
     logger_header <- "WT"
     colnames(sites_compiled)[3] <- "watertemp_C"
   }
 
-  if (colnames(sites_compiled)[3] == "Temp \u00b0F" && logger_type == "tidbit") {
+  if (colnames(sites_compiled)[3] == "Temp \u00b0F" && measurement_type == "watertemp") {
     logger_header <- "WT"
     sites_compiled[[3]] <- convert_F_to_C(sites_compiled[[3]])
     colnames(sites_compiled)[3] <- "watertemp_C"
   }
 
   # TIDBIT AIR TEMP LOGGER ---------------------------------------------
-  if (colnames(sites_compiled)[3] == "Temp \u00b0C" && logger_type == "tidbit") {
+  if (colnames(sites_compiled)[3] == "Temp \u00b0C" && measurement_type == "airtemp") {
     logger_header <- "AT"
     colnames(sites_compiled)[3] <- "airtemp_C"
   }
 
-  if (colnames(sites_compiled)[3] == "Temp \u00b0F" && logger_type == "tidbit") {
+  if (colnames(sites_compiled)[3] == "Temp \u00b0F" && measurement_type == "airtemp") {
     logger_header <- "AT"
     sites_compiled[[3]] <- convert_F_to_C(sites_compiled[[3]])
     colnames(sites_compiled)[3] <- "airtemp_C"

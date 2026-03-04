@@ -134,3 +134,28 @@ test_that("Test multiple date formats", {
   expect_equal(timestamp_wrong_format_compiled, timestamp_correct_format_compiled)
 
 })
+
+test_that("Test issue 70", {
+
+  path_to_raw_folder = test_path("fixtures/test_issue_70")
+
+  path_to_output_folder = withr::local_tempdir()
+
+  metadata_path = test_path("fixtures/metadata/NorthThompson_logger_deployments_20251105.csv")
+
+  expect_no_warning(suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                                 path_to_output_folder = path_to_output_folder,
+                                                 metadata_path = metadata_path)), message="Some files are in different units")
+
+  at_bound = suppressWarnings(suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+                                             path_to_output_folder = path_to_output_folder,
+                                             metadata_path = metadata_path)))
+
+
+  at_dat = at_bound[[1]]
+
+  expect_contains(colnames(at_dat), "airtemp_C")
+
+
+})
+
