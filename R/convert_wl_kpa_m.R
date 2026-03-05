@@ -55,8 +55,8 @@
 #'       reference exists).  In batch mode the data frames for all
 #'       stations are row-bound.}
 #'     \item{\code{ref_dat}}{Data frame of reference measurements used
-#'       (\code{timestamp}, \code{ref_m}).  In batch mode the reference
-#'       data for all stations are row-bound.}
+#'       (\code{timestamp}, \code{ref_m}, \code{site_comments}).  In
+#'       batch mode the reference data for all stations are row-bound.}
 #'     \item{\code{wl_plot}}{An interactive \pkg{plotly} object showing
 #'       the converted water-level time series (dark line) overlaid with
 #'       reference measurements (orange points).  In batch mode the plot

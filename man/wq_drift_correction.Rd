@@ -130,7 +130,6 @@ optional \code{timezone} column in \code{input_data}. Falls back
 to \code{"UTC"} if neither is available.
 }
 \seealso{
-\code{\link{correct_drift}} (legacy conductivity-only
-drift correction), \code{\link{wl_multipoint_correction}} (water
-level drift correction)
+\code{\link{wl_multipoint_correction}} (water level drift
+correction)
 }

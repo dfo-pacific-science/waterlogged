@@ -24,6 +24,7 @@
 #'     \item \code{"waterlevel"}: water level + water temperature
 #'     \item \code{"dissolvedoxygen"}: DO (mg/L, %sat) + water temperature
 #'     \item \code{"barometric"}: barometric pressure + air temperature
+#'     \item \code{"conductivity"}: conductivity + water temperature
 #'     \item \code{"airtemp"}: air temperature (e.g., TidbiT)
 #'     \item \code{"watertemp"}: water temperature (e.g., TidbiT)
 #'   }
@@ -59,9 +60,6 @@
 #'   \code{\link{plot_qaqc_timeseries}} (interactive QC plotting)
 #'
 #' @export
-
-#source("R/get_logger_data_helpers.R")
-
 
 get_logger_data <- function(path_to_data = NULL,
                             data_processing = c("v1.0", "raw", "v0.1", "v0.2", "v0.3"),

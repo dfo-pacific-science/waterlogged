@@ -1,14 +1,14 @@
-# Legacy Function Audit: `main` → `develop2`
+# Legacy Function Audit: `main` → `develop`
 
 **Date:** 2026-03-03
 **Package:** waterlogged 0.0.0.9000
-**Branches compared:** `main` (old) vs `develop2` (current)
+**Branches compared:** `main` (old) vs `develop` (current)
 
 ---
 
 ## Executive Summary
 
-The `develop2` branch represents a major modernization of the waterlogged package. The
+The `develop` branch represents a major modernization of the waterlogged package. The
 key architectural changes are:
 
 1. **Column naming:** Old branch used logger-model suffixes (`_U20`, `_U26`, `_U24`,
@@ -27,7 +27,7 @@ key architectural changes are:
    companion files and adds shared utility modules (`utils.R`, `utils_plotting.R`,
    `qaqc_log_helpers.R`, `globals.R`).
 
-Despite this modernization, **5 legacy functions from `main` persist on `develop2`
+Despite this modernization, **5 legacy functions from `main` persist on `develop`
 unchanged or minimally modified**, alongside their modern replacements. Additionally,
 there are naming inconsistencies, missing helpers, dead code, and copy-paste errors.
 
@@ -55,7 +55,7 @@ This report catalogues every issue found.
 
 ## 1. Vignette & Workflow Function Usage Map
 
-### Functions used in new vignettes (develop2) vs old vignette (main)
+### Functions used in new vignettes (develop) vs old vignette (main)
 
 This table maps every waterlogged function called in the old vignette
 (`main:vignettes/waterlogged-vignette.Rmd`) and the three new vignettes
@@ -181,7 +181,7 @@ all been replaced by modern equivalents.
 
 ## 2. Legacy Functions That Should Be Removed or Deprecated
 
-These functions exist on `develop2` with **old-style** `_U20`/`_U24`/`_TidbiT` column
+These functions exist on `develop` with **old-style** `_U20`/`_U24`/`_TidbiT` column
 defaults, no QAQC log integration, and for-loop processing patterns.
 
 ### 2.1 `adjust_waterlevel_cablebreak()`
@@ -250,9 +250,9 @@ defaults, no QAQC log integration, and for-loop processing patterns.
 | `correct_drift()` | `wq_drift_correction()` | Both do drift correction |
 
 Additionally, these functions **share a name** but were completely rewritten between
-branches (not duplicates — the develop2 version replaced the main version):
+branches (not duplicates — the develop version replaced the main version):
 
-| Function | main API | develop2 API |
+| Function | main API | develop API |
 |---|---|---|
 | `barometric_qaqc()` | Climate station normals, `var_*` params | Configurable thresholds, fixed column names |
 | `bind_hobo_files()` | `logger_type=` param, `_U20` columns | Auto-detected metric, modern columns |
@@ -319,7 +319,7 @@ undocumented — a silent source of error for non-standard deployments. Old vers
 does backward interpolation between reference pairs. The new algorithm does forward-
 linear ramps from each segment start, restarting at calibration boundaries.
 
-### 4.4 Barometric QAQC: `barometric_qaqc()` (main vs develop2)
+### 4.4 Barometric QAQC: `barometric_qaqc()` (main vs develop)
 
 | Aspect | OLD (129 lines) | NEW (170 lines) |
 |--------|------------------|------------------|
@@ -336,7 +336,7 @@ linear ramps from each segment start, restarting at calibration boundaries.
 **Major additions in NEW:** Pressure range checks, spike detection, and flatline
 detection — none existed in old version. The old version only flagged temperature.
 
-### 4.5 Spike Correction: `adjust_waterlevel_spike()` (main vs develop2)
+### 4.5 Spike Correction: `adjust_waterlevel_spike()` (main vs develop)
 
 | Aspect | OLD (70 lines) | NEW (228 lines) |
 |--------|-----------------|------------------|
@@ -367,7 +367,7 @@ interpolations.
 **Bug fixed in NEW:** `readline()` prompt in old version would crash in batch scripts
 and Shiny apps. `stringr` was used without being declared as a dependency.
 
-### 4.7 bind_hobo_files: main (287 lines) vs develop2 (489 + 367 = 856 lines)
+### 4.7 bind_hobo_files: main (287 lines) vs develop (489 + 367 = 856 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -380,7 +380,7 @@ and Shiny apps. `stringr` was used without being declared as a dependency.
 | **Return value** | `list(data, file_summary, plots)` | `list(data, plot)` |
 | **Helpers** | 2 inline functions | Separate `bind_hobo_files_helpers.R` with `QAQC_metadata()` (exported) and `extract_alldata_from_file()` (internal) |
 
-### 4.8 adjust_logger_NA: main (347 lines) vs develop2 (476 lines)
+### 4.8 adjust_logger_NA: main (347 lines) vs develop (476 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -397,7 +397,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 
 **Bug fixed from OLD:** `keep_temp` was referenced without being a parameter.
 
-### 4.9 write_clean_data: main (195 lines) vs develop2 (260 lines)
+### 4.9 write_clean_data: main (195 lines) vs develop (260 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -411,7 +411,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 
 **Regression in NEW:** Conductivity export support is missing from the `metric_config`.
 
-### 4.10 waterlevel_qaqc: main (140 lines) vs develop2 (230 lines)
+### 4.10 waterlevel_qaqc: main (140 lines) vs develop (230 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -424,7 +424,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 | **QAQC tracking** | `wl_qaqc_code/adj/note` triplet (one code per row) | Multiple coexisting boolean flags: `flag_disturbance`, `flag_ice`, `flag_wl_dry`, `neg_lt_minus1`, `neg_between` |
 | **Return value** | `list(data, plotly)` | Single data frame with `attr("qaqc_log")` |
 
-### 4.11 dissox_qaqc: main (244 lines) vs develop2 (293 lines)
+### 4.11 dissox_qaqc: main (244 lines) vs develop (293 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -437,7 +437,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 | **QAQC tracking** | `do_qaqc_code/adj/note` triplet | Multiple boolean flags: `do_error`, `do_neg_between`, `do_neg_lt_minus1`, `do_high`, `temp_flag_ice`, `flag_do_dry` |
 | **Return value** | `list(data, plotly)` | Single data frame with `attr("qaqc_log")` |
 
-### 4.12 conductivity_qaqc: main (273 lines) vs develop2 (281 lines)
+### 4.12 conductivity_qaqc: main (273 lines) vs develop (281 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -597,9 +597,9 @@ Exported but never called by any function. Modern plots use Okabe-Ito palette fr
 
 ---
 
-## 9. Renamed Functions (Old Name Gone from develop2)
+## 9. Renamed Functions (Old Name Gone from develop)
 
-| main name | develop2 name | File |
+| main name | develop name | File |
 |---|---|---|
 | `conduct_temp_comp()` | `conductivity_temp_compensation()` | `R/conductivity_temp_compensation.R` |
 | `convert_waterlevel_kPa_m()` | `convert_waterlevel_kPa_m()` | Same name, but file renamed: `convert_waterlevel_kPa_m.R` → `convert_wl_kpa_m.R`, completely rewritten |
@@ -640,7 +640,7 @@ New internal modules:
 
 ## 11. NAMESPACE and Export Cleanup
 
-### Functions exported on `develop2` that should be reviewed
+### Functions exported on `develop` that should be reviewed
 
 | Export | Status | Action |
 |---|---|---|
@@ -652,7 +652,7 @@ New internal modules:
 | `QAQC_metadata` | Exported helper; could be internal | Consider `@keywords internal` |
 | `QAQC_reference_data` | Exported helper; could be internal | Consider `@keywords internal` |
 
-### Exports on `main` that are gone from `develop2`
+### Exports on `main` that are gone from `develop`
 
 | Export | Status |
 |---|---|
@@ -671,12 +671,12 @@ import(purrr)
 import(tidyr)
 ```
 
-The `develop2` branch has no `import()` directives, only `export()` entries. This is
+The `develop` branch has no `import()` directives, only `export()` entries. This is
 correct — the modern code uses `dplyr::`, `ggplot2::` etc. namespace-qualified calls.
 
 ### Dependency changes
 
-| Removed from `main` | Added in `develop2` |
+| Removed from `main` | Added in `develop` |
 |---|---|
 | `data.table` | `rlang` |
 | `plyr` | `tibble` |
@@ -735,7 +735,7 @@ replacements and are not used by any current vignette or workflow:
 
 ### Files on both branches (18 files)
 
-| File (main) | File (develop2) | Status |
+| File (main) | File (develop) | Status |
 |---|---|---|
 | `add_nearest_baro.R` | `add_nearest_baro.R` | **Rewritten** — new API, no `_U20` |
 | `adjust_logger_NA.R` | `adjust_logger_NA.R` | **Rewritten** — new API, has COND naming bug |
@@ -757,7 +757,7 @@ replacements and are not used by any current vignette or workflow:
 | `watertemp_qaqc.R` | `watertemp_qaqc.R` | **Minimally changed** — still legacy |
 | `write_clean_data.R` | `write_clean_data.R` | **Rewritten** — new API |
 
-### Files only on develop2 (20 new files)
+### Files only on develop (20 new files)
 
 | File | Type |
 |---|---|
@@ -783,4 +783,4 @@ replacements and are not used by any current vignette or workflow:
 
 ### Files only on main (0 files)
 
-All files from `main` have a counterpart on `develop2` (some renamed).
+All files from `main` have a counterpart on `develop` (some renamed).

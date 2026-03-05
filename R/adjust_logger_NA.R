@@ -15,17 +15,21 @@
 #'   \code{site_station_code}).
 #' @param metric Character string specifying which metric to adjust. Accepted
 #'   values include \code{"waterlevel"}, \code{"dissolvedoxygen"},
-#'   \code{"watertemp"}, \code{"barometric"}, \code{"conductivity"} and
-#'   common variants (e.g. \code{"water level"}, \code{"DO"}, \code{"BARO"}).
+#'   \code{"watertemp"}, \code{"barometric"}, \code{"airtemp"},
+#'   \code{"conductivity"} and common variants (e.g. \code{"water level"},
+#'   \code{"DO"}, \code{"BARO"}, \code{"AT"}).
 #' @param reason_to_adjust Character; reason for the adjustment. One of
 #'   \code{"ice"}, \code{"dry"}, or \code{"disturbance"}. This controls which
 #'   \code{edit_*} flag column is set and how the NA adjustment is applied.
+#'   Note: barometric and air temperature metrics only accept
+#'   \code{"disturbance"}.
 #' @param timestamp_start,timestamp_end Character date-time values defining
 #'   the adjustment window, in \code{"YYYY-MM-DD HH:MM:SS"} format, parsed
 #'   with \code{lubridate::ymd_hms()}.
-#' @param keep_temp Logical; if \code{TRUE}, water temperature adjustments are
-#'   skipped for disturbance events (where applicable). Ignored for metrics
-#'   where no temperature is associated.
+#' @param keep_temp Logical; if \code{TRUE}, associated temperature adjustments
+#'   are skipped for \code{"ice"} and \code{"disturbance"} events. Ignored for
+#'   \code{"dry"} (temperature always removed) and for metrics where no
+#'   temperature column is associated (\code{"watertemp"}, \code{"airtemp"}).
 #' @param apply_to_all_data Logical; if \code{FALSE} (default), only values
 #'   within \code{timestamp_start}–\code{timestamp_end} are set to NA. If
 #'   \code{TRUE} and a water level column is present, a dry threshold is
@@ -101,12 +105,13 @@ adjust_logger_NA <- function(
     metric %in% c("watertemp", "watertemp_TidbiT", "WT", "temperature") ~ "WT",
     metric %in% c("barometric", "baro", "BARO")                       ~ "BARO",
     metric %in% c("conductivity", "cond", "EC")                       ~ "COND",
+    metric %in% c("airtemp", "air temperature", "AT", "air_temp")    ~ "AT",
     TRUE ~ NA_character_
   )
   if (is.na(metric_norm)) {
     stop(
       "adjust_logger_NA(): Unrecognized metric '", metric,
-      "'. Expected one of waterlevel, dissolvedoxygen, watertemp, barometric, conductivity."
+      "'. Expected one of waterlevel, dissolvedoxygen, watertemp, barometric, airtemp, conductivity."
     )
   }
 
@@ -117,6 +122,7 @@ adjust_logger_NA <- function(
     metric_norm == "WT"   ~ "watertemp_C_adj",
     metric_norm == "BARO" ~ "airpress_kPa_adj",
     metric_norm == "COND" ~ "conduct_uScm_adj",
+    metric_norm == "AT"   ~ "airtemp_C_adj",
     TRUE                  ~ NA_character_
   )
 
@@ -127,6 +133,14 @@ adjust_logger_NA <- function(
     reason_to_adjust == "disturbance" ~ "edit_remove_disturbance",
     TRUE                              ~ "edit_remove_unknown"
   )
+
+  # ---- Metric-specific reason restrictions -----------------------------------
+  if (metric_norm %in% c("BARO", "AT") && reason_to_adjust != "disturbance") {
+    stop(
+      "adjust_logger_NA(): reason '", reason_to_adjust,
+      "' is not applicable to ", metric_norm, " loggers. Use 'disturbance'."
+    )
+  }
 
   # ---- Subset station + sort + basic checks ---------------------------------
   df <- input_data |>
@@ -190,12 +204,20 @@ adjust_logger_NA <- function(
     }
 
     if (reason_to_adjust == "ice") {
-      df <- df |>
-        dplyr::mutate(
-          edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
-          waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj),
-          watertemp_C_adj  = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
-        )
+      if (keep_temp) {
+        df <- df |>
+          dplyr::mutate(
+            edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
+            waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj)
+          )
+      } else {
+        df <- df |>
+          dplyr::mutate(
+            edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
+            waterlevel_m_adj = dplyr::if_else(in_window, NA_real_, waterlevel_m_adj),
+            watertemp_C_adj  = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
+          )
+      }
     }
 
     if (reason_to_adjust == "dry") {
@@ -252,18 +274,27 @@ adjust_logger_NA <- function(
     if (!all(c("do_mgl_adj", "do_percsat_adj") %in% names(df))) {
       stop("adjust_logger_NA(): DO metric expects 'do_mgl_adj' and 'do_percsat_adj'.")
     }
-    if (!"watertemp_C_adj" %in% names(df)) {
-      df$watertemp_C_adj <- NA_real_
+    if (!"watertemp_C_do_adj" %in% names(df)) {
+      df$watertemp_C_do_adj <- NA_real_
     }
 
     if (reason_to_adjust == "ice") {
-      df <- df |>
-        dplyr::mutate(
-          edit_na         = dplyr::if_else(in_window, TRUE, edit_na),
-          do_mgl_adj      = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
-          do_percsat_adj  = dplyr::if_else(in_window, NA_real_, do_percsat_adj),
-          watertemp_C_adj = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
-        )
+      if (keep_temp) {
+        df <- df |>
+          dplyr::mutate(
+            edit_na        = dplyr::if_else(in_window, TRUE, edit_na),
+            do_mgl_adj     = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
+            do_percsat_adj = dplyr::if_else(in_window, NA_real_, do_percsat_adj)
+          )
+      } else {
+        df <- df |>
+          dplyr::mutate(
+            edit_na             = dplyr::if_else(in_window, TRUE, edit_na),
+            do_mgl_adj          = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
+            do_percsat_adj      = dplyr::if_else(in_window, NA_real_, do_percsat_adj),
+            watertemp_C_do_adj  = dplyr::if_else(in_window, NA_real_, watertemp_C_do_adj)
+          )
+      }
     }
 
     if (reason_to_adjust == "disturbance") {
@@ -277,10 +308,10 @@ adjust_logger_NA <- function(
       } else {
         df <- df |>
           dplyr::mutate(
-            edit_na         = dplyr::if_else(in_window, TRUE, edit_na),
-            do_mgl_adj      = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
-            do_percsat_adj  = dplyr::if_else(in_window, NA_real_, do_percsat_adj),
-            watertemp_C_adj = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
+            edit_na             = dplyr::if_else(in_window, TRUE, edit_na),
+            do_mgl_adj          = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
+            do_percsat_adj      = dplyr::if_else(in_window, NA_real_, do_percsat_adj),
+            watertemp_C_do_adj  = dplyr::if_else(in_window, NA_real_, watertemp_C_do_adj)
           )
       }
     }
@@ -298,11 +329,11 @@ adjust_logger_NA <- function(
         } else {
           df <- df |>
             dplyr::mutate(
-              is_dry          = !is.na(waterlevel_m) & waterlevel_m <= dry_wl,
-              edit_na         = dplyr::if_else(is_dry, TRUE, edit_na),
-              do_percsat_adj  = dplyr::if_else(is_dry, NA_real_, do_percsat_adj),
-              do_mgl_adj      = dplyr::if_else(is_dry, NA_real_, do_mgl_adj),
-              watertemp_C_adj = dplyr::if_else(is_dry, NA_real_, watertemp_C_adj)
+              is_dry             = !is.na(waterlevel_m) & waterlevel_m <= dry_wl,
+              edit_na            = dplyr::if_else(is_dry, TRUE, edit_na),
+              do_percsat_adj     = dplyr::if_else(is_dry, NA_real_, do_percsat_adj),
+              do_mgl_adj         = dplyr::if_else(is_dry, NA_real_, do_mgl_adj),
+              watertemp_C_do_adj = dplyr::if_else(is_dry, NA_real_, watertemp_C_do_adj)
             ) |>
             dplyr::select(-is_dry)
         }
@@ -311,10 +342,10 @@ adjust_logger_NA <- function(
       } else {
         df <- df |>
           dplyr::mutate(
-            edit_na         = dplyr::if_else(in_window, TRUE, edit_na),
-            do_mgl_adj      = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
-            do_percsat_adj  = dplyr::if_else(in_window, NA_real_, do_percsat_adj),
-            watertemp_C_adj = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
+            edit_na            = dplyr::if_else(in_window, TRUE, edit_na),
+            do_mgl_adj         = dplyr::if_else(in_window, NA_real_, do_mgl_adj),
+            do_percsat_adj     = dplyr::if_else(in_window, NA_real_, do_percsat_adj),
+            watertemp_C_do_adj = dplyr::if_else(in_window, NA_real_, watertemp_C_do_adj)
           )
       }
     }
@@ -342,33 +373,67 @@ adjust_logger_NA <- function(
     if (!"airpress_kPa_adj" %in% names(df)) {
       stop("adjust_logger_NA(): BARO metric expects 'airpress_kPa_adj'.")
     }
+    if (!"airtemp_C_adj" %in% names(df)) {
+      df$airtemp_C_adj <- NA_real_
+    }
 
-    if (reason_to_adjust %in% c("ice", "dry", "disturbance")) {
+    # Only "disturbance" is accepted (enforced above); keep_temp controls airtemp
+    if (keep_temp) {
       df <- df |>
         dplyr::mutate(
           edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
           airpress_kPa_adj = dplyr::if_else(in_window, NA_real_, airpress_kPa_adj)
         )
+    } else {
+      df <- df |>
+        dplyr::mutate(
+          edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
+          airpress_kPa_adj = dplyr::if_else(in_window, NA_real_, airpress_kPa_adj),
+          airtemp_C_adj    = dplyr::if_else(in_window, NA_real_, airtemp_C_adj)
+        )
     }
+  }
+
+  # ------------------------- AIR TEMPERATURE ----------------------------------
+  if (metric_norm == "AT") {
+
+    if (!"airtemp_C_adj" %in% names(df)) {
+      stop("adjust_logger_NA(): AT metric expects 'airtemp_C_adj'.")
+    }
+
+    # Only "disturbance" is accepted (enforced above)
+    df <- df |>
+      dplyr::mutate(
+        edit_na       = dplyr::if_else(in_window, TRUE, edit_na),
+        airtemp_C_adj = dplyr::if_else(in_window, NA_real_, airtemp_C_adj)
+      )
   }
 
   # ------------------------- CONDUCTIVITY -------------------------------------
   if (metric_norm == "COND") {
 
-    if (!"conductivity_uScm_adj" %in% names(df)) {
-      stop("adjust_logger_NA(): COND metric expects 'conductivity_uScm_adj'.")
+    if (!"conduct_uScm_adj" %in% names(df)) {
+      stop("adjust_logger_NA(): COND metric expects 'conduct_uScm_adj'.")
     }
     if (!"watertemp_C_adj" %in% names(df)) {
       df$watertemp_C_adj <- NA_real_
     }
 
     if (reason_to_adjust == "ice") {
-      df <- df |>
-        dplyr::mutate(
-          edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
-          conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj),
-          watertemp_C_adj       = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
-        )
+      if (keep_temp) {
+        df <- df |>
+          dplyr::mutate(
+            edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
+            conduct_uScm_adj = dplyr::if_else(in_window, NA_real_, conduct_uScm_adj)
+          )
+      } else {
+        df <- df |>
+          dplyr::mutate(
+            edit_na          = dplyr::if_else(in_window, TRUE, edit_na),
+            conduct_uScm_adj = dplyr::if_else(in_window, NA_real_, conduct_uScm_adj),
+            watertemp_C_adj  = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
+          )
+      }
     }
 
     if (reason_to_adjust == "disturbance") {
@@ -376,13 +441,13 @@ adjust_logger_NA <- function(
         df <- df |>
           dplyr::mutate(
             edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
-            conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj)
+            conduct_uScm_adj = dplyr::if_else(in_window, NA_real_, conduct_uScm_adj)
           )
       } else {
         df <- df |>
           dplyr::mutate(
             edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
-            conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj),
+            conduct_uScm_adj = dplyr::if_else(in_window, NA_real_, conduct_uScm_adj),
             watertemp_C_adj       = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
           )
       }
@@ -403,7 +468,7 @@ adjust_logger_NA <- function(
             dplyr::mutate(
               is_dry                = !is.na(waterlevel_m) & waterlevel_m <= dry_wl,
               edit_na               = dplyr::if_else(is_dry, TRUE, edit_na),
-              conductivity_uScm_adj = dplyr::if_else(is_dry, NA_real_, conductivity_uScm_adj),
+              conduct_uScm_adj = dplyr::if_else(is_dry, NA_real_, conduct_uScm_adj),
               watertemp_C_adj       = dplyr::if_else(is_dry, NA_real_, watertemp_C_adj)
             ) |>
             dplyr::select(-is_dry)
@@ -414,7 +479,7 @@ adjust_logger_NA <- function(
         df <- df |>
           dplyr::mutate(
             edit_na               = dplyr::if_else(in_window, TRUE, edit_na),
-            conductivity_uScm_adj = dplyr::if_else(in_window, NA_real_, conductivity_uScm_adj),
+            conduct_uScm_adj = dplyr::if_else(in_window, NA_real_, conduct_uScm_adj),
             watertemp_C_adj       = dplyr::if_else(in_window, NA_real_, watertemp_C_adj)
           )
       }
@@ -462,6 +527,9 @@ adjust_logger_NA <- function(
 
     if (!is.null(log_row)) {
       qaqc_log_maybe_append(log_root, select_station, metric_norm, log_row)
+      if (is.null(log_root)) {
+        warning("adjust_logger_NA(): log_root is NULL; QA/QC log was not written to disk.")
+      }
     }
   } else {
     log_row <- NULL

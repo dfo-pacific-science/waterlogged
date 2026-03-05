@@ -1,57 +1,65 @@
 #' Colour palette for QA/QC time series plots
 #'
 #' Centralized colour definitions used by \code{plot_qaqc_timeseries()}.
-#' Uses the Okabe–Ito colour-blind–friendly palette.
+#' Uses the NTSERP colour-blind-friendly palette.
 #'
 #' @return A named list of hex colour codes.
 #' @keywords internal
 #' @noRd
 qaqc_plot_cols <- function() {
-  # Okabe–Ito palette (colour-blind friendly)
-  col_black    <- "#000000"
-  col_orange   <- "#E69F00"
-  col_skyblue  <- "#56B4E9"
-  col_green    <- "#009E73"
-  col_yellow   <- "#F0E442"
-  col_blue     <- "#0072B2"
-  col_vermil   <- "#D55E00"
-  col_purple   <- "#CC79A7"
-  
+  # NTSERP Palette (colour-blind friendly)
+  col_black   <- "#000000" # Black (conductivity)
+  col_indigo  <- "#233d4d" # Japanese Indigo (water level)
+  col_brown   <- "#915e3d" # Mushroom Leather (barometric pressure)
+  col_yellow  <- "#FDB840" # Fire (air temperature)
+  col_ltgreen <- "#a1c181" # Iris Green (dissolved oxygen)
+  col_green   <- "#619b8a" # Dull Sea Green (water temperature)
+
   list(
-    # DO (raw vs adj differ mainly by alpha in geoms)
-    do_raw       = col_blue,
-    do_adj       = col_skyblue,
+    # DO (raw vs adj differ by alpha in geoms)
+    do_raw       = col_ltgreen,
+    do_adj       = col_ltgreen,
     do_temp_raw  = col_green,
     do_temp_adj  = col_green,
-    do_air_temp  = col_orange,
-    
-    # Conductivity
-    cond_raw      = col_purple,
-    cond_adj      = col_purple,
+    do_air_temp  = col_yellow,
+
+    # Conductivity (raw vs adj differ by alpha in geoms)
+    cond_raw      = col_black,
+    cond_adj      = col_black,
     cond_temp     = col_green,
     cond_temp_adj = col_green,
-    cond_air_temp = col_orange,
-    
-    # Water level
-    wl_raw       = col_black,
-    wl_adj       = col_blue,
+    cond_air_temp = col_yellow,
+
+    # Water level (raw vs adj differ by alpha in geoms)
+    wl_raw       = col_indigo,
+    wl_adj       = col_indigo,
     wl_temp      = col_green,
     wl_temp_adj  = col_green,
-    wl_air_temp  = col_orange,
-    
-    # Barometric
-    baro_air_raw = col_orange,
+    wl_air_temp  = col_yellow,
+
+    # Barometric (raw vs adj differ by alpha in geoms)
+    baro_air_raw = col_yellow,
     baro_air_adj = col_yellow,
-    baro_p_raw   = col_black,
-    baro_p_adj   = col_green
+    baro_p_raw   = col_brown,
+    baro_p_adj   = col_brown,
+
+    # Air Temperature (raw vs adj differ by alpha in geoms)
+    air_temp_raw = col_yellow,
+    air_temp_adj = col_yellow,
+
+    # Water Temperature (raw vs adj differ by alpha in geoms)
+    water_temp_raw = col_green,
+    water_temp_adj = col_green
   )
 }
 
 
 
-#' Shapes & colours for QA/QC flags (distinct colour-blind friendly palette)
+#' Shapes & colours for QA/QC flags
 #'
-#' Uses Paul Tol's "vibrant" palette
+#' All flags are plotted in black with unique shapes to distinguish
+#' flag types without introducing colour confusion with the time series
+#' lines.
 #'
 #' @param levels_vec Character vector of flag names.
 #'
@@ -59,36 +67,25 @@ qaqc_plot_cols <- function() {
 #' @keywords internal
 #' @noRd
 qaqc_flag_style <- function(levels_vec) {
-  
-  # Paul Tol Vibrant colours (also CB-friendly)
-  base_cols <- c(
-    "#EE7733", # orange
-    "#0077BB", # blue
-    "#009988", # teal
-    "#CC3311", # red
-    "#EE3377", # magenta,
-    "#33BBEE", # cyan
-    "#BBBBBB"  # grey
-  )
-  
+
   # Strongly distinct shapes
   base_shapes <- c(
     16, # filled circle
     17, # filled triangle
     15, # filled square
     3,  # plus
-    4,  # ×
+    4,  # x
     7,  # diamond
     8   # star
   )
-  
+
   n <- length(levels_vec)
-  cols   <- rep(base_cols,   length.out = n)
-  shapes <- rep(base_shapes, length.out = n)
-  
+  cols   <- rep("#000000",    length.out = n)
+  shapes <- rep(base_shapes,  length.out = n)
+
   names(cols)   <- levels_vec
   names(shapes) <- levels_vec
-  
+
   list(shape = shapes, colour = cols)
 }
 

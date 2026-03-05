@@ -55,7 +55,8 @@ added columns \code{density_kgm3}, \code{density_lbft3},
 \code{waterlevel_m}, \code{waterlevel_reference}, and
 \code{ref_m}.}
 \item{\code{ref_dat}}{Data frame of in-range reference
-measurements (\code{timestamp}, \code{ref_m}).}
+measurements (\code{timestamp}, \code{ref_m},
+\code{site_comments}).}
 \item{\code{wl_plot}}{Interactive \pkg{plotly} QAQC plot, or
 \code{NULL} when \code{return_plots = FALSE}.}
 }

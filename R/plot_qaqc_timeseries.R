@@ -84,7 +84,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
     # 1) DO timeseries (mg/L)
     p_do <- ggplot2::ggplot(do_df, ggplot2::aes(x = timestamp)) +
       ggplot2::geom_line(
-        ggplot2::aes(y = do_mgl, colour = "red"),
+        ggplot2::aes(y = do_mgl, colour = "do_raw"),
         alpha = 0.5
       ) +
       ggplot2::geom_line(

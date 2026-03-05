@@ -29,20 +29,24 @@ relevant adjusted fields (e.g. \code{waterlevel_m_adj},
 
 \item{metric}{Character string specifying which metric to adjust. Accepted
 values include \code{"waterlevel"}, \code{"dissolvedoxygen"},
-\code{"watertemp"}, \code{"barometric"}, \code{"conductivity"} and
-common variants (e.g. \code{"water level"}, \code{"DO"}, \code{"BARO"}).}
+\code{"watertemp"}, \code{"barometric"}, \code{"airtemp"},
+\code{"conductivity"} and common variants (e.g. \code{"water level"},
+\code{"DO"}, \code{"BARO"}, \code{"AT"}).}
 
 \item{reason_to_adjust}{Character; reason for the adjustment. One of
 \code{"ice"}, \code{"dry"}, or \code{"disturbance"}. This controls which
-\code{edit_*} flag column is set and how the NA adjustment is applied.}
+\code{edit_*} flag column is set and how the NA adjustment is applied.
+Note: barometric and air temperature metrics only accept
+\code{"disturbance"}.}
 
 \item{timestamp_start, timestamp_end}{Character date-time values defining
 the adjustment window, in \code{"YYYY-MM-DD HH:MM:SS"} format, parsed
 with \code{lubridate::ymd_hms()}.}
 
-\item{keep_temp}{Logical; if \code{TRUE}, water temperature adjustments are
-skipped for disturbance events (where applicable). Ignored for metrics
-where no temperature is associated.}
+\item{keep_temp}{Logical; if \code{TRUE}, associated temperature adjustments
+are skipped for \code{"ice"} and \code{"disturbance"} events. Ignored for
+\code{"dry"} (temperature always removed) and for metrics where no
+temperature column is associated (\code{"watertemp"}, \code{"airtemp"}).}
 
 \item{apply_to_all_data}{Logical; if \code{FALSE} (default), only values
 within \code{timestamp_start}–\code{timestamp_end} are set to NA. If

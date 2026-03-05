@@ -2,7 +2,7 @@
 % Please edit documentation in R/qaqc_log_helpers.R
 \name{make_qaqc_log_row}
 \alias{make_qaqc_log_row}
-\title{Create a single QA/QC log row}
+\title{Create QA/QC log rows from flagged timestamps}
 \usage{
 make_qaqc_log_row(
   timestamps,
@@ -15,11 +15,12 @@ make_qaqc_log_row(
   manual_note,
   fun_name,
   user,
-  run_time = Sys.time()
+  run_time = Sys.time(),
+  gap_factor = 1.5
 )
 }
 \arguments{
-\item{timestamps}{POSIXct vector of affected timestamps (or a 2-length range).}
+\item{timestamps}{POSIXct vector of affected timestamps.}
 
 \item{station}{Character. Station code.}
 
@@ -40,12 +41,24 @@ make_qaqc_log_row(
 \item{user}{Character. Analyst identifier/name.}
 
 \item{run_time}{POSIXct. Run time stamp. Defaults to \code{Sys.time()}.}
+
+\item{gap_factor}{Numeric. Multiplier applied to the median time step
+to define the gap threshold. Defaults to \code{1.5}.}
 }
 \value{
-A one-row tibble, or NULL if \code{timestamps} is empty/all NA.
+A tibble with one row per contiguous run, or NULL if
+\code{timestamps} is empty / all NA.
 }
 \description{
-Creates one summary log entry spanning the min/max of \code{timestamps}.
-Intended for segment-style logging (not one-row-per-sample).
+Splits \code{timestamps} into contiguous runs and returns one log row per
+run.
+}
+\details{
+A "gap" is any inter-timestamp interval greater than
+\code{gap_factor * median(diff(timestamps))}.
+When all timestamps are already contiguous (or when the vector has
+fewer than 3 elements), the function returns a single row — preserving
+identical behaviour for manual-adjustment callers that pass a
+continuous range.
 }
 \keyword{internal}

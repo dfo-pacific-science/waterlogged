@@ -25,12 +25,19 @@ qaqc_log_path <- function(log_root, station, metric) {
   file.path(log_dir, log_file)
 }
 
-#' Create a single QA/QC log row
+#' Create QA/QC log rows from flagged timestamps
 #'
-#' Creates one summary log entry spanning the min/max of `timestamps`.
-#' Intended for segment-style logging (not one-row-per-sample).
+#' Splits `timestamps` into contiguous runs and returns one log row per
+#' run.
 #'
-#' @param timestamps POSIXct vector of affected timestamps (or a 2-length range).
+#' A "gap" is any inter-timestamp interval greater than
+#' `gap_factor * median(diff(timestamps))`.
+#' When all timestamps are already contiguous (or when the vector has
+#' fewer than 3 elements), the function returns a single row — preserving
+#' identical behaviour for manual-adjustment callers that pass a
+#' continuous range.
+#'
+#' @param timestamps POSIXct vector of affected timestamps.
 #' @param station Character. Station code.
 #' @param metric Character. Metric label (e.g., "WL", "DO", "COND").
 #' @param field Character. Field/column name that was affected (e.g., "wl_elev_m").
@@ -41,8 +48,11 @@ qaqc_log_path <- function(log_root, station, metric) {
 #' @param fun_name Character. Function name generating the entry.
 #' @param user Character. Analyst identifier/name.
 #' @param run_time POSIXct. Run time stamp. Defaults to `Sys.time()`.
+#' @param gap_factor Numeric. Multiplier applied to the median time step
+#'   to define the gap threshold. Defaults to `1.5`.
 #'
-#' @return A one-row tibble, or NULL if `timestamps` is empty/all NA.
+#' @return A tibble with one row per contiguous run, or NULL if
+#'   `timestamps` is empty / all NA.
 #' @keywords internal
 make_qaqc_log_row <- function(timestamps,
                               station,
@@ -54,31 +64,51 @@ make_qaqc_log_row <- function(timestamps,
                               manual_note,
                               fun_name,
                               user,
-                              run_time = Sys.time()) {
+                              run_time = Sys.time(),
+                              gap_factor = 1.5) {
   if (length(timestamps) == 0 || all(is.na(timestamps))) {
     return(NULL)
   }
-  
-  ts_start <- min(timestamps, na.rm = TRUE)
-  ts_end   <- max(timestamps, na.rm = TRUE)
-  
-  duration_hours <- as.numeric(difftime(ts_end, ts_start, units = "hours"))
-  
-  tibble::tibble(
-    station        = station,
-    metric         = metric,
-    field          = field,
-    action         = action,
-    code           = code,
-    action_note    = action_note,
-    manual_note    = manual_note,
-    ts_start       = ts_start,
-    ts_end         = ts_end,
-    duration_hours = duration_hours,
-    fun_name       = fun_name,
-    run_at         = run_time,
-    user           = user
-  )
+
+  ts <- sort(timestamps[!is.na(timestamps)])
+
+  # --- Identify contiguous runs ------------------------------------------------
+  # For a single timestamp or a pair, everything is one run.
+  if (length(ts) <= 2) {
+    run_id <- rep(1L, length(ts))
+  } else {
+    diffs    <- as.numeric(diff(ts), units = "secs")
+    med_step <- stats::median(diffs, na.rm = TRUE)
+    # Guard against zero median (all-identical timestamps)
+    threshold <- if (med_step > 0) gap_factor * med_step else 1
+    # Increment run id wherever the gap exceeds the threshold
+    run_id <- c(1L, cumsum(diffs > threshold) + 1L)
+  }
+
+  # --- Build one log row per run -----------------------------------------------
+  runs <- split(ts, run_id)
+
+  rows <- lapply(runs, function(run_ts) {
+    r_start <- min(run_ts)
+    r_end   <- max(run_ts)
+    tibble::tibble(
+      station        = station,
+      metric         = metric,
+      field          = field,
+      action         = action,
+      code           = code,
+      action_note    = action_note,
+      manual_note    = manual_note,
+      ts_start       = r_start,
+      ts_end         = r_end,
+      duration_hours = as.numeric(difftime(r_end, r_start, units = "hours")),
+      fun_name       = fun_name,
+      run_at         = run_time,
+      user           = user
+    )
+  })
+
+  dplyr::bind_rows(rows)
 }
 
 #' Conditionally append QA/QC log rows (Shiny-compatible wrapper)

@@ -1,5 +1,96 @@
 # ---- Helpers ---------------------------------------------------------------
 
+#' Normalise a user-supplied temporal scale string
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to validate
+#' and standardise the \code{temporal_scale} argument.
+#'
+#' @param temporal_scale Character scalar.  Recognised values
+#'   (case-insensitive, whitespace-stripped):
+#'   \code{"none"}, \code{"hourly"} / \code{"hour"},
+#'   \code{"daily"} / \code{"day"},
+#'   \code{"weekly"} / \code{"week"},
+#'   \code{"monthly"} / \code{"month"},
+#'   \code{"yearly"} / \code{"year"} / \code{"annual"}.
+#'
+#' @return A single canonical temporal-scale string.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+normalise_temporal_scale <- function(temporal_scale) {
+  if (is.null(temporal_scale) || length(temporal_scale) != 1L) {
+    stop("`temporal_scale` must be a single, non-NULL value.", call. = FALSE)
+  }
+
+  ts <- tolower(trimws(temporal_scale))
+  ts <- gsub("\\s+", "", ts)
+
+  if (ts %in% c("none", "raw", "original"))          return("none")
+  if (ts %in% c("hourly", "hour", "hr"))             return("hourly")
+  if (ts %in% c("daily", "day"))                     return("daily")
+  if (ts %in% c("weekly", "week", "wk"))             return("weekly")
+  if (ts %in% c("monthly", "month", "mo"))           return("monthly")
+  if (ts %in% c("yearly", "year", "yr", "annual"))   return("yearly")
+
+  stop(
+    "Unknown `temporal_scale`. Expected one of: ",
+    "'none', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'",
+    " (case and spaces ignored). You gave: '", temporal_scale, "'.",
+    call. = FALSE
+  )
+}
+
+
+#' Read a single logger CSV file
+#'
+#' Internal helper called by \code{\link{get_logger_data}} via
+#' \code{purrr::map_df()} to read one processed CSV file, parse
+#' the timestamp column, and coerce known factor columns.
+#'
+#' @param file_path Character scalar.  Path to a CSV file.
+#'
+#' @return A data frame with \code{timestamp} parsed to POSIXct (UTC)
+#'   and factor columns coerced to character.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+read_logger_file <- function(file_path) {
+  dat <- utils::read.csv(
+    file_path,
+    header           = TRUE,
+    stringsAsFactors = FALSE,
+    check.names      = FALSE
+  )
+
+  if (!"timestamp" %in% names(dat)) {
+    ts_cand <- intersect(
+      c("timestamp", "Timestamp", "Date Time", "datetime", "date_time"),
+      names(dat)
+    )
+    if (!length(ts_cand)) {
+      warning("read_logger_file(): No timestamp column in ", basename(file_path), ". Skipping.")
+      return(dat)
+    }
+    names(dat)[names(dat) == ts_cand[1]] <- "timestamp"
+  }
+
+  if (!inherits(dat$timestamp, "POSIXct")) {
+    dat$timestamp <- suppressWarnings(
+      lubridate::ymd_hms(dat$timestamp, tz = "UTC")
+    )
+  }
+
+  # Coerce known factor/code columns to character
+  for (col in intersect(factor_cols, names(dat))) {
+    dat[[col]] <- as.character(dat[[col]])
+  }
+
+  dat
+}
+
+
 #' Normalise a user-supplied metric string to a canonical name
 #'
 #' Internal helper called by \code{\link{get_logger_data}} to
@@ -44,10 +135,11 @@ normalise_metric <- function(metric, allow_all = FALSE) {
   if (m %in% c("baro", "barometric", "airpressure")) return("barometric")
   if (m %in% c("watertemp", "watertemperature"))     return("watertemp")
   if (m %in% c("airtemp", "airtemperature"))         return("airtemp")
-  
+  if (m %in% c("conductivity", "cond", "spc"))       return("conductivity")
+
   stop(
     "Unknown `metric`. Expected one of: ",
-    "'waterlevel', 'dissolvedoxygen', 'barometric', 'watertemp', 'airtemp'",
+    "'waterlevel', 'dissolvedoxygen', 'barometric', 'conductivity', 'watertemp', 'airtemp'",
     " (case and spaces ignored). You gave: '", metric, "'.",
     call. = FALSE
   )
@@ -334,6 +426,32 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         .groups          = "drop"
       )
     
+  } else if (metric_norm == "conductivity") {
+
+    required <- c("conduct_uScm_adj", "watertemp_C_adj")
+    missing  <- setdiff(required, names(dat))
+    if (length(missing) > 0L) {
+      stop(
+        "For metric 'conductivity', expected columns: ",
+        paste(required, collapse = ", "),
+        ". Missing: ", paste(missing, collapse = ", "),
+        ". Did you select the correct folder (clean v1.0 COND data)?",
+        call. = FALSE
+      )
+    }
+
+    out <- dat |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
+      dplyr::summarise(
+        mean_conduct_uScm = mean(conduct_uScm_adj, na.rm = TRUE),
+        mean_watertemp_C  = mean(watertemp_C_adj,  na.rm = TRUE),
+        min_conduct_uScm  = min(conduct_uScm_adj,  na.rm = TRUE),
+        min_watertemp_C   = min(watertemp_C_adj,   na.rm = TRUE),
+        max_conduct_uScm  = max(conduct_uScm_adj,  na.rm = TRUE),
+        max_watertemp_C   = max(watertemp_C_adj,   na.rm = TRUE),
+        .groups           = "drop"
+      )
+
   } else {
     stop("Metric '", metric_norm, "' not implemented in summarise_clean_data().", call. = FALSE)
   }
@@ -357,4 +475,104 @@ factor_cols <- c(
   "sn", "baro_code", "qaqc_code", "wl_qaqc_code",
   "do_qaqc_code", "wt_qaqc_code", "at_qaqc_code", "baro_qaqc_code"
 )
+
+
+#' Build summary plots for get_logger_data
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to create
+#' ggplot time series panels for the summarised data.  Each metric
+#' defines its own set of panels (up to three).
+#'
+#' @param dat_sum Data frame produced by \code{summarise_clean_data()}.
+#'   Must contain \code{site_station_code}, \code{time_group}, and the
+#'   metric-specific mean/min/max columns.
+#' @param metric_norm Character scalar.  Canonical metric name.
+#' @param temporal_scale Character scalar.  The temporal resolution
+#'   label used in the plot title.
+#'
+#' @return A named list with elements \code{plot1}, \code{plot2},
+#'   \code{plot3} (some may be \code{NULL}).
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+build_plots <- function(dat_sum, metric_norm, temporal_scale) {
+
+  make_ribbon_plot <- function(data, mean_col, min_col, max_col,
+                               y_lab, title, colour = "#233d4d") {
+    ggplot2::ggplot(data, ggplot2::aes(x = time_group)) +
+      ggplot2::geom_ribbon(
+        ggplot2::aes(
+          ymin = .data[[min_col]],
+          ymax = .data[[max_col]]
+        ),
+        alpha = 0.25,
+        fill  = colour
+      ) +
+      ggplot2::geom_line(
+        ggplot2::aes(y = .data[[mean_col]]),
+        colour = colour
+      ) +
+      ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
+      ggplot2::labs(title = title, x = "Date", y = y_lab) +
+      ggplot2::theme_classic()
+  }
+
+  label <- paste0("(", temporal_scale, ")")
+
+  if (metric_norm == "waterlevel") {
+    p1 <- make_ribbon_plot(dat_sum, "mean_waterlevel_m", "min_waterlevel_m",
+                           "max_waterlevel_m", "Water Level (m)",
+                           paste("Water Level", label), "#233d4d")
+    p2 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
+                           "max_watertemp_C", "Water Temp (\u00b0C)",
+                           paste("Water Temperature", label), "#619b8a")
+    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+
+  } else if (metric_norm == "dissolvedoxygen") {
+    p1 <- make_ribbon_plot(dat_sum, "mean_do_mgl", "min_do_mgl",
+                           "max_do_mgl", "DO (mg/L)",
+                           paste("Dissolved Oxygen", label), "#a1c181")
+    p2 <- make_ribbon_plot(dat_sum, "mean_do_percsat", "min_do_percsat",
+                           "max_do_percsat", "DO (% sat)",
+                           paste("DO % Saturation", label), "#a1c181")
+    p3 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
+                           "max_watertemp_C", "Water Temp (\u00b0C)",
+                           paste("Water Temperature", label), "#619b8a")
+    return(list(plot1 = p1, plot2 = p2, plot3 = p3))
+
+  } else if (metric_norm == "barometric") {
+    p1 <- make_ribbon_plot(dat_sum, "mean_airpress_kPa", "min_airpress_kPa",
+                           "max_airpress_kPa", "Air Pressure (kPa)",
+                           paste("Barometric Pressure", label), "#915e3d")
+    p2 <- make_ribbon_plot(dat_sum, "mean_airtemp_C", "min_airtemp_C",
+                           "max_airtemp_C", "Air Temp (\u00b0C)",
+                           paste("Air Temperature", label), "#FDB840")
+    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+
+  } else if (metric_norm == "conductivity") {
+    p1 <- make_ribbon_plot(dat_sum, "mean_conduct_uScm", "min_conduct_uScm",
+                           "max_conduct_uScm", "Conductivity (\u00b5S/cm)",
+                           paste("Conductivity", label), "#000000")
+    p2 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
+                           "max_watertemp_C", "Water Temp (\u00b0C)",
+                           paste("Water Temperature", label), "#619b8a")
+    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+
+  } else if (metric_norm == "airtemp") {
+    p1 <- make_ribbon_plot(dat_sum, "mean_airtemp_C", "min_airtemp_C",
+                           "max_airtemp_C", "Air Temp (\u00b0C)",
+                           paste("Air Temperature", label), "#FDB840")
+    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
+
+  } else if (metric_norm == "watertemp") {
+    p1 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
+                           "max_watertemp_C", "Water Temp (\u00b0C)",
+                           paste("Water Temperature", label), "#619b8a")
+    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
+
+  } else {
+    return(list(plot1 = NULL, plot2 = NULL, plot3 = NULL))
+  }
+}
 

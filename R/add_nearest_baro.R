@@ -6,8 +6,8 @@
 #'
 #' \describe{
 #'   \item{\strong{Auto mode}}{(\code{baro_site_selection = "auto"}, the
-#'     default.) Uses latitude/longitude from the metadata to find the up-to-3
-#'     nearest barometric stations (Haversine distance). When \code{max_km} is
+#'     default.) Uses latitude/longitude from the metadata to find the nearest
+#'     barometric stations (Haversine distance, up to \code{max_stations}). When \code{max_km} is
 #'     non-\code{NULL}, candidates are limited to that radius.
 #'     Overlapping series are calibrated to the nearest station via
 #'     \code{\link{calibrate_baro_series}}, then merged into a single composite
@@ -38,6 +38,10 @@
 #'   barometric stations in auto mode. Default is \code{NULL} (no distance
 #'   limit — all barometric stations are considered). Set to a positive number
 #'   to restrict candidates to stations within that radius.
+#' @param max_stations Integer. Maximum number of nearest barometric stations
+#'   to use per site in auto mode (default \code{5}). Increasing this value
+#'   reduces the chance of NA gaps when the closest stations have incomplete
+#'   temporal coverage, at the cost of slightly more computation.
 #' @param baro_site_selection Character. Either \code{"auto"} (default) for
 #'   nearest-neighbour selection or a specific barometric
 #'   \code{site_station_code} for manual selection.
@@ -74,8 +78,8 @@
 #' \enumerate{
 #'   \item Compute Haversine distances between every site and every barometric
 #'     station listed in the metadata.
-#'   \item Retain the nearest 3 barometric stations (optionally filtered to
-#'     within \code{max_km} when non-\code{NULL}).
+#'   \item Retain the nearest \code{max_stations} barometric stations
+#'     (optionally filtered to within \code{max_km} when non-\code{NULL}).
 #'   \item For each site, read (or filter) barometric data for those stations,
 #'     calibrate secondary/tertiary series to the nearest station using
 #'     \code{\link{calibrate_baro_series}}, and \code{coalesce()} into a single
@@ -102,6 +106,7 @@ add_nearest_baro <- function(input_data,
                              baro_data_path = NULL,
                              metric = c("water level", "DO", "conductivity", "both", "all"),
                              max_km = NULL,
+                             max_stations = 5L,
                              baro_site_selection = "auto",
                              metadata_path = NULL,
                              metadata = NULL,
@@ -325,9 +330,9 @@ add_nearest_baro <- function(input_data,
       dplyr::ungroup()
 
     site_baro_rank <- if (is.null(max_km)) {
-      site_baro_rank_raw |> dplyr::filter(rank <= 3)
+      site_baro_rank_raw |> dplyr::filter(rank <= max_stations)
     } else {
-      site_baro_rank_raw |> dplyr::filter(dist_m <= max_km * 1000, rank <= 3)
+      site_baro_rank_raw |> dplyr::filter(dist_m <= max_km * 1000, rank <= max_stations)
     }
 
     input_sites <- unique(input_data$site_station_code)

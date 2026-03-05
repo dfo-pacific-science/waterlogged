@@ -18,11 +18,7 @@ Default \code{"u20"}.}
 }
 \value{
 \code{input_data} with \code{timestamp} coerced to POSIXct
-(UTC) if not already.  Warnings are emitted for out-of-range values
-(per station and year) in \code{watertemp_C}
-(\eqn{[-5, 40]} degrees C), \code{waterpress_kPa}
-(\eqn{[80, 300]} kPa), and \code{airpress_kPa}
-(\eqn{[80, 120]} kPa).
+(UTC) if not already.
 }
 \description{
 Internal helper called by \code{\link{convert_waterlevel_kPa_m}} to

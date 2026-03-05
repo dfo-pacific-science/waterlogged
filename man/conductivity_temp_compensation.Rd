@@ -8,18 +8,17 @@ conductivity_temp_compensation(input_data)
 }
 \arguments{
 \item{input_data}{A data frame of conductivity observations.
-Must contain \code{conduct_uScm_adj} (adjusted electrical
-conductivity in uS/cm) and \code{watertemp_C_adj}
-(adjusted water temperature in degrees C).
-Typically the output of \code{\link{conductivity_qaqc}}.}
+Must contain at least one of \code{conduct_uScm_adj} or
+\code{conduct_uScm} (electrical conductivity in uS/cm) and at
+least one of \code{watertemp_C_adj} or \code{watertemp_C}
+(water temperature in degrees C).}
 }
 \value{
 \code{input_data} with one column added:
 \describe{
 \item{\code{spc_uScm_adj}}{Specific conductance
-(uS/cm at 25 degrees C).  \code{NA} where either
-\code{conduct_uScm_adj} or \code{watertemp_C_adj} is
-\code{NA}.}
+(uS/cm at 25 degrees C).  \code{NA} where either the
+conductivity or temperature input is \code{NA}.}
 }
 A warning is issued when more than 5\\% of temperature values are
 \code{NA}.
@@ -32,9 +31,10 @@ fitted to the published coefficient table and applied as
 \code{SPC = f(T) * EC}.
 }
 \details{
-Typically run after \code{\link{conductivity_qaqc}} (or
-\code{\link{conductivity_qaqc_all}}) so that the adjusted columns
-\code{conduct_uScm_adj} and \code{watertemp_C_adj} are available.
+Can be run either before or after \code{\link{conductivity_qaqc}}.
+The function prefers \code{*_adj} columns when available and falls
+back to the raw columns (\code{conduct_uScm}, \code{watertemp_C})
+otherwise.
 
 The compensation coefficients are read from
 \code{inst/extdata/tempcomp27888.csv} (shipped with the package),
@@ -45,7 +45,7 @@ The table is pivoted to long format and a 5th-order polynomial
 25 degrees C the coefficient equals 1.0 (i.e. no correction).
 }
 \seealso{
-\code{\link{conductivity_qaqc}} (upstream QAQC that produces
-the \code{_adj} columns), \code{\link{wq_drift_correction}}
+\code{\link{conductivity_qaqc}},
+\code{\link{wq_drift_correction}}
 (optional drift correction for conductivity)
 }

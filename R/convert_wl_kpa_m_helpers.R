@@ -14,11 +14,7 @@
 #'   Default \code{"u20"}.
 #'
 #' @return \code{input_data} with \code{timestamp} coerced to POSIXct
-#'   (UTC) if not already.  Warnings are emitted for out-of-range values
-#'   (per station and year) in \code{watertemp_C}
-#'   (\eqn{[-5, 40]} degrees C), \code{waterpress_kPa}
-#'   (\eqn{[80, 300]} kPa), and \code{airpress_kPa}
-#'   (\eqn{[80, 120]} kPa).
+#'   (UTC) if not already.
 #'
 #' @seealso \code{\link{convert_waterlevel_kPa_m}} (sole caller)
 #'
@@ -65,63 +61,6 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
     }
     input_data$timestamp <- ts_parsed
   }
-  
-  ## --- Helper to warn by station + year ------------------------------
-  warn_by_station_year <- function(df, value_col, lower, upper, label) {
-    
-    if (!value_col %in% names(df)) return(invisible())
-    
-    v   <- df[[value_col]]
-    bad <- !is.na(v) & (v < lower | v > upper)
-    
-    if (!any(bad)) return(invisible())
-    
-    bad_df <- df[bad, c("site_station_code", "timestamp", value_col)]
-    
-    bad_summary <- bad_df |>
-      dplyr::mutate(year = lubridate::year(timestamp)) |>
-      dplyr::count(site_station_code, year, name = "n_bad") |>
-      dplyr::arrange(site_station_code, year)
-    
-    msg_lines <- paste0(
-      "  - ", bad_summary$site_station_code,
-      ", ", bad_summary$year, ": ",
-      bad_summary$n_bad, " value(s)"
-    )
-    
-    warning(
-      label, "\n",
-      paste(msg_lines, collapse = "\n")
-    )
-  }
-  
-  ## --- Range QA/QC using the helper ---------------------------------
-  # Temperature: expected [-5, 40] deg C
-  warn_by_station_year(
-    df        = input_data,
-    value_col = "watertemp_C",
-    lower     = -5,
-    upper     = 40,
-    label     = "convert_waterlevel_kPa_m(): watertemp_C outside [-5, 40] \u00b0C by station/year:"
-  )
-  
-  # Water pressure: very rough sanity range (adjust if you like)
-  warn_by_station_year(
-    df        = input_data,
-    value_col = "waterpress_kPa",
-    lower     = 80,    # example min
-    upper     = 300,   # example max
-    label     = "convert_waterlevel_kPa_m(): waterpress_kPa outside [80, 300] kPa by station/year:"
-  )
-  
-  # Baro pressure: rough sanity range
-  warn_by_station_year(
-    df        = input_data,
-    value_col = "airpress_kPa",
-    lower     = 80,
-    upper     = 120,
-    label     = "convert_waterlevel_kPa_m(): airpress_kPa outside [80, 120] kPa by station/year:"
-  )
   
   return(input_data)
 }
@@ -349,7 +288,8 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
 #'       \code{waterlevel_m}, \code{waterlevel_reference}, and
 #'       \code{ref_m}.}
 #'     \item{\code{ref_dat}}{Data frame of in-range reference
-#'       measurements (\code{timestamp}, \code{ref_m}).}
+#'       measurements (\code{timestamp}, \code{ref_m},
+#'       \code{site_comments}).}
 #'     \item{\code{wl_plot}}{Interactive \pkg{plotly} QAQC plot, or
 #'       \code{NULL} when \code{return_plots = FALSE}.}
 #'   }
@@ -379,7 +319,7 @@ convert_waterlevel_single <- function(input_data,
   ref_dat <- reference_data |>
     dplyr::filter(site_station_code == select_station) |>
     dplyr::mutate(ref_m = .data[[ref_level_col]]) |>
-    dplyr::select(timestamp, ref_m) |>
+    dplyr::select(timestamp, ref_m, site_comments) |>
     dplyr::filter(!is.na(ref_m)) |>
     dplyr::arrange(timestamp)
   
@@ -392,7 +332,28 @@ convert_waterlevel_single <- function(input_data,
   
   # Round to nearest hour (to match logger)
   ref_dat$timestamp <- lubridate::round_date(ref_dat$timestamp, "hour")
-  
+
+  # Deduplicate: when two measurements round to the same hour (e.g.,
+
+  # before/after repositioning a logger), keep the last one — the
+  # post-adjustment value is the relevant reference going forward.
+  dup_ts <- duplicated(ref_dat$timestamp, fromLast = FALSE) |
+            duplicated(ref_dat$timestamp, fromLast = TRUE)
+  if (any(dup_ts)) {
+    dup_vals <- unique(ref_dat$timestamp[dup_ts])
+    warning(
+      "convert_waterlevel_kPa_m(): ", length(dup_vals),
+      " reference timestamp(s) for station ", select_station,
+      " collapsed to the same hour after rounding. ",
+      "Keeping the last measurement at each rounded timestamp.",
+      call. = FALSE
+    )
+    ref_dat <- ref_dat |>
+      dplyr::group_by(timestamp) |>
+      dplyr::slice_tail(n = 1) |>
+      dplyr::ungroup()
+  }
+
   # Filter to logger time range
   ref_dat <- ref_dat |>
     dplyr::filter(timestamp >= ts_range[1], timestamp <= ts_range[2])

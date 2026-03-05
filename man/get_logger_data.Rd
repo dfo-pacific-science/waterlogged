@@ -31,6 +31,7 @@ spaces ignored) are mapped to:
 \item \code{"waterlevel"}: water level + water temperature
 \item \code{"dissolvedoxygen"}: DO (mg/L, \%sat) + water temperature
 \item \code{"barometric"}: barometric pressure + air temperature
+\item \code{"conductivity"}: conductivity + water temperature
 \item \code{"airtemp"}: air temperature (e.g., TidbiT)
 \item \code{"watertemp"}: water temperature (e.g., TidbiT)
 }}
