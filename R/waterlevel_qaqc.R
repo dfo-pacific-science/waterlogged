@@ -88,11 +88,7 @@ waterlevel_qaqc <- function(input_data,
   # 2. Subset to station + init adjusted cols ----------------------------------
   output_data <- input_data |>
     dplyr::filter(site_station_code == select_station) |>
-    dplyr::arrange(timestamp) |>
-    dplyr::mutate(
-      waterlevel_m_adj = waterlevel_m,
-      watertemp_C_adj  = watertemp_C
-    )
+    dplyr::arrange(timestamp)
 
   if (nrow(output_data) == 0) {
     stop("waterlevel_qaqc(): no rows found for station '", select_station, "'.")
@@ -103,21 +99,35 @@ waterlevel_qaqc <- function(input_data,
     output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
   }
 
+  # Create _adj columns if missing — preserves upstream corrections (e.g. wl_set_datum)
+  if (!"waterlevel_m_adj" %in% names(output_data))
+    output_data$waterlevel_m_adj <- output_data$waterlevel_m
+  if (!"watertemp_C_adj" %in% names(output_data))
+    output_data$watertemp_C_adj  <- output_data$watertemp_C
+
+  # Pre-compute median timestep for disturbance gap filtering (scalar, not a column)
+  med_step_secs <- as.numeric(
+    stats::median(diff(output_data$timestamp), na.rm = TRUE),
+    units = "secs"
+  )
+
   # 3. Apply QA/QC rules (WL + WT) --------------------------------------------
   output_data <- output_data |>
     dplyr::mutate(
-      # --- helper columns for waterlevel disturbance ---
-      wl_lead = dplyr::lead(waterlevel_m),
-      wl_diff = waterlevel_m - wl_lead,
+      # --- disturbance detection (lag-based: flags the first disturbed row) ---
+      wl_diff_abs = c(NA_real_, abs(diff(waterlevel_m))),
+      wl_dt_secs  = c(NA_real_, as.numeric(diff(timestamp), units = "secs")),
 
-      flag_disturbance = !is.na(waterlevel_m) & !is.na(wl_diff) &
-        abs(wl_diff) > 0.1,
+      flag_disturbance = !is.na(wl_diff_abs) &
+        !is.na(wl_dt_secs) &
+        wl_dt_secs <= 2 * med_step_secs &
+        wl_diff_abs > 0.1,
 
       # --- water temperature helpers (from old watertemp_qaqc) ---
       wt_high_dry   = !is.na(watertemp_C) & watertemp_C > 19,
       flag_ice      = !is.na(watertemp_C) & watertemp_C < 0.3,
       neg_lt_minus1 = !is.na(watertemp_C) & watertemp_C < -1,
-      neg_between   = !is.na(watertemp_C) & watertemp_C < 0 & watertemp_C > -1,
+      neg_between   = !is.na(watertemp_C) & watertemp_C < 0 & watertemp_C >= -1,
 
       wt_air_close  = !is.na(watertemp_C) & !is.na(airtemp_C) &
         abs(watertemp_C - airtemp_C) < 2,
@@ -130,7 +140,7 @@ waterlevel_qaqc <- function(input_data,
         (watertemp_C > 19 | waterpress_kPa <= airpress_kPa),
 
       # combine temperature-based dry signals
-      flag_dry_temp = wt_high_dry | wt_air_close | wt_air_warmer,
+      flag_dry_temp = wt_high_dry | (wt_air_close & wt_air_warmer),
 
       # final dry flag (WL + WT signals) - make it WL-specific
       flag_wl_dry = flag_dry_wl | flag_dry_temp,
@@ -144,7 +154,7 @@ waterlevel_qaqc <- function(input_data,
     ) |>
     # drop only internal helpers we don't want in the output
     dplyr::select(
-      -wl_lead, -wl_diff,
+      -wl_diff_abs, -wl_dt_secs,
       -wt_high_dry, -wt_air_close, -wt_air_warmer,
       -flag_dry_wl, -flag_dry_temp
     )
@@ -213,8 +223,8 @@ waterlevel_qaqc <- function(input_data,
       code           = NA_character_,
       action_note    = "Automatic water level & water temperature QA/QC ran; no flags applied.",
       manual_note    = manual_note,
-      ts_start       = NA_character_,
-      ts_end         = NA_character_,
+      ts_start       = as.POSIXct(NA_real_, tz = "UTC"),
+      ts_end         = as.POSIXct(NA_real_, tz = "UTC"),
       duration_hours = NA_real_,
       fun_name       = fun_name,
       run_at         = run_time,

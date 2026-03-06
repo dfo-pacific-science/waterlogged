@@ -15,7 +15,7 @@ This affected the four auto-QAQC callers (`waterlevel_qaqc`, `barometric_qaqc`, 
 
 `make_qaqc_log_row()` now sorts the incoming timestamps, computes the gaps between consecutive values, and splits the vector into contiguous runs wherever a gap exceeds `gap_factor * median(diff(timestamps))` (default `gap_factor = 1.5`). One log row is returned per run, each with its own `ts_start`, `ts_end`, and `duration_hours`.
 
-The return type changes from a guaranteed one-row tibble to a multi-row tibble (one row per contiguous run). All existing callers already combine results via `dplyr::bind_rows()`, so no caller changes were required. For callers that pass a continuous range (all manual-adjustment functions), the function still returns a single row — behaviour is identical to before.
+The return type changes from a guaranteed one-row tibble to a multi-row tibble (one row per contiguous run). All existing functions already combine results via `dplyr::bind_rows()`, so no functions changes were required. For functions that pass a continuous range (all manual-adjustment functions), the function still returns a single row,,, behaviour is near-identical to before.
 
 A new optional parameter `gap_factor` (default 1.5) controls the gap detection threshold and can be tuned if needed for irregularly-sampled data.
 

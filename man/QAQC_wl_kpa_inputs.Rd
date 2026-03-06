@@ -22,9 +22,8 @@ Default \code{"u20"}.}
 }
 \description{
 Internal helper called by \code{\link{convert_waterlevel_kPa_m}} to
-check required columns, parse timestamps, verify logger type, and
-warn about out-of-range values before the barometric compensation
-calculation.
+check required columns, parse timestamps, and verify logger type
+before the barometric compensation calculation.
 }
 \seealso{
 \code{\link{convert_waterlevel_kPa_m}} (sole caller)

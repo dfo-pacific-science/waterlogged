@@ -1,4 +1,17 @@
 
+#' Null-coalescing operator
+#'
+#' Returns \code{a} if it is non-NULL, non-NA, non-empty, and non-blank;
+#' otherwise returns \code{b}.
+#'
+#' @param a,b Values to test and fall back from/to.
+#' @return \code{a} or \code{b}.
+#' @keywords internal
+`%||%` <- function(a, b) {
+  if (!is.null(a) && length(a) && !is.na(a) && nzchar(a)) a else b
+}
+
+
 #' Convert Fahrenheit to Celsius
 #'
 #' Converts a numeric vector of temperatures from degrees Fahrenheit
@@ -43,6 +56,33 @@ normalize_string <- function(x) {
   x <- trimws(x)
   x <- gsub("\\s+", "", x)   # remove internal spaces
   x
+}
+
+
+#' Normalise a timezone string to an Olson name
+#'
+#' Converts a raw timezone string (from a POSIXct attribute or a logger
+#' metadata column) to a valid Olson timezone name. Handles standard Olson
+#' names, \code{GMT+HH:MM} / \code{GMT-HH:MM} offsets (with sign reversal
+#' to match \code{Etc/GMT*} convention), and common Pacific aliases.
+#' Returns \code{NULL} if the string cannot be resolved.
+#'
+#' @param x A single character string, or \code{NULL}/\code{NA}.
+#'
+#' @return A single Olson timezone name, or \code{NULL}.
+#'
+#' @keywords internal
+normalize_tz <- function(x) {
+  if (is.null(x) || is.na(x) || !nzchar(x)) return(NULL)
+  x <- trimws(x)
+  if (x %in% OlsonNames()) return(x)
+  if (grepl("^GMT[+-][0-9]{2}:[0-9]{2}$", x, ignore.case = TRUE)) {
+    hh   <- as.integer(substr(x, 5, 6))
+    sign <- substr(x, 4, 4)
+    if (sign == "+") paste0("Etc/GMT-", hh) else paste0("Etc/GMT+", hh)  # Etc/* reverses sign
+  } else if (tolower(x) %in% c("pst", "pdt", "pacific", "america/vancouver")) {
+    "America/Vancouver"
+  } else NULL
 }
 
 

@@ -32,6 +32,14 @@
 #' @param level_runs A data frame of levelling-run data (alternative to
 #'   \code{level_runs_path} for Shiny mode). Exactly one of
 #'   \code{level_runs_path} or \code{level_runs} must be supplied.
+#' @param max_anchor_gap_h Numeric scalar. Maximum allowable gap (in hours)
+#'   between the anchor visit datetime and the nearest logger sample.
+#'   Default \code{1}. Increase for loggers with coarse time steps (e.g.
+#'   2-hour intervals).
+#' @param bm_tolerance_m Numeric scalar. Benchmark inconsistency threshold
+#'   (in metres). A warning is issued if the inferred absolute elevation for
+#'   a benchmark differs by more than this amount across visits. Default
+#'   \code{0.02}.
 #'
 #' @return The full \code{input_data} data frame with two columns
 #'   added/updated for \code{select_station}:
@@ -73,8 +81,15 @@
 #' The function iterates visits in chronological order. If a visit's PBM
 #' is not yet in the network, it is inferred from any co-observed
 #' benchmark that \emph{is} known. An error is raised if a visit cannot be
-#' connected to the existing network. Inconsistencies > 0.02 m for a
-#' benchmark across visits trigger a warning.
+#' connected to the existing network. Benchmark inconsistencies exceeding
+#' \code{bm_tolerance_m} across visits trigger a warning.
+#'
+#' \strong{Timezone handling:}
+#' Visit date/time strings are parsed in the logger's timezone (detected
+#' from the POSIXct \code{tzone} attribute of \code{input_data$timestamp}
+#' or an optional \code{timezone} column). Falls back to \code{"UTC"} if
+#' neither is available. Pass logger timestamps as POSIXct with the correct
+#' \code{tzone} to ensure accurate matching.
 #'
 #' @seealso \code{\link{waterlevel_qaqc}} (upstream automatic QAQC),
 #'   \code{\link{convert_waterlevel_kPa_m}} (upstream kPa-to-m conversion),
@@ -86,7 +101,9 @@ wl_set_datum <- function(input_data,
                          select_station,
                          log_root = NULL,
                          user = NULL,
-                         level_runs = NULL) {
+                         level_runs = NULL,
+                         max_anchor_gap_h = 1,
+                         bm_tolerance_m   = 0.02) {
   if (is.null(user)) user <- Sys.info()[["user"]]
 
   # ---- 0. Basic checks -------------------------------------------------------
@@ -100,6 +117,16 @@ wl_set_datum <- function(input_data,
     )
   }
   
+  # ---- detect logger timezone -------------------------------------------------
+  # Visit date/time strings are parsed in this TZ to match logger timestamps
+  tz_from_posix <- attr(input_data$timestamp, "tzone")
+  tz_from_col   <- NULL
+  if ("timezone" %in% names(input_data)) {
+    tz_vals <- stats::na.omit(unique(as.character(input_data$timezone)))
+    if (length(tz_vals)) tz_from_col <- tz_vals[1]
+  }
+  tz_logger <- normalize_tz(tz_from_posix) %||% normalize_tz(tz_from_col) %||% "UTC"
+
   # pick stage column (no col-name params)
   stage_col <- NULL
   if ("waterlevel_m_adj" %in% names(input_data)) {
@@ -185,6 +212,7 @@ wl_set_datum <- function(input_data,
   }
   
   # build visit datetime from separate date + time (Excel-friendly)
+  # parsed in the logger's detected timezone so timestamps align correctly
   lv$visit_dt <- lubridate::parse_date_time(
     paste(lv$visit_date, lv$visit_time),
     orders = c(
@@ -192,7 +220,7 @@ wl_set_datum <- function(input_data,
       "mdy HMS", "mdy HM",
       "dmy HMS", "dmy HM"
     ),
-    tz = "UTC"
+    tz = tz_logger
   )
   
   if (any(is.na(lv$visit_dt))) {
@@ -305,29 +333,36 @@ wl_set_datum <- function(input_data,
     if (is.null(pbm_abs_i)) {
       pbm_abs_i <- infer_pbm_abs(pbm_id_i, pbm_raw_i, visit_row)
       if (is.na(pbm_abs_i)) {
+        before_anchor <- visit_row$visit_dt < lv$visit_dt[first_idx]
         stop(
           "wl_set_datum(): cannot connect visit at ", as.character(visit_row$visit_dt),
-          " to existing benchmark network (primary_bm '", pbm_id_i,
-          "' not known and no other known BM/TBM present).",
+          " (", tz_logger, ") to the existing benchmark network.",
+          if (isTRUE(before_anchor))
+            " This visit precedes the datum anchor — it must share at least one BM/TBM with the anchor visit."
+          else
+            "",
+          " primary_bm '", pbm_id_i, "' is not yet known and no co-observed BM/TBM is known.",
           call. = FALSE
         )
       }
       bm_abs_map[[pbm_id_i]] <- pbm_abs_i
     }
-    
+
     # update all BM/TBM abs values seen on this visit
     for (bm_id in bm_cols) {
       bm_raw <- visit_row[[bm_id]]
       if (is.na(bm_raw)) next
-      
+
       bm_abs_new <- pbm_abs_i + (bm_raw - pbm_raw_i)
-      
+
       if (!is.null(bm_abs_map[[bm_id]])) {
-        if (abs(bm_abs_map[[bm_id]] - bm_abs_new) > 0.02) {
+        if (abs(bm_abs_map[[bm_id]] - bm_abs_new) > bm_tolerance_m) {
           warning(
             "wl_set_datum(): benchmark '", bm_id,
-            "' has inconsistent inferred elevation across visits (>0.02 m). ",
+            "' has inconsistent inferred elevation across visits (>",
+            bm_tolerance_m, " m). ",
             "Keeping first value. Visit time: ", as.character(visit_row$visit_dt),
+            " (", tz_logger, ").",
             call. = FALSE
           )
         }
@@ -352,11 +387,16 @@ wl_set_datum <- function(input_data,
   dt_sec <- abs(as.numeric(logger_data$timestamp - anchor_dt, units = "secs"))
   j <- which.min(dt_sec)
   
-  # require within 1 hour (hard requirement for datum)
-  if (is.na(dt_sec[j]) || dt_sec[j] > 3600) {
+  max_anchor_gap_sec <- max_anchor_gap_h * 3600
+  if (is.na(dt_sec[j]) || dt_sec[j] > max_anchor_gap_sec) {
     stop(
-      "wl_set_datum(): anchor visit is more than 1 hour from nearest logger sample. ",
-      "Anchor visit: ", as.character(anchor_dt),
+      "wl_set_datum(): anchor visit is too far from the nearest logger sample. ",
+      "Anchor visit: ", as.character(anchor_dt), " (", tz_logger, "). ",
+      "Nearest logger sample: ", as.character(logger_data$timestamp[j]),
+      " (gap = ", round(dt_sec[j] / 3600, 2), " h; max allowed = ",
+      max_anchor_gap_h, " h). ",
+      "Increase `max_anchor_gap_h` if your logger interval is coarser than ",
+      max_anchor_gap_h, " h.",
       call. = FALSE
     )
   }
@@ -371,11 +411,7 @@ wl_set_datum <- function(input_data,
   # ---- 6. Apply datum to station time series --------------------------------
   logger_data$wl_elev_m <- logger_data[[stage_col]] + datum_offset_m
   
-  if (!"flag_wl_datum_applied" %in% names(logger_data)) {
-    logger_data$flag_wl_datum_applied <- TRUE
-  } else {
-    logger_data$flag_wl_datum_applied <- TRUE
-  }
+  logger_data$flag_wl_datum_applied <- TRUE
   
   # ---- ensure columns exist in full input_data with correct types ------------
   # wl_elev_m must be numeric
@@ -386,20 +422,6 @@ wl_set_datum <- function(input_data,
   # flag must be logical
   if (!"flag_wl_datum_applied" %in% names(input_data) || !is.logical(input_data$flag_wl_datum_applied)) {
     input_data$flag_wl_datum_applied <- FALSE
-  }
-  
-  # any other new columns (future-proofing)
-  new_cols <- setdiff(names(logger_data), names(input_data))
-  if (length(new_cols) > 0) {
-    for (nm in new_cols) {
-      if (nm == "wl_elev_m") {
-        input_data[[nm]] <- NA_real_
-      } else if (startsWith(nm, "flag_") || startsWith(nm, "edit_")) {
-        input_data[[nm]] <- NA  # logical NA
-      } else {
-        input_data[[nm]] <- NA
-      }
-    }
   }
   
   # bring station rows back into the full dataset

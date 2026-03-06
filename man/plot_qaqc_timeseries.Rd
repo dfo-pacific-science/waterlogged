@@ -50,7 +50,7 @@ plot_qaqc_timeseries(
   do_data   = station_do_dat,
   baro_data = all_checked_baro_data,
   cond_data = station_cond_dat,
-  select_station = "WL_ALBR_ST_30"
+  select_station = "ALBR_ST_30"
 )
 }
 }

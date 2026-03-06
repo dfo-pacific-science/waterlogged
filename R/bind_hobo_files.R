@@ -78,18 +78,19 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
                             metadata_path = NULL, timestamp_timezone = "UTC",
                             file_paths = NULL, metadata = NULL) {
 
-  # Dual input: file_paths OR path_to_raw_folder
+  # Dual input: file_paths OR path_to_raw_folder (mutually exclusive)
   if (is.null(path_to_raw_folder) && is.null(file_paths)) {
     stop("Must provide either 'path_to_raw_folder' or 'file_paths'.")
   }
+  if (!is.null(path_to_raw_folder) && !is.null(file_paths)) {
+    stop("Provide either 'path_to_raw_folder' or 'file_paths', not both.")
+  }
 
-  if (!is.null(path_to_raw_folder) && !is.null(path_to_output_folder)) {
-    if(!dir.exists(path_to_raw_folder)) {
-      stop("Folder not found: ", path_to_raw_folder)
-    }
-    if(!dir.exists(path_to_output_folder)) {
-      stop("Folder not found: ", path_to_output_folder)
-    }
+  if (!is.null(path_to_raw_folder) && !dir.exists(path_to_raw_folder)) {
+    stop("Folder not found: ", path_to_raw_folder)
+  }
+  if (!is.null(path_to_output_folder) && !dir.exists(path_to_output_folder)) {
+    stop("Folder not found: ", path_to_output_folder)
   }
 
   # QAQC and format metadata file (dual input)
@@ -111,7 +112,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   }
 
   # extract data from hobo file(s)
-  hobo_data_raw <- purrr::map_df(path_to_files, extract_alldata_from_file)
+  hobo_data_raw <- purrr::map(path_to_files, extract_alldata_from_file) |> dplyr::bind_rows()
 
   # Error messages for file binding
   if (length(unique(hobo_data_raw$data1_type)) > 1) {
@@ -127,14 +128,21 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
   measurement_type <- unique(metadat_link$metric)
 
+  # Ensure a single metric type before doing any further work
+  if (length(measurement_type) != 1) {
+    stop("Multiple metric types found for these loggers: ",
+         paste(measurement_type, collapse = ", "),
+         "\nMake sure your input folder only contains one metric type (e.g., all barometric or all waterlevel).")
+  }
+
   # Safely check units for channel 1 and (if present) channel 2
   units1_mixed <- length(unique(hobo_data_raw$data1_unit)) > 1
 
   if(length(measurement_type) == 1 && measurement_type == "airtemp") {
     units2_mixed = FALSE
   } else {
-    units2_mixed <- "dat2_unit" %in% names(hobo_data_raw) &&
-      length(unique(hobo_data_raw$dat2_unit)) > 1
+    units2_mixed <- "data2_unit" %in% names(hobo_data_raw) &&
+      length(unique(hobo_data_raw$data2_unit)) > 1
   }
 
   is_conductivity_folder <- any(grepl("conduct", tolower(hobo_data_raw$data1_type)))
@@ -152,9 +160,9 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   }
 
 
-  # format timestamp
-  # NOTE: all times are in PDT (setting timezone to UTC tricks R to ignore daylight savings time)
-  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp)
+  # format timestamp using the timezone string extracted from the HOBO file header
+  tz_str <- normalize_tz(hobo_data_raw$timezone[1]) %||% "UTC"
+  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = tz_str)
 
   if(any(is.na(hobo_data_raw$timestamp))) {
     missing_ts <- hobo_data_raw |>
@@ -181,7 +189,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
   uniq_sn_list <- unique(hobo_data_raw$sn)
 
-  for(serial_num in 1:length(uniq_sn_list)){
+  for(serial_num in seq_along(uniq_sn_list)){
     logger_i <- uniq_sn_list[serial_num]
     data_i <- hobo_data_raw |> dplyr::filter(sn ==logger_i)
 
@@ -193,7 +201,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
       stop(paste(c("Metadata missing for logger serial number:", logger_i)))
     }
 
-    for(metadata_sn_j in 1:length(metadat_i$sn)){
+    for(metadata_sn_j in seq_along(metadat_i$sn)){
       site_j <- metadat_i$site_station_code[metadata_sn_j]
       deploy_j <- metadat_i$timestamp_deploy[metadata_sn_j]
       remove_j<- metadat_i$timestamp_remove[metadata_sn_j]
@@ -211,14 +219,6 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     sites_compiled <- rbind(sites_compiled, data_i)
 
   } # end of i loop
-
-  # make sure it's only one type per folder
-  if (length(measurement_type) != 1) {
-    stop("Multiple metric types found for these loggers: ",
-         paste(measurement_type, collapse = ", "),
-         "\nMake sure your input folder only contains one metric type (e.g., all barometric or all waterlevel).")
-  }
-
 
   ## CLEAN UP ####
 
@@ -391,7 +391,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     sites_compiled$data1_type <- "conductivity"
     sites_compiled$data1_unit <- "\u00b5S/cm"
     sites_compiled$data2_type <- "Temp"
-    sites_compiled$dat2_unit  <- "\u00b0C"
+    sites_compiled$data2_unit <- "\u00b0C"
   }
 
 
@@ -411,11 +411,10 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   # this loop will split data by type, location and year for ease of access and processing
 
   if (!is.null(path_to_output_folder)) {
-    for(i in 1:length(unique(sites_compiled$site_station_code))) {
+    for(site_i in unique(sites_compiled$site_station_code)) {
 
-      site_i <- unique(sites_compiled$site_station_code)[i]
       site_dat <- sites_compiled |>
-        dplyr::filter(site_station_code==site_i)
+        dplyr::filter(site_station_code == site_i)
 
       # split by year
       years_i <- unique(lubridate::year(site_dat$timestamp))
@@ -460,15 +459,22 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
   message("List returned: [1] trimmed and compiled dataset of csvs in raw folder \n [2] summary plots of data by site_station_code and timestamp")
 
-  # Make sure the numeric columns are actually numeric
-  sites_compiled <- sites_compiled |>
-    dplyr::mutate(
-      dplyr::across(3:4, as.numeric)
-    )
+  # Make sure the measurement columns are numeric (coerce by name, not position)
+  meas_cols_to_coerce <- intersect(
+    c("do_mgl", "watertemp_C", "airtemp_C", "airpress_kPa", "waterpress_kPa", "conduct_uScm"),
+    names(sites_compiled)
+  )
+  if (length(meas_cols_to_coerce) > 0) {
+    sites_compiled <- sites_compiled |>
+      dplyr::mutate(dplyr::across(dplyr::all_of(meas_cols_to_coerce), as.numeric))
+  }
 
-  # Grab the names explicitly instead of relying on position
-  time_col  <- names(sites_compiled)[2]
-  value_col <- names(sites_compiled)[3]
+  time_col  <- "timestamp"
+  value_col <- switch(
+    logger_header,
+    "COND" = "conduct_uScm",
+    names(sites_compiled)[3]
+  )
 
   multi_plots <- ggplot2::ggplot(
     data = sites_compiled,

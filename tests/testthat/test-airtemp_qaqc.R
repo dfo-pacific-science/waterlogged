@@ -9,21 +9,22 @@ test_that("test airtemp qaqc", {
                                 metadata_path = metadata_path)
   sites_compiled = baro_bound[[1]]
 
-  #check qa flags doesnt exist before
-  qa.columns = c("at_qaqc_code", "at_qaqc_note")
+  #check modern flag columns don't exist before
+  qa.columns = c("edit_temp_range", "airtemp_C_adj")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
-
 
   airtemp_complete_QAQC = airtemp_qaqc(sites_compiled,
                select_station = "ALBR_ST_30")
 
-  #check outputs
-  expect_s3_class(airtemp_complete_QAQC[[1]], "data.frame")
-  expect_s3_class(airtemp_complete_QAQC[[2]], "plotly")
+  #check return type is a data frame (not a list)
+  expect_s3_class(airtemp_complete_QAQC, "data.frame")
 
-  #check qa flags exist after
-  missing_cols <- setdiff(qa.columns, colnames(airtemp_complete_QAQC[[1]]))
+  #check qaqc_log attribute is a data frame
+  expect_s3_class(attr(airtemp_complete_QAQC, "qaqc_log"), "data.frame")
+
+  #check modern flag columns exist after
+  missing_cols <- setdiff(qa.columns, colnames(airtemp_complete_QAQC))
   expect_equal(length(missing_cols), 0)
 
 })

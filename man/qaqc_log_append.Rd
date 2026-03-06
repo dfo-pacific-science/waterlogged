@@ -4,14 +4,10 @@
 \alias{qaqc_log_append}
 \title{Append QA/QC log rows to disk with deduplication}
 \usage{
-qaqc_log_append(log_path, station, metric, log_rows)
+qaqc_log_append(log_path, log_rows)
 }
 \arguments{
 \item{log_path}{Character. Output path (use \code{\link[=qaqc_log_path]{qaqc_log_path()}}).}
-
-\item{station}{Character. Station code.}
-
-\item{metric}{Character. Metric label.}
 
 \item{log_rows}{Data frame/tibble of log rows (from \code{\link[=make_qaqc_log_row]{make_qaqc_log_row()}}
 or \code{\link[dplyr:bind_rows]{dplyr::bind_rows()}}).}
@@ -27,5 +23,9 @@ write repeated identical log rows.
 \details{
 Deduplication key:
 \verb{station, metric, field, action, code, ts_start, ts_end, fun_name}.
+
+Time columns (\code{ts_start}, \code{ts_end}, \code{run_at}) are normalised to UTC before
+being written as character strings, ensuring consistent deduplication
+regardless of the timezone attribute on the incoming POSIXct values.
 }
 \keyword{internal}

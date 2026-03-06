@@ -65,6 +65,8 @@ Reads all barometric logger CSVs, combines them, and runs quality checks (out-of
 
 We need clean barometric data to convert DO from mg/L to %sat. If the baro data has errors, they'll contaminate the %sat values. This is the same process used in the water level pipeline — baro data is the foundation for both.
 
+We can skip this step if we already have clean, compiled and QA'd barometric data. In that case, just load the compiled baro CSV and pass it to the DO processing steps.
+
 ```{r bind-baro}
 baro_bound <- bind_hobo_files(
   path_to_raw_folder = baro_folder,
@@ -92,6 +94,9 @@ baro_qc <- barometric_qaqc_all(
 cat("Baro QAQC complete:", nrow(baro_qc), "rows\n")
 cat("  Spikes flagged: ", sum(baro_qc$edit_spike, na.rm = TRUE), "\n")
 cat("  Flatlines:      ", sum(baro_qc$edit_flatline, na.rm = TRUE), "\n")
+
+head(baro_qc, 3)
+
 ```
 
 ## Bind Raw Dissolved Oxygen Logger Files (v0.1)

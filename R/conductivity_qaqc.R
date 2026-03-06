@@ -186,7 +186,7 @@ conductivity_qaqc <- function(
   fun_name    <- "conductivity_qaqc"
   action      <- "AUTO_QAQC"
   manual_note <- "Automatic conductivity QA/QC; no manual note provided."
-  run_time    <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+  run_time    <- Sys.time()
   
   rules <- list(
     # Spikes (no automatic removal, just flag & log)

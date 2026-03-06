@@ -134,8 +134,7 @@ qaqc_log_maybe_append <- function(log_root, station, metric, log_rows) {
   }
   if (!is.null(log_root)) {
     log_path <- qaqc_log_path(log_root, station, metric)
-    qaqc_log_append(log_path = log_path, station = station,
-                    metric = metric, log_rows = log_rows)
+    qaqc_log_append(log_path = log_path, log_rows = log_rows)
     message("QA/QC log updated: ", log_path)
   }
   invisible(log_rows)
@@ -150,33 +149,58 @@ qaqc_log_maybe_append <- function(log_root, station, metric, log_rows) {
 #' Deduplication key:
 #' `station, metric, field, action, code, ts_start, ts_end, fun_name`.
 #'
+#' Time columns (`ts_start`, `ts_end`, `run_at`) are normalised to UTC before
+#' being written as character strings, ensuring consistent deduplication
+#' regardless of the timezone attribute on the incoming POSIXct values.
+#'
 #' @param log_path Character. Output path (use [qaqc_log_path()]).
-#' @param station Character. Station code.
-#' @param metric Character. Metric label.
 #' @param log_rows Data frame/tibble of log rows (from [make_qaqc_log_row()]
 #'   or [dplyr::bind_rows()]).
 #'
 #' @return Invisibly returns `log_path`.
 #' @keywords internal
-qaqc_log_append <- function(log_path, station, metric, log_rows) {
-  
+qaqc_log_append <- function(log_path, log_rows) {
+
   if (is.null(log_rows) || nrow(log_rows) == 0) {
     return(invisible(log_path))
   }
-  
+
+  # Validate required columns before touching the data
+  required <- c("station", "metric", "field", "action", "code",
+                "ts_start", "ts_end", "run_at", "fun_name")
+  missing_cols <- setdiff(required, names(log_rows))
+  if (length(missing_cols) > 0) {
+    stop(
+      "qaqc_log_append(): log_rows is missing required column(s): ",
+      paste(missing_cols, collapse = ", ")
+    )
+  }
+
   dir.create(dirname(log_path), recursive = TRUE, showWarnings = FALSE)
-  
-  # Coerce time fields to character for stable CSV I/O
+
+  # Coerce time fields to UTC character strings for stable CSV I/O and
+  # consistent deduplication across sessions with different timezone attributes.
   log_rows <- log_rows |>
     dplyr::mutate(
-      ts_start = as.character(ts_start),
-      ts_end   = as.character(ts_end),
-      run_at   = as.character(run_at)
+      ts_start = format(ts_start, tz = "UTC"),
+      ts_end   = format(ts_end,   tz = "UTC"),
+      run_at   = format(run_at,   tz = "UTC")
     )
-  
+
   if (file.exists(log_path)) {
     existing <- utils::read.csv(log_path, stringsAsFactors = FALSE)
-    
+
+    # Warn if on-disk schema differs from new rows (e.g. after a package update)
+    if (!setequal(names(existing), names(log_rows))) {
+      warning(
+        "qaqc_log_append(): existing log has a different column set from new rows. ",
+        "Missing from existing: ",
+        paste(setdiff(names(log_rows), names(existing)), collapse = ", "), ". ",
+        "Extra in existing: ",
+        paste(setdiff(names(existing), names(log_rows)), collapse = ", "), "."
+      )
+    }
+
     log_out <- dplyr::bind_rows(existing, log_rows) |>
       dplyr::distinct(
         station,
@@ -192,8 +216,8 @@ qaqc_log_append <- function(log_path, station, metric, log_rows) {
   } else {
     log_out <- log_rows
   }
-  
+
   utils::write.csv(log_out, log_path, row.names = FALSE)
-  
+
   invisible(log_path)
 }

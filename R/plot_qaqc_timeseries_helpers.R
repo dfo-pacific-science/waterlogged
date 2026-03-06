@@ -1,55 +1,3 @@
-#' Guess the data role of a logger data frame from its column names
-#'
-#' Internal helper for \code{\link{plot_qaqc_timeseries}}.  Inspects the
-#' column names of a data frame and returns a short role tag indicating
-#' the metric type.
-#'
-#' Currently not called by any function; written for possible future use
-#' if the plotting interface is generalised to accept a single
-#' unspecified data frame instead of named arguments.
-#'
-#' @param df A data frame, or \code{NULL}.
-#'
-#' @return A character scalar: one of \code{"do"} (dissolved oxygen),
-#'   \code{"cond"} (conductivity), \code{"wl"} (water level),
-#'   \code{"baro"} (barometric), \code{"none"} (if \code{df} is
-#'   \code{NULL}), or \code{"unknown"} (no recognised column pattern).
-#'
-#' @seealso \code{\link{plot_qaqc_timeseries}}
-#'
-#' @keywords internal
-guess_role_from_cols <- function(df) {
-  if (is.null(df)) return("none")
-  nms <- names(df)
-  has <- function(...) all(c(...) %in% nms)
-  
-  # DO (either mg/L or %sat)
-  if (has("do_mgl", "do_mgl_adj") || has("do_percsat", "do_percsat_adj")) return("do")
-  # Conductivity
-  if (has("conduct_uScm", "conduct_uScm_adj")) return("cond")
-  # Water level
-  if (has("waterlevel_m", "waterlevel_m_adj")) return("wl")
-  # Baro (pressure + temps)
-  if (has("airpress_kPa", "airpress_kPa_adj") && (("airtemp_C" %in% nms) || ("airtemp_C_adj" %in% nms))) return("baro")
-  
-  "unknown"
-}
-
-#' Format a detected data role for diagnostic messages
-#'
-#' Trivial formatting helper companion to
-#' \code{guess_role_from_cols()}.  Currently unused.
-#'
-#' @param role Character scalar.  The detected role tag.
-#' @param arg Character scalar.  The argument name that was inspected.
-#'
-#' @return A formatted string \code{"<arg>: <role>"}.
-#'
-#' @keywords internal
-#' @noRd
-format_found <- function(role, arg) sprintf("%s: %s", arg, role)
-
-
 #' Normalise QA/QC input data frame
 #'
 #' Filters to a single station, ensures POSIXct timestamps,
@@ -134,7 +82,8 @@ build_flag_long <- function(df, flag_cols) {
       names_to  = "flag_type",
       values_to = "flag_value"
     ) |>
-    dplyr::filter(.data$flag_value) |>
+    dplyr::mutate(flag_value = as.logical(.data$flag_value)) |>
+    dplyr::filter(!is.na(.data$flag_value) & .data$flag_value) |>
     dplyr::mutate(flag_type = factor(.data$flag_type)) |>
     dplyr::select("timestamp", "flag_type")
   

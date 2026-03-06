@@ -19,7 +19,8 @@
 #'   invisibly.
 #' @param metric Character scalar identifying the data type.  Must be one
 #'   of \code{"dissolvedoxygen"}, \code{"barometric"},
-#'   \code{"waterlevel"}, \code{"watertemp"}, or \code{"airtemp"}.
+#'   \code{"waterlevel"}, \code{"watertemp"}, \code{"airtemp"}, or
+#'   \code{"conductivity"}.
 #'   Controls which columns are required and the file-name prefix (see
 #'   \strong{Details}).
 #'
@@ -48,6 +49,10 @@
 #'   \item{\code{"airtemp"} (AT)}{Required:
 #'     \code{airtemp_C}.
 #'     Optional: \code{airtemp_C_adj}.}
+#'   \item{\code{"conductivity"} (CO)}{Required:
+#'     \code{conduct_uScm}.
+#'     Optional: \code{conduct_uScm_adj}, \code{spc_uScm_adj},
+#'     \code{watertemp_C}, \code{watertemp_C_adj}.}
 #' }
 #'
 #' All metrics also require \code{site_station_code} and
@@ -68,6 +73,7 @@ write_clean_data <- function(
     path_to_output_folder = NULL,
     metric
 ) {
+
   # ---- config by metric ----
   metric_config <- list(
     dissolvedoxygen = list(
@@ -140,6 +146,7 @@ write_clean_data <- function(
       ),
       optional = c(
         "conduct_uScm_adj",
+        "spc_uScm_adj",
         "watertemp_C",
         "watertemp_C_adj"
       )
@@ -247,7 +254,7 @@ write_clean_data <- function(
       # drop helper year, format timestamp
       df_write <- df_i
       df_write$year <- NULL
-      df_write$timestamp <- format(df_write$timestamp)
+      df_write$timestamp <- format(df_write$timestamp, tz = "UTC")
 
       clean_path <- ensure_clean_folder(path_to_output_folder, year_i)
 

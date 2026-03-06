@@ -10,7 +10,9 @@ wl_set_datum(
   select_station,
   log_root = NULL,
   user = NULL,
-  level_runs = NULL
+  level_runs = NULL,
+  max_anchor_gap_h = 1,
+  bm_tolerance_m = 0.02
 )
 }
 \arguments{
@@ -40,6 +42,16 @@ In Shiny apps, pass the logged-in user explicitly
 \item{level_runs}{A data frame of levelling-run data (alternative to
 \code{level_runs_path} for Shiny mode). Exactly one of
 \code{level_runs_path} or \code{level_runs} must be supplied.}
+
+\item{max_anchor_gap_h}{Numeric scalar. Maximum allowable gap (in hours)
+between the anchor visit datetime and the nearest logger sample.
+Default \code{1}. Increase for loggers with coarse time steps (e.g.
+2-hour intervals).}
+
+\item{bm_tolerance_m}{Numeric scalar. Benchmark inconsistency threshold
+(in metres). A warning is issued if the inferred absolute elevation for
+a benchmark differs by more than this amount across visits. Default
+\code{0.02}.}
 }
 \value{
 The full \code{input_data} data frame with two columns
@@ -94,8 +106,15 @@ first valid visit (the datum anchor) is graded \code{"Poor"}.
 The function iterates visits in chronological order. If a visit's PBM
 is not yet in the network, it is inferred from any co-observed
 benchmark that \emph{is} known. An error is raised if a visit cannot be
-connected to the existing network. Inconsistencies > 0.02 m for a
-benchmark across visits trigger a warning.
+connected to the existing network. Benchmark inconsistencies exceeding
+\code{bm_tolerance_m} across visits trigger a warning.
+
+\strong{Timezone handling:}
+Visit date/time strings are parsed in the logger's timezone (detected
+from the POSIXct \code{tzone} attribute of \code{input_data$timestamp}
+or an optional \code{timezone} column). Falls back to \code{"UTC"} if
+neither is available. Pass logger timestamps as POSIXct with the correct
+\code{tzone} to ensure accurate matching.
 }
 \seealso{
 \code{\link{waterlevel_qaqc}} (upstream automatic QAQC),

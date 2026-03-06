@@ -1,6 +1,9 @@
 # R/quality/wq_drift_correction.R
 
-#' Water-quality drift correction (COND / DO / pH)
+#' Water-quality drift correction (COND / DO / pH) \[DRAFT\]
+#'
+#' \strong{DRAFT — not fully tested. Do not use in production workflows
+#' without independent verification of results.}
 #'
 #' Apply forward linear drift correction to a water-quality time series
 #' using discrete reference measurements collected during field visits.
@@ -64,13 +67,11 @@
 #'   described in Details.
 #'
 #' @return The input data frame with drift-corrected values written
-#'   back to the adjusted column (\code{*_adj}), plus:
-#'   \itemize{
-#'     \item An \code{edit_*_drift} logical flag column (\code{TRUE}
-#'       for corrected rows).
-#'     \item Updated QA/QC code, note, and adjustment columns for the
-#'       metric.
-#'   }
+#'   back to the adjusted column (\code{*_adj}), plus an
+#'   \code{edit_*_drift} logical flag column (\code{TRUE} for
+#'   corrected rows). For dissolved oxygen, \code{do_mgl_adj} is also
+#'   corrected using the same ratio as \code{do_percsat_adj} (ratio
+#'   is dimensionless and applies consistently across both units).
 #'   A \code{"qaqc_log"} attribute is attached containing the log
 #'   rows as a tibble (or \code{NULL} if no rows were corrected).
 #'
@@ -126,27 +127,21 @@ wq_drift_correction <- function(input_data,
   if (metric_norm %in% c("cond","conductivity")) {
     metric_norm    <- "conductivity"
     value_col      <- "conduct_uScm_adj"
-    code_col       <- "cond_qaqc_code"
-    note_col       <- "cond_qaqc_note"
-    adjnote_col    <- "cond_qaqc_adj"
+    secondary_col  <- NULL
     edit_flag_col  <- "edit_cond_drift"
     accepted_units <- c("uscm","\u00b5s/cm","\u03bcs/cm","uS/cm")
     metric_log     <- "COND"
   } else if (metric_norm %in% c("do","dissolvedoxygen")) {
     metric_norm    <- "dissolvedoxygen"
     value_col      <- "do_percsat_adj"
-    code_col       <- "do_qaqc_code"
-    note_col       <- "do_qaqc_note"
-    adjnote_col    <- "do_qaqc_adj"
+    secondary_col  <- "do_mgl_adj"   # corrected with same ratio; keeps %sat & mg/L consistent
     edit_flag_col  <- "edit_do_drift"
     accepted_units <- c("%","percent","percent saturation","%sat","percsat")
     metric_log     <- "DO"
   } else if (metric_norm == "ph") {
     metric_norm    <- "ph"
     value_col      <- "ph_adj"
-    code_col       <- "ph_qaqc_code"
-    note_col       <- "ph_qaqc_note"
-    adjnote_col    <- "ph_qaqc_adj"
+    secondary_col  <- NULL
     edit_flag_col  <- "edit_ph_drift"
     accepted_units <- c("ph","pH")
     metric_log     <- "PH"
@@ -178,23 +173,13 @@ wq_drift_correction <- function(input_data,
     tz_vals <- stats::na.omit(unique(as.character(logger_data$timezone)))
     if (length(tz_vals)) tz_from_col <- tz_vals[1]
   }
-  normalize_tz <- function(x) {
-    if (is.null(x) || is.na(x) || !nzchar(x)) return(NULL)
-    x <- trimws(x)
-    if (x %in% OlsonNames()) return(x)
-    if (grepl("^GMT[+-][0-9]{2}:[0-9]{2}$", x, ignore.case = TRUE)) {
-      hh <- as.integer(substr(x, 5, 6))
-      sign <- substr(x, 4, 4)
-      if (sign == "+") paste0("Etc/GMT-", hh) else paste0("Etc/GMT+", hh) # Etc/* reverses sign
-    } else if (tolower(x) %in% c("pst","pdt","pacific","america/vancouver")) {
-      "America/Vancouver"
-    } else NULL
-  }
-  `%||%` <- function(a, b) if (!is.null(a) && length(a) && !is.na(a) && nzchar(a)) a else b
   tz_logger <- normalize_tz(tz_from_posix) %||% normalize_tz(tz_from_col) %||% "UTC"
   
   log_ts   <- logger_data$timestamp
   log_vals <- logger_data[[value_col]]
+  has_sec      <- !is.null(secondary_col) && secondary_col %in% names(logger_data)
+  log_vals_sec <- if (has_sec) logger_data[[secondary_col]] else NULL
+  new_vals_sec <- log_vals_sec
   time_range <- range(log_ts, na.rm = TRUE)
   
   # ---------- reference data (data frame OR file path) ----------
@@ -388,6 +373,7 @@ wq_drift_correction <- function(input_data,
       warning("No usable events built. Diagnostics:\n", paste("  - ", msgs, collapse="\n"))
     }
     message("wq_drift_correction(): no usable events; returning input unchanged.")
+    attr(input_data, "qaqc_log") <- NULL
     return(input_data)
   }
   
@@ -422,9 +408,21 @@ wq_drift_correction <- function(input_data,
     idx <- which(log_ts == t_end & !is.na(log_vals))
     if (!length(idx)) return()
     if (method == "ratio") {
-      if (!is.na(ratio_end) && is.finite(ratio_end)) new_vals[idx] <<- log_vals[idx] * ratio_end
+      if (!is.na(ratio_end) && is.finite(ratio_end)) {
+        new_vals[idx] <<- log_vals[idx] * ratio_end
+        if (has_sec) {
+          sec_idx <- idx[!is.na(log_vals_sec[idx])]
+          if (length(sec_idx)) new_vals_sec[sec_idx] <<- log_vals_sec[sec_idx] * ratio_end
+        }
+      }
     } else {
-      if (!is.na(offset_end) && is.finite(offset_end)) new_vals[idx] <<- log_vals[idx] + offset_end
+      if (!is.na(offset_end) && is.finite(offset_end)) {
+        new_vals[idx] <<- log_vals[idx] + offset_end
+        if (has_sec && !is.na(ratio_end) && is.finite(ratio_end)) {
+          sec_idx <- idx[!is.na(log_vals_sec[idx])]
+          if (length(sec_idx)) new_vals_sec[sec_idx] <<- log_vals_sec[sec_idx] * ratio_end
+        }
+      }
     }
     edited[idx] <<- TRUE
   }
@@ -446,13 +444,24 @@ wq_drift_correction <- function(input_data,
     if (method == "ratio") {
       r_end <- seg$ratio_end
       if (!is.na(r_end) && is.finite(r_end)) {
-        new_vals[idx] <- log_vals[idx] * (1 + w * (r_end - 1))
+        r_interp <- 1 + w * (r_end - 1)
+        new_vals[idx] <- log_vals[idx] * r_interp
+        if (has_sec) {
+          sec_idx <- idx[!is.na(log_vals_sec[idx])]
+          if (length(sec_idx)) new_vals_sec[sec_idx] <- log_vals_sec[sec_idx] * r_interp[match(sec_idx, idx)]
+        }
         edited[idx] <- TRUE
       }
     } else {
       off_end <- seg$offset_end
+      r_end   <- seg$ratio_end
       if (!is.na(off_end) && is.finite(off_end)) {
         new_vals[idx] <- log_vals[idx] + w * off_end
+        if (has_sec && !is.na(r_end) && is.finite(r_end)) {
+          r_interp <- 1 + w * (r_end - 1)
+          sec_idx <- idx[!is.na(log_vals_sec[idx])]
+          if (length(sec_idx)) new_vals_sec[sec_idx] <- log_vals_sec[sec_idx] * r_interp[match(sec_idx, idx)]
+        }
         edited[idx] <- TRUE
       }
     }
@@ -460,43 +469,26 @@ wq_drift_correction <- function(input_data,
   
   # ---------- write back & QA/QC ----------
   logger_data[[value_col]] <- new_vals
+  if (has_sec) logger_data[[secondary_col]] <- new_vals_sec
   if (!edit_flag_col %in% names(logger_data)) logger_data[[edit_flag_col]] <- FALSE
   logger_data[[edit_flag_col]] <- logger_data[[edit_flag_col]] | edited
   
   new_cols <- setdiff(names(logger_data), names(input_data))
-  if (length(new_cols)) for (nm in new_cols) input_data[[nm]] <- NA
+  if (length(new_cols)) for (nm in new_cols) input_data[[nm]] <- FALSE
   
   input_data <- dplyr::rows_update(input_data, logger_data, by = c("site_station_code","timestamp"))
   edited_ts <- logger_data$timestamp[edited]
-  
-  append_qaqc <- function(existing, new_txt) {
-    ifelse(is.na(existing) | existing == "", new_txt, paste(existing, new_txt, sep = "; "))
-  }
-  if (!code_col %in% names(input_data))    input_data[[code_col]]    <- NA_character_
-  if (!note_col %in% names(input_data))    input_data[[note_col]]    <- NA_character_
-  if (!adjnote_col %in% names(input_data)) input_data[[adjnote_col]] <- NA_character_
-  
+
   idx_station <- input_data$site_station_code == select_station
   idx_edit    <- idx_station & input_data$timestamp %in% edited_ts
   drift_label <- paste0("DRIFT_", toupper(method))
-  
-  if (any(idx_edit)) {
-    input_data[[code_col]][idx_edit] <- append_qaqc(input_data[[code_col]][idx_edit], drift_label)
-    input_data[[note_col]][idx_edit] <- append_qaqc(
-      input_data[[note_col]][idx_edit],
-      paste0("Forward linear drift (", method, "); refs: ", ref_data_source,
-             "; logger tz=", tz_logger, "; max_ref_gap_h=", max_ref_gap_h)
-    )
-    input_data[[adjnote_col]][idx_edit] <- append_qaqc(
-      input_data[[adjnote_col]][idx_edit],
-      "Restart at each visit; calibration end uses pre-cal."
-    )
-  } else {
+
+  if (!any(idx_edit)) {
     message("wq_drift_correction(): no values changed for '", select_station,
             "'. Consider increasing max_ref_gap_h or checking timezone parsing (logger tz=",
             tz_logger, ").")
   }
-  
+
   log_row <- NULL
   if (any(idx_edit)) {
     ts_edit <- input_data$timestamp[idx_edit]

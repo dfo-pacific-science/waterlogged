@@ -29,7 +29,7 @@
 #'   do_data   = station_do_dat,
 #'   baro_data = all_checked_baro_data,
 #'   cond_data = station_cond_dat,
-#'   select_station = "WL_ALBR_ST_30"
+#'   select_station = "ALBR_ST_30"
 #' )
 #' }
 plot_qaqc_timeseries <- function(wl_data   = NULL,
@@ -49,13 +49,16 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
   
   # If no explicit baro_data, see if WL carries baro columns
   if (is.null(baro_df) && !is.null(wl_df)) {
-    needed_baro_cols <- c("airpress_kPa", "airpress_kPa_adj",
-                          "airtemp_C", "airtemp_C_adj")
+    needed_baro_cols <- c("airpress_kPa", "airpress_kPa_adj")
     if (all(needed_baro_cols %in% names(wl_df))) {
+      extra_cols <- intersect(
+        c("airtemp_C", "airtemp_C_adj", "baro_qaqc_code",
+          "edit_press_high", "edit_press_low", "edit_flatline",
+          "edit_spike", "edit_temp_range"),
+        names(wl_df)
+      )
       baro_df <- wl_df[, c("site_station_code", "timestamp",
-                           needed_baro_cols,
-                           intersect("baro_qaqc_code", names(wl_df)))]
-      baro_df <- normalize_qaqc_df(baro_df, select_station)
+                           needed_baro_cols, extra_cols), drop = FALSE]
     }
   }
   
@@ -66,8 +69,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
   
   has_wl   <- !is.null(wl_df)   && all(c("waterlevel_m", "waterlevel_m_adj") %in% names(wl_df))
   has_do   <- !is.null(do_df)   && all(c("do_mgl", "do_mgl_adj")           %in% names(do_df))
-  has_baro <- !is.null(baro_df) && all(c("airpress_kPa", "airpress_kPa_adj",
-                                         "airtemp_C", "airtemp_C_adj")    %in% names(baro_df))
+  has_baro <- !is.null(baro_df) && all(c("airpress_kPa", "airpress_kPa_adj") %in% names(baro_df))
   has_co   <- !is.null(co_df)   && all(c("conduct_uScm", "conduct_uScm_adj") %in% names(co_df))
   
   # x-ranges for each dataset (used so flag panels don't shrink the view)
@@ -275,19 +277,23 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
     }
     
     # 3) Conductivity QA/QC flags panel
-    co_flags <- build_qaqc_code_points(co_df, "cond_qaqc_code")
-    
+    co_flag_cols <- c(
+      "flag_co_spike", "flag_co_temp_ice", "flag_co_temp_low",
+      "flag_co_temp_high", "flag_co_temp_neg_near", "flag_co_dry"
+    )
+    co_flags <- build_flag_long(co_df, co_flag_cols)
+
     if (!is.null(co_flags)) {
-      levels_co <- levels(co_flags$code)
+      levels_co <- levels(co_flags$flag_type)
       style_co  <- qaqc_flag_style(levels_co)
-      
+
       p_co_qaqc <- ggplot2::ggplot(
         co_flags,
         ggplot2::aes(
           x      = timestamp,
-          y      = code,
-          shape  = code,
-          colour = code
+          y      = flag_type,
+          shape  = flag_type,
+          colour = flag_type
         )
       ) +
         ggplot2::geom_point(size = 1.8) +
@@ -295,14 +301,14 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ggplot2::scale_color_manual(values = style_co$colour) +
         ggplot2::scale_x_datetime(limits = co_x_range) +
         ggplot2::labs(
-          title = "Conductivity QA/QC flags",
-          x     = "",
-          y     = "",
-          shape = "",
+          title  = "Conductivity QA/QC flags",
+          x      = "",
+          y      = "",
+          shape  = "",
           colour = ""
         ) +
         ggplot2::theme_classic()
-      
+
       panels  <- c(panels, list(p_co_qaqc))
       heights <- c(heights, 0.10)
     }
@@ -337,7 +343,7 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
     # WL temperature panel
     p_wl_temp <- ggplot2::ggplot(wl_df, ggplot2::aes(x = timestamp))
     line_cols <- c()
-    
+
     if ("watertemp_C" %in% names(wl_df)) {
       p_wl_temp <- p_wl_temp +
         ggplot2::geom_line(
@@ -361,19 +367,28 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         )
       line_cols["airtemp"] <- cols$wl_air_temp
     }
-    
-    p_wl_temp <- p_wl_temp +
-      ggplot2::scale_color_manual(values = line_cols) +
-      ggplot2::labs(
-        title  = "WL logger temperatures",
-        y      = "Temperature (\u00b0C)",
-        x      = "",
-        colour = ""
-      ) +
-      ggplot2::theme_classic()
-    
-    panels  <- c(panels, list(p_wl_temp))
-    heights <- c(heights, 0.18)
+    if ("airtemp_C_adj" %in% names(wl_df)) {
+      p_wl_temp <- p_wl_temp +
+        ggplot2::geom_line(
+          ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj")
+        )
+      line_cols["airtemp_adj"] <- cols$baro_air_adj
+    }
+
+    if (length(line_cols) > 0) {
+      p_wl_temp <- p_wl_temp +
+        ggplot2::scale_color_manual(values = line_cols) +
+        ggplot2::labs(
+          title  = "WL logger temperatures",
+          y      = "Temperature (\u00b0C)",
+          x      = "",
+          colour = ""
+        ) +
+        ggplot2::theme_classic()
+
+      panels  <- c(panels, list(p_wl_temp))
+      heights <- c(heights, 0.18)
+    }
     
     # WL flags
     wl_flag_cols <- c(
@@ -484,20 +499,29 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
     panels  <- c(panels, list(p_baro_press))
     heights <- c(heights, 0.20)
     
-    # BARO flags panel
-    baro_flags <- build_qaqc_code_points(baro_df, "baro_qaqc_code")
-    
+    # BARO flags panel — prefer modern boolean columns; fall back to legacy code column
+    baro_bool_cols <- c("edit_press_high", "edit_press_low",
+                        "edit_flatline", "edit_spike", "edit_temp_range")
+    baro_flags     <- build_flag_long(baro_df, baro_bool_cols)
+    use_code_col   <- FALSE
+    if (is.null(baro_flags)) {
+      baro_flags   <- build_qaqc_code_points(baro_df, "baro_qaqc_code")
+      use_code_col <- !is.null(baro_flags)
+    }
+
     if (!is.null(baro_flags)) {
-      levels_baro <- levels(baro_flags$code)
+      flag_aes <- if (use_code_col) "code" else "flag_type"
+      flag_sym <- rlang::sym(flag_aes)
+      levels_baro <- levels(baro_flags[[flag_aes]])
       style_baro  <- qaqc_flag_style(levels_baro)
-      
+
       p_baro_qaqc <- ggplot2::ggplot(
         baro_flags,
         ggplot2::aes(
           x      = timestamp,
-          y      = code,
-          shape  = code,
-          colour = code
+          y      = !!flag_sym,
+          shape  = !!flag_sym,
+          colour = !!flag_sym
         )
       ) +
         ggplot2::geom_point(size = 1.8) +
@@ -505,14 +529,14 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
         ggplot2::scale_color_manual(values = style_baro$colour) +
         ggplot2::scale_x_datetime(limits = baro_x_range) +
         ggplot2::labs(
-          title = "BARO QA/QC flags",
-          x     = "Timestamp",
-          y     = "",
-          shape = "",
+          title  = "BARO QA/QC flags",
+          x      = "Timestamp",
+          y      = "",
+          shape  = "",
           colour = ""
         ) +
         ggplot2::theme_classic()
-      
+
       panels  <- c(panels, list(p_baro_qaqc))
       heights <- c(heights, 0.10)
     }

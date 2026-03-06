@@ -63,7 +63,7 @@ adjust_WL_offset <- function(input_data,
 
   #  QAQC inputs
   if (missing(manual_note) || trimws(manual_note) == "") {
-    stop("adjust_wwl_offset(): 'manual_note' must be a non-empty string.")
+    stop("adjust_WL_offset(): 'manual_note' must be a non-empty string.")
   }
   
   # ---- Filter to selected station & sort -------------------------------------
@@ -81,13 +81,13 @@ adjust_WL_offset <- function(input_data,
   missing_cols <- setdiff(required_cols, names(waterlevel_data))
   if (length(missing_cols) > 0) {
     stop(
-      "adjust_waterlevel_cablebreak(): Missing required column(s): ",
+      "adjust_WL_offset(): Missing required column(s): ",
       paste(missing_cols, collapse = ", ")
     )
   }
   
   if (nrow(waterlevel_data) == 0) {
-    stop("adjust_waterlevel_cablebreak(): no rows found for station '", select_station, "'.")
+    stop("adjust_WL_offset(): no rows found for station '", select_station, "'.")
   }
   
   # ---- Parse timestamps (character -> POSIXct) -------------------------------
@@ -154,7 +154,7 @@ adjust_WL_offset <- function(input_data,
   metric   <- "WL"
   field    <- "waterlevel_m_adj"
   action   <- "CABLE_OFFSET"
-  fun_name <- "adjust_waterlevel_cablebreak"
+  fun_name <- "adjust_WL_offset"
   run_time <- Sys.time()
   code     <- "LOGGER_DISTURBANCE"
   

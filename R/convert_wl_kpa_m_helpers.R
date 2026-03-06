@@ -1,9 +1,8 @@
 #' Validate input data for water-level kPa-to-metres conversion
 #'
 #' Internal helper called by \code{\link{convert_waterlevel_kPa_m}} to
-#' check required columns, parse timestamps, verify logger type, and
-#' warn about out-of-range values before the barometric compensation
-#' calculation.
+#' check required columns, parse timestamps, and verify logger type
+#' before the barometric compensation calculation.
 #'
 #' @param input_data A data frame of logger observations.  Must contain
 #'   \code{site_station_code}, \code{timestamp}, \code{waterpress_kPa},
@@ -56,7 +55,8 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
   # Timestamp QC
   if (!inherits(input_data$timestamp, "POSIXct")) {
     ts_parsed <- suppressWarnings(lubridate::ymd_hms(input_data$timestamp, tz = "UTC"))
-    if (any(is.na(ts_parsed))) {
+    # Only stop when a non-blank timestamp failed to parse (not on originally-NA rows)
+    if (any(is.na(ts_parsed) & !is.na(as.character(input_data$timestamp)))) {
       stop("convert_waterlevel_kPa_m(): failed to parse timestamp as POSIXct with ymd_hms().")
     }
     input_data$timestamp <- ts_parsed
@@ -136,7 +136,8 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
     ## 3) Drop completely empty rows ----
     ref <- ref[rowSums(is.na(ref) | ref == "") != ncol(ref), , drop = FALSE]
     if (!nrow(ref)) {
-      stop("Reference file '", ref_path, "' has no non-empty rows after cleaning.")
+      ref_label <- if (!is.null(ref_path)) paste0("'", ref_path, "'") else "supplied data frame"
+      stop("Reference data (", ref_label, ") has no non-empty rows after cleaning.")
     }
     
     ## 4) Required columns ----
@@ -156,14 +157,21 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
     
     ## 5) Parse timestamp column ----
     parse_dt <- function(x) {
-      x_chr <- as.character(x)
-      
-      # Try mdy_hm first (matches your sheet e.g. 7/23/2019 14:30)
-      p1 <- try(lubridate::mdy_hm(x_chr, tz = "UTC"), silent = TRUE)
-      if (!inherits(p1, "try-error") && !all(is.na(p1))) {
+      if (inherits(x, "POSIXct")) return(x)
+      x_chr     <- as.character(x)
+      all_blank <- is.na(x_chr) | trimws(x_chr) %in% c("", "NA")
+
+      # Return all-NA POSIXct when every value is blank (e.g. active loggers)
+      if (all(all_blank)) {
+        return(as.POSIXct(rep(NA_character_, length(x_chr)), tz = "UTC"))
+      }
+
+      # Try mdy_hm first (matches field sheets e.g. 7/23/2019 14:30)
+      p1 <- try(lubridate::mdy_hm(x_chr, tz = "UTC", quiet = TRUE), silent = TRUE)
+      if (!inherits(p1, "try-error") && !all(is.na(p1[!all_blank]))) {
         return(p1)
       }
-      
+
       # Fallback to more flexible parser
       p2 <- suppressWarnings(
         lubridate::parse_date_time(
@@ -173,7 +181,7 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
           tz = "UTC"
         )
       )
-      if (all(is.na(p2))) {
+      if (all(is.na(p2[!all_blank]))) {
         stop(
           "Failed to parse 'timestamp'. ",
           "Expected formats like '7/23/2019 14:30' (mdy_hm)."
@@ -226,7 +234,11 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
       )
     }
     
-    ## 8) Duplicate (site, timestamp) checks ----
+    ## 8) Light hygiene (trim before duplicate check so spaces don't mask dups) ----
+    ref$site_station_code <- trimws(as.character(ref$site_station_code))
+    ref$site_comments     <- trimws(as.character(ref$site_comments))
+
+    ## 9) Duplicate (site, timestamp) checks ----
     dup_idx <- duplicated(ref[, c("site_station_code", "timestamp")])
     if (any(dup_idx)) {
       warning(
@@ -234,10 +246,6 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
         sum(dup_idx), " duplicates). You may want to consolidate or remove them."
       )
     }
-    
-    ## 9) Light hygiene ----
-    ref$site_station_code <- trimws(as.character(ref$site_station_code))
-    ref$site_comments     <- trimws(as.character(ref$site_comments))
     
     ref
     
@@ -374,8 +382,14 @@ convert_waterlevel_single <- function(input_data,
     )
   }
   
-  # Join reference values onto time series (for plotting later)
-  output_data <- dplyr::left_join(output_data, ref_dat, by = "timestamp")
+  # Join reference values onto time series (for plotting later).
+  # ref_dat timestamps are already rounded to the nearest hour; round logger
+  # timestamps to the same resolution so they match even when the logger
+  # started mid-interval (e.g. 09:07 rather than 09:00).
+  output_data$timestamp_hr <- lubridate::round_date(output_data$timestamp, "hour")
+  output_data <- dplyr::left_join(output_data, ref_dat,
+                                  by = c("timestamp_hr" = "timestamp"))
+  output_data$timestamp_hr <- NULL
   
   ## C) Metric conversions & constants --------------------------
   FEET_TO_METERS <- 0.3048
@@ -407,21 +421,32 @@ convert_waterlevel_single <- function(input_data,
   T_meas <- ref_dat$timestamp[select_measurement]
   L_meas <- ref_dat$ref_m[select_measurement]
   
-  D_ref   <- output_data$sensor_depth_m[output_data$timestamp == T_meas]
-  D_baro0 <- output_data$baro_sensor_depth_m[output_data$timestamp == T_meas]
-  
-  if (!length(D_ref) || !length(D_baro0)) {
+  # Find the logger row nearest to the (hour-rounded) reference timestamp.
+  # Exact equality fails when loggers start mid-interval (e.g. 09:07 rather
+  # than 09:00), so use nearest-within-30-min matching instead.
+  time_diffs  <- abs(as.numeric(difftime(output_data$timestamp, T_meas, units = "secs")))
+  nearest_idx <- which(time_diffs == min(time_diffs, na.rm = TRUE) & time_diffs <= 1800)
+
+  if (!length(nearest_idx)) {
     stop(
-      "Could not find matching timestamp in output_data for selected reference measurement #",
-      select_measurement,
-      " at station ", select_station,
-      ". Check that reference timestamps align (after rounding) with logger timestamps."
+      "Could not find a logger timestamp within 30 minutes of reference measurement #",
+      select_measurement, " (", format(T_meas, tz = "UTC"), ")",
+      " for station ", select_station,
+      ". Check that the reference timestamp falls within the logger time range."
     )
   }
-  
-  # If duplicates, just use the first
-  D_ref   <- D_ref[1]
-  D_baro0 <- D_baro0[1]
+
+  if (length(nearest_idx) > 1) {
+    warning(
+      "Multiple logger rows equally near reference measurement #", select_measurement,
+      " for station ", select_station, "; using the first.",
+      call. = FALSE
+    )
+    nearest_idx <- nearest_idx[1]
+  }
+
+  D_ref   <- output_data$sensor_depth_m[nearest_idx]
+  D_baro0 <- output_data$baro_sensor_depth_m[nearest_idx]
   
   k <- L_meas - (D_ref - D_baro0)
   
@@ -470,8 +495,9 @@ convert_waterlevel_single <- function(input_data,
       dir.create(year_dir, recursive = TRUE, showWarnings = FALSE)
       dir.create(proc_dir, recursive = TRUE, showWarnings = FALSE)
 
-      # Export timestamp as character to be Excel-safe
-      site_year_n$timestamp <- format(site_year_n$timestamp, "%Y-%m-%d %H:%M:%S")
+      # Export timestamp as character to be Excel-safe (force UTC to prevent
+      # timezone-dependent reformatting on machines with a non-UTC system tz)
+      site_year_n$timestamp <- format(site_year_n$timestamp, "%Y-%m-%d %H:%M:%S", tz = "UTC")
 
       out_file <- sprintf("%s_WL_%s_%s_v0.3.csv", select_station, start_n, end_n)
       out_path <- file.path(proc_dir, out_file)

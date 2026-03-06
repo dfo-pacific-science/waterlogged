@@ -518,7 +518,7 @@ add_nearest_baro <- function(input_data,
 
         if(!is.na(pct) && pct == 0) {
 
-          warning(paste0("add_nearest_baro(): Baro data is offset by ", round(offset_baro_data, 2), " mins and doesnt match timestamps for site ", site_i, ". Try running snap_logger_timestamps before adding nearest baro."))
+          warning(paste0("add_nearest_baro(): Baro data is offset by ", round(offset_baro_data, 2), " mins and doesnt match timestamps for site ", site_i, ". Try running resample_timestamps() before adding nearest baro."))
 
         } else {
 

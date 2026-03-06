@@ -1,87 +1,117 @@
-#' Automatic air temperature qaqc
+#' QA/QC a single air temperature time series
 #'
-#' Format air-temperature data for output as "clean"
-#' @param input_data raw data csv from air temperature TidbiT loggers
-#' @param select_station site_station_code for desired logger station, supplied air temperature data will be filtered by this code
-#' @param var_airtemp_C The variable for air temperature in degrees Celsius
-#' @param plot_only logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, air temperature values out of range are removed and flagged
-#' @param return_plots Logical; if \code{TRUE} (default), an interactive
-#'   \pkg{plotly} chart is included in the returned list.  Set to
-#'   \code{FALSE} to skip plot creation (faster, useful in Shiny or
-#'   batch pipelines).
-#' @return list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
+#' Applies automatic range-check QA/QC to an air temperature logger time series
+#' for one station. Out-of-range values are set to \code{NA} in the adjusted
+#' column and flagged. Returns the input data (filtered to \code{select_station})
+#' with adjusted columns and a boolean edit flag.
+#'
+#' @param input_data Data frame of barometric or air-temperature logger data
+#'   containing at least \code{timestamp}, \code{site_station_code}, and
+#'   \code{airtemp_C}.
+#' @param select_station Character, station code to process
+#'   (matches \code{site_station_code}).
+#' @param temp_low_limit Lower bound (C) for plausible air temperature.
+#'   Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged.
+#' @param temp_high_limit Upper bound (C) for plausible air temperature.
+#'   Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged.
+#' @param log_root Root folder where QA/QC logs are written by
+#'   [qaqc_log_maybe_append()]. Pass \code{NULL} (default) to skip file writing.
+#' @param user Character username written into the QA/QC log. Defaults to
+#'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.
+#'
+#' @details
+#' If \code{airtemp_C_adj} does not exist it is created as a copy of
+#' \code{airtemp_C}. \code{edit_temp_range} is created if missing and set to
+#' \code{TRUE} where the rule applies.
+#'
+#' @return A data frame containing only rows for \code{select_station}, sorted
+#'   by \code{timestamp}, with \code{airtemp_C_adj} and \code{edit_temp_range}
+#'   columns added. \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log
+#'   rows.
+#'
 #' @export
+airtemp_qaqc <- function(input_data,
+                         select_station,
+                         temp_low_limit  = -40,
+                         temp_high_limit =  40,
+                         log_root = NULL,
+                         user     = NULL) {
+  if (is.null(user)) user <- Sys.info()[["user"]]
 
-airtemp_qaqc <- function(input_data, select_station,  var_airtemp_C = "airtemp_C_TidbiT", plot_only = FALSE, return_plots = TRUE) {
+  # ---- 1. Filter & basic checks ---------------------------------------------
+  df <- input_data |>
+    dplyr::filter(site_station_code == select_station) |>
+    dplyr::arrange(timestamp)
 
-  # ensures user is only processing one station at a time
-  output_data <- input_data[input_data$site_station_code == select_station,]
-  rownames(output_data) <- NULL
+  if (nrow(df) == 0) stop("airtemp_qaqc(): no rows for station ", select_station)
 
-  if(length(output_data$site_station_code)==0) {print(paste("ERROR: No air temperature data found for", select_station, ". Make sure spelling and case match site_station_code column in input_data."))}
-
-  names(output_data)[names(output_data) == var_airtemp_C ] <- "airtemp_C"
-
-
-  if(plot_only == FALSE) {
-    # make qaqc adjustment column
-    output_data$at_qaqc_code <- NA
-    output_data$at_qaqc_adj <- NA
-    output_data$at_qaqc_note <- NA
-
-
-    # make new column for adjustment values
-    output_data$airtemp_C_adj <- output_data$airtemp_C
-
-    for(i in 1:length(output_data$timestamp)) {
-
-
-      if(output_data$airtemp_C[i]<= -40){
-        output_data$at_qaqc_note[i] <- paste("air temp below -40C")
-        output_data$at_qaqc_code[i] <- "TEMP_FLAG"
-      }
-
-      if(output_data$airtemp_C[i]>= 40){
-        output_data$at_qaqc_note[i] <- paste("air temp above 40C")
-        output_data$at_qaqc_code[i] <- "TEMP_FLAG"
-      }
-
-    }
-
+  required <- c("timestamp", "site_station_code", "airtemp_C")
+  miss <- setdiff(required, names(df))
+  if (length(miss) > 0) {
+    stop("airtemp_qaqc(): input_data is missing required columns: ",
+         paste(miss, collapse = ", "), call. = FALSE)
   }
 
-  # plot airtemp airtemp_qaqc adjustments
+  # Create adjusted column if missing
+  if (!"airtemp_C_adj" %in% names(df)) df$airtemp_C_adj <- df$airtemp_C
 
-  if (return_plots) {
-    p<- ggplot2::ggplot(data=output_data, ggplot2::aes(x = timestamp))+
-      ggplot2::geom_line(ggplot2::aes(y = airtemp_C, color = "airtemp_C"))+
-      ggplot2::geom_line(ggplot2::aes(y = airtemp_C_adj, color = "airtemp_C_adj"))+
-      ggplot2::geom_point(data = output_data |> tidyr::drop_na(at_qaqc_code), ggplot2::aes(x = timestamp, y = airtemp_C), color = "red", shape = 4)+
-      ggplot2::scale_color_manual(values = c("airtemp_C" = "orange",
-                                    "airtemp_C_adj" = "yellow"))+
-      ggplot2::scale_y_continuous(limits = c(-38,41))+
-      ggplot2::labs(title =select_station,
-           y = "Air temperature (C)",
-           x = "Timestamp") +
-      ggplot2::theme_classic()
-    plot_out <- plotly::ggplotly(p)
-  } else {
-    plot_out <- NULL
+  # Create edit flag if missing
+  if (!"edit_temp_range" %in% names(df)) df$edit_temp_range <- FALSE
+
+  # ---- 2. Detection rule ----------------------------------------------------
+  bad_temp <- !is.na(df$airtemp_C) &
+    (df$airtemp_C < temp_low_limit | df$airtemp_C > temp_high_limit)
+
+  # ---- 3. Apply adjustments -------------------------------------------------
+  df <- df |>
+    dplyr::mutate(
+      airtemp_C_adj  = dplyr::if_else(bad_temp, NA_real_, airtemp_C_adj),
+      edit_temp_range = bad_temp
+    )
+
+  # ---- 4. Log entries -------------------------------------------------------
+  log_rows_list <- list()
+  if (any(bad_temp)) {
+    log_row <- make_qaqc_log_row(
+      timestamps  = df$timestamp[bad_temp],
+      station     = select_station,
+      metric      = "AT",
+      field       = "airtemp_C_adj",
+      action      = "TEMP_OUT_RANGE",
+      code        = "TEMP_OUT_RANGE",
+      action_note = paste0("Air temperature outside [", temp_low_limit, ", ",
+                           temp_high_limit, "] C; set to NA"),
+      manual_note = "AUTOMATIC QC",
+      fun_name    = "airtemp_qaqc",
+      user        = user
+    )
+    if (!is.null(log_row)) log_rows_list[[1L]] <- log_row
   }
 
-  if(plot_only == FALSE){
-    # reverse local name changes
-    output_data <- output_data[, c("site_station_code", "sn", "timestamp", "airtemp_C", "airtemp_C_adj", "at_qaqc_code", "at_qaqc_adj", "at_qaqc_note")]
+  log_this <- dplyr::bind_rows(log_rows_list)
 
+  if (nrow(log_this) == 0) {
+    log_this <- dplyr::tibble(
+      station        = select_station,
+      metric         = "AT",
+      field          = "airtemp_C_adj",
+      action         = "AUTO_QAQC",
+      code           = NA_character_,
+      action_note    = "Air temperature QA/QC ran; no out-of-range values found.",
+      manual_note    = "AUTOMATIC QC",
+      ts_start       = NA_character_,
+      ts_end         = NA_character_,
+      duration_hours = NA_real_,
+      fun_name       = "airtemp_qaqc",
+      run_at         = Sys.time(),
+      user           = user
+    )
+  }
 
-    names(output_data)[names(output_data) == "airtemp_C" ] <- var_airtemp_C
-    names(output_data)[names(output_data) == "airtemp_C_adj" ] <- paste0(var_airtemp_C, "_adj")
+  qaqc_log_maybe_append(log_root, select_station, "AT", log_this)
 
+  message("Air temperature QAQC completed for: ", select_station)
 
-
-    message("Results returned as list: select [1] for data with airtemp_qaqc flags, [2] plots to visually assess for dry/ice/disturbance periods")
-    return(list(output_data, plot_out))
-
-  } else(return(plot_out))
-
+  attr(df, "qaqc_log") <- log_this
+  return(df)
 }

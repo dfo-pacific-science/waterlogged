@@ -62,7 +62,7 @@
 #' @export
 
 get_logger_data <- function(path_to_data = NULL,
-                            data_processing = c("v1.0", "raw", "v0.1", "v0.2", "v0.3"),
+                            data_processing = "v1.0",
                             metric          = NULL,
                             select_station  = "all",
                             temporal_scale  = "none",
@@ -84,8 +84,24 @@ get_logger_data <- function(path_to_data = NULL,
     }
   }
 
-  # Dual input: in-memory data frame OR file path
+  # Dual input: in-memory data frame OR file path (mutually exclusive)
+  if (!is.null(input_data) && !is.null(path_to_data)) {
+    stop(
+      "Provide either 'path_to_data' or 'input_data', not both.",
+      call. = FALSE
+    )
+  }
+
   if (!is.null(input_data) && is.data.frame(input_data)) {
+    req_cols <- c("timestamp", "site_station_code")
+    miss <- setdiff(req_cols, names(input_data))
+    if (length(miss) > 0) {
+      stop(
+        "get_logger_data(): input_data is missing required column(s): ",
+        paste(miss, collapse = ", "),
+        call. = FALSE
+      )
+    }
     dat <- input_data
   } else {
     if (is.null(path_to_data)) {
@@ -109,7 +125,7 @@ get_logger_data <- function(path_to_data = NULL,
     }
 
     # read and combine
-    dat <- purrr::map_df(file_paths, read_logger_file)
+    dat <- purrr::map(file_paths, read_logger_file) |> dplyr::bind_rows()
   }
 
   # optional station filter

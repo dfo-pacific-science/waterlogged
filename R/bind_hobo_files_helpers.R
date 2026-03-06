@@ -83,11 +83,16 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL) {
     }
     
     # 4) Parse timestamps (expect mdy_hm; auto-UTC)
-    parse_dt <- function(x) {
+    parse_dt <- function(x, col_name = "timestamp") {
       if (inherits(x, "POSIXct")) return(x)
-      x_chr <- as.character(x)
+      x_chr     <- as.character(x)
+      all_blank <- is.na(x_chr) | trimws(x_chr) %in% c("", "NA")
+      # All values are blank/NA — valid for still-deployed loggers (timestamp_remove)
+      if (all(all_blank)) {
+        return(as.POSIXct(rep(NA_character_, length(x_chr)), tz = "UTC"))
+      }
       p1 <- try(lubridate::mdy_hm(x_chr, tz = "UTC", quiet = TRUE), silent = TRUE)
-      if (!inherits(p1, "try-error") && !all(is.na(p1))) return(p1)
+      if (!inherits(p1, "try-error") && !all(is.na(p1[!all_blank]))) return(p1)
       p2 <- suppressWarnings(
         lubridate::parse_date_time(
           x_chr,
@@ -95,13 +100,13 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL) {
           tz = "UTC"
         )
       )
-      if (all(is.na(p2))) {
-        stop("Failed to parse timestamp column. Expected mdy_hm like '4/30/2025 13:45' in UTC.")
+      if (all(is.na(p2[!all_blank]))) {
+        stop("Failed to parse '", col_name, "' column. Expected format like '4/30/2025 13:45' (UTC).")
       }
       p2
     }
-    metadata$timestamp_deploy <- parse_dt(metadata$timestamp_deploy)
-    metadata$timestamp_remove <- parse_dt(metadata$timestamp_remove)
+    metadata$timestamp_deploy <- parse_dt(metadata$timestamp_deploy, "timestamp_deploy")
+    metadata$timestamp_remove <- parse_dt(metadata$timestamp_remove, "timestamp_remove")
     
     # 4) Warn if any timestamps are NA after parsing 
     
@@ -113,7 +118,7 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL) {
     na_deploy <- which(is.na(metadata$timestamp_deploy))
     na_remove <- which(is.na(metadata$timestamp_remove))
     if (length(na_deploy)) warning("Missing/invalid 'timestamp_deploy' on row(s): ", paste(na_deploy, collapse = ", "))
-    if (length(na_remove)) warning("Missing/invalid 'timestamp_remove' on row(s): ", paste(na_remove, collapse = ", "))
+    if (length(na_remove)) message("Note: 'timestamp_remove' is NA on row(s): ", paste(na_remove, collapse = ", "), " (expected for still-deployed loggers).")
     
     # 5) check deploy > remove
     if (any(metadata$timestamp_deploy > metadata$timestamp_remove, na.rm = TRUE)) {
@@ -251,8 +256,12 @@ extract_alldata_from_file <- function(file) {
   tz     <- sub(".*(Date Time.*), ", "", tz_raw)
   
   logger_info <- as.character(data[2, 3])
-  logger_sn   <- regmatches(logger_info, regexpr("\\d{8}", logger_info))
-  
+  logger_sn <- regmatches(logger_info, regexpr("\\d{8}", logger_info))
+  if (length(logger_sn) == 0) {
+    warning("Could not extract 8-digit serial number from header of: ", basename(file), call. = FALSE)
+    logger_sn <- NA_character_
+  }
+
   # helper: parse "<Type>, <unit> (LGR ...)" -> type + unit
   parse_type_unit <- function(info) {
     info <- as.character(info)
@@ -360,7 +369,7 @@ extract_alldata_from_file <- function(file) {
       data1_type = dat1_type,
       data1_unit = dat1_unit,
       data2_type = dat2_type,
-      dat2_unit  = dat2_unit
+      data2_unit = dat2_unit
     )
   
   return(data_clean)

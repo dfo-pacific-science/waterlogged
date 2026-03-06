@@ -2,7 +2,7 @@
 % Please edit documentation in R/drift_wl.R
 \name{wl_multipoint_correction}
 \alias{wl_multipoint_correction}
-\title{Apply multi-point linear drift correction to water level}
+\title{Apply multi-point linear drift correction to water level [DRAFT]}
 \usage{
 wl_multipoint_correction(
   input_data,
@@ -23,7 +23,12 @@ wl_multipoint_correction(
 
 \item{drift_points}{A data frame or tibble with columns:
 \describe{
-\item{timestamp}{Drift control timestamps (POSIXct or character).}
+\item{timestamp}{Drift control timestamps (POSIXct or character).
+Character strings are parsed in the logger's timezone (detected
+from the POSIXct \code{tzone} attribute of \code{input_data$timestamp}
+or an optional \code{timezone} column). Falls back to \code{"UTC"}
+if neither source is available. Pass a POSIXct with the correct
+\code{tzone} to override this detection.}
 \item{drift_m}{Numeric drift (m) at each timestamp. Positive means
 the logger is reading too low (we will add this amount to bring
 the series up).}
@@ -39,18 +44,23 @@ In Shiny apps, pass the logged-in user explicitly
 \item{manual_note}{Optional character note to include in the log.}
 }
 \value{
-A modified data frame with updated \code{waterlevel_m_adj} for
-\code{select_station}. All other stations/rows are unchanged.
+A modified data frame with updated \code{waterlevel_m_adj} and a new
+logical column \code{edit_wl_drift} (\code{TRUE} for every row where a non-zero
+correction was applied) for \code{select_station}. All other stations/rows
+are unchanged.
 }
 \description{
+\strong{DRAFT — not fully tested. Do not use in production workflows
+without independent verification of results.}
+}
+\details{
 This function applies a piecewise-linear drift correction to
 \code{waterlevel_m_adj} for a single station. You provide a set of
 time-stamped drift control points , each with a desired drift value in metres.
 The function linearly interpolates between successive control points and
-subtracts that correction from \code{waterlevel_m_adj}. Data before the first
+adds that correction to \code{waterlevel_m_adj}. Data before the first
 control point and after the last control point are left unchanged.
-}
-\details{
+
 For each interval \eqn{[t_i, t_{i+1}]} between control points, a linear
 correction is constructed:
 
@@ -62,7 +72,7 @@ where \eqn{d_i} and \eqn{d_{i+1}} are the drift values (in metres) at
 times \eqn{t_i} and \eqn{t_{i+1}}. The adjusted water level is then:
 
 \deqn{
-  waterlevel\_m\_adj = waterlevel\_m\_adj - c(t)
+  waterlevel\_m\_adj = waterlevel\_m\_adj + c(t)
 }
 
 No correction is applied outside the range of the earliest and latest

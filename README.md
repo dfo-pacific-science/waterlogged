@@ -28,7 +28,7 @@ Install the development version from
 
 ``` r
 # install.packages("pak")
-pak::pak("daniella-lo/waterlogged")
+pak::pak("dfo-pacific-science/waterlogged")
 ```
 
 ## Workflow

@@ -2,36 +2,69 @@
 % Please edit documentation in R/watertemp_qaqc.R
 \name{watertemp_qaqc}
 \alias{watertemp_qaqc}
-\title{Automatic watertemp qaqc}
+\title{QA/QC a single water temperature time series}
 \usage{
 watertemp_qaqc(
   input_data,
   select_station,
-  var_airtemp_C = "airtemp_C_U20",
-  var_watertemp_C = "watertemp_C_U20",
-  plot_only = FALSE,
-  return_plots = TRUE
+  temp_ice_threshold_C = 0.3,
+  temp_high_dry_C = 19,
+  temp_air_water_diff_C = 2,
+  log_root = NULL,
+  user = NULL
 )
 }
 \arguments{
-\item{input_data}{Dataframe with water temperature in}
+\item{input_data}{Data frame of water-level or dissolved-oxygen logger data
+containing at least \code{timestamp}, \code{site_station_code}, and
+\code{watertemp_C}. An \code{airtemp_C} column is optional: when present,
+air-water comparison dry checks are also applied.}
 
-\item{select_station}{site_station_code for desired logger station, supplied waterlevel data will be filtered by this code}
+\item{select_station}{Character, station code to process
+(matches \code{site_station_code}).}
 
-\item{var_airtemp_C}{Name of column for air temperature (in degrees Celcius) in input data}
+\item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
+are flagged. Default \code{0.3}.}
 
-\item{var_watertemp_C}{Name of column for water temperature (in degrees Celcius) in input data}
+\item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
+suspected. Default \code{19}.}
 
-\item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, water level and temperature values out of range are removed and flagged}
+\item{temp_air_water_diff_C}{Absolute difference (C) between water and air
+temperature below which a dry sensor is suspected (when \code{airtemp_C}
+is present). Default \code{2}.}
 
-\item{return_plots}{Logical; if \code{TRUE} (default), an interactive
-\pkg{plotly} chart is included in the returned list.  Set to
-\code{FALSE} to skip plot creation (faster, useful in Shiny or
-batch pipelines).}
+\item{log_root}{Root folder where QA/QC logs are written by
+\code{\link[=qaqc_log_maybe_append]{qaqc_log_maybe_append()}}. Pass \code{NULL} (default) to skip file writing.}
+
+\item{user}{Character username written into the QA/QC log. Defaults to
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]}.}
 }
 \value{
-list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
+A data frame containing only rows for \code{select_station}, sorted
+by \code{timestamp}, with \code{watertemp_C_adj}, \code{flag_ice},
+\code{flag_wt_dry}, \code{edit_temp_lt_minus1}, and
+\code{edit_temp_neg_near} columns added.
+\code{attr(result, "qaqc_log")} holds a tibble of QA/QC log rows.
 }
 \description{
-Flag water temperatures above 19C as potentially dry, flag water temperatures below 0.3C as potentially in ice, correct temperature between -1 and 0 as 0, and remove water temperature values below -1C.
+Applies automatic QA/QC rules to a water temperature time series for one
+station: flags possible ice and dry conditions, corrects small negative
+temperatures to 0, and removes clearly impossible values (< -1 C). Returns
+the input data (filtered to \code{select_station}) with adjusted columns and
+boolean flag/edit columns.
+}
+\details{
+The following rules are applied:
+\describe{
+\item{\code{edit_temp_lt_minus1}}{Water temperature < -1 C: set to
+\code{NA} in \code{watertemp_C_adj}.}
+\item{\code{edit_temp_neg_near}}{Water temperature in [-1, 0) C: corrected
+to 0 in \code{watertemp_C_adj}.}
+\item{\code{flag_ice}}{Water temperature < \code{temp_ice_threshold_C}:
+flagged for review; data not changed.}
+\item{\code{flag_wt_dry}}{Possible dry sensor: water temperature >
+\code{temp_high_dry_C}; or, when \code{airtemp_C} is present, air-water
+temperature within \code{temp_air_water_diff_C} degrees C, or air warmer
+than water.}
+}
 }

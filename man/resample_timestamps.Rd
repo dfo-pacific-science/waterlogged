@@ -28,7 +28,8 @@ to \code{lubridate::round_date()}, e.g. \code{"5 min"}, \code{"10 min"},
 
 \item{select_station}{Optional station code. If supplied and
 \code{site_station_code} exists, the function will operate only on that
-station's rows and return the filtered data frame.}
+station's rows. The full input data frame (all stations) is always
+returned.}
 
 \item{metric}{Optional character code for the metric (e.g. \code{"WL"},
 \code{"DO"}, \code{"COND"}, \code{"BARO"}), used only for QA/QC logging.}
@@ -75,10 +76,10 @@ entry is written using the package logging helpers.
 \examples{
 \dontrun{
 aligned_wl <- resample_timestamps(
-  input_data     = wl_raw,
+  input_data     = wl_bound,
   interval       = "15 min",
   align          = "round",
-  select_station = "WL_ALBR_ST_30",
+  select_station = "ALBR_ST_30",
   metric         = "WL",
   log_root       = "data/processed"
 )

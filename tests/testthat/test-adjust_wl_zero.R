@@ -60,10 +60,10 @@ test_that("test adjust wl zero", {
   ts_end   <- lubridate::ymd_hms(timestamp_end)
 
   wl_unadjusted_time = adjusted_wl %>% dplyr::filter(!is.na(waterlevel_m) & (timestamp < ts_start | timestamp > ts_end))
-  expect_all_equal(wl_unadjusted_time$adjustment, 0)
+  expect_true(all(wl_unadjusted_time$adjustment == 0))
 
   wl_adjusted_time = adjusted_wl %>% dplyr::filter(!is.na(waterlevel_m) & timestamp >= ts_start & timestamp <= ts_end)
-  expect_all_equal(wl_adjusted_time$adjustment, 1)
+  expect_true(all(wl_adjusted_time$adjustment == 1))
 
   adjusted_wl_no_timestamps = adjust_WL_zero(waterlevel_complete_QAQC,
                                select_station = "ALBR_ST_30",
@@ -72,6 +72,6 @@ test_that("test adjust wl zero", {
                                log_root =  path_to_output_folder)
 
   wl_adjusted_time = adjusted_wl_no_timestamps %>% dplyr::filter(!is.na(waterlevel_m)) %>% dplyr::mutate(adjustment = waterlevel_m_adj - waterlevel_m)
-  expect_all_equal(wl_adjusted_time$adjustment, 1)
+  expect_true(all(wl_adjusted_time$adjustment == 1))
 
 })

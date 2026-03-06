@@ -19,26 +19,30 @@ test_that("test watertemp qaqc", {
 
   sites_compiled = DO_with_Baro[[1]]
 
-  #check qa flags doesnt exist before
-  qa.columns = c("qaqc_code", "qaqc_note")
+  #check modern flag columns don't exist before
+  qa.columns = c("flag_ice", "flag_wt_dry", "edit_temp_lt_minus1", "edit_temp_neg_near")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
 
   watertemp_complete_QAQC = watertemp_qaqc(sites_compiled,
                  select_station = "ALBR_ST_30")
 
-  #check outputs
-  expect_s3_class(watertemp_complete_QAQC[[1]], "data.frame")
-  expect_s3_class(watertemp_complete_QAQC[[2]], "plotly")
+  #check return type is a data frame (not a list)
+  expect_s3_class(watertemp_complete_QAQC, "data.frame")
 
-  #check qa flags exist after
-  missing_cols <- setdiff(qa.columns, colnames(watertemp_complete_QAQC[[1]]))
+  #check qaqc_log attribute is a data frame
+  expect_s3_class(attr(watertemp_complete_QAQC, "qaqc_log"), "data.frame")
+
+  #check modern flag columns exist after
+  missing_cols <- setdiff(qa.columns, colnames(watertemp_complete_QAQC))
   expect_equal(length(missing_cols), 0)
 
 })
 
-test_that("test watertemp qaqc with air temp", {
+test_that("test watertemp qaqc without airtemp_C succeeds", {
 
+  # DO data bound directly (no add_nearest_baro) — no airtemp_C column present.
+  # airtemp_C is optional in the modern API; this call must succeed.
   path_to_raw_folder = test_path("fixtures/DO")
   path_to_output_folder = withr::local_tempdir()
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
@@ -49,7 +53,17 @@ test_that("test watertemp qaqc with air temp", {
 
   sites_compiled = DO_bound[[1]]
 
-  expect_error(watertemp_qaqc(sites_compiled,
-                 select_station = "COOK_WE_40"),
-               "input_data is missing required columns")
+  # airtemp_C absent — should succeed (not error)
+  expect_no_error(
+    result <- watertemp_qaqc(sites_compiled, select_station = "COOK_WE_40")
+  )
+
+  # flag_wt_dry should exist but contain only the temperature-based signal
+  # (no air-water comparison since airtemp_C is absent)
+  expect_true("flag_wt_dry" %in% names(result))
+
+  # confirm no air-water comparison columns leaked into the output
+  expect_false("wt_air_close"  %in% names(result))
+  expect_false("wt_air_warmer" %in% names(result))
+
 })

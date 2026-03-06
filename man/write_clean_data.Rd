@@ -21,7 +21,8 @@ invisibly.}
 
 \item{metric}{Character scalar identifying the data type.  Must be one
 of \code{"dissolvedoxygen"}, \code{"barometric"},
-\code{"waterlevel"}, \code{"watertemp"}, or \code{"airtemp"}.
+\code{"waterlevel"}, \code{"watertemp"}, \code{"airtemp"}, or
+\code{"conductivity"}.
 Controls which columns are required and the file-name prefix (see
 \strong{Details}).}
 }
@@ -59,6 +60,10 @@ No optional columns.}
 \item{\code{"airtemp"} (AT)}{Required:
 \code{airtemp_C}.
 Optional: \code{airtemp_C_adj}.}
+\item{\code{"conductivity"} (CO)}{Required:
+\code{conduct_uScm}.
+Optional: \code{conduct_uScm_adj}, \code{spc_uScm_adj},
+\code{watertemp_C}, \code{watertemp_C_adj}.}
 }
 
 All metrics also require \code{site_station_code} and

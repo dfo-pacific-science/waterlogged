@@ -125,22 +125,18 @@ test_that("test write clean data for conductivity", {
 
   sites_compiled = cond_bound[[1]]
 
-
-  #set temp high limit to 39 to make sure there is flags and log is written
   cond_complete_QAQC = suppressMessages(conductivity_qaqc(sites_compiled,
                                                           log_root = path_to_output_folder,
                                                           select_station = "MILE_WE_40"))
 
+  # Add specific conductance (key output of temp compensation step)
+  cond_with_spc = conductivity_temp_compensation(cond_complete_QAQC)
+  expect_true("spc_uScm_adj" %in% names(cond_with_spc))
+
   expect_false(dir.exists(file.path(path_to_output_folder, "2025/clean")))
 
-  output.files = list.files(path_to_output_folder, recursive = TRUE)
-  matches = grepl("2024/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
-  expect_false(any(matches))
-  matches = grepl("2025/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
-  expect_false(any(matches))
-
   write_clean_data(
-    input_data = sites_compiled,
+    input_data = cond_with_spc,
     path_to_output_folder = path_to_output_folder,
     metric = "conductivity")
 
@@ -150,8 +146,13 @@ test_that("test write clean data for conductivity", {
   output.files = list.files(path_to_output_folder, recursive = TRUE)
   matches = grepl("2025/clean/MILE_WE_40_CO", output.files, ignore.case = FALSE, perl = TRUE)
   expect_true(any(matches))
-  matches = grepl("2025/clean/TUMT_WE_40_CO", output.files, ignore.case = FALSE, perl = TRUE)
-  expect_true(any(matches))
+
+  # verify spc_uScm_adj is present in the written CSV
+  csv_path = file.path(path_to_output_folder,
+                       output.files[matches][1])
+  written = utils::read.csv(csv_path)
+  expect_true("spc_uScm_adj" %in% names(written))
+
 })
 
 test_that("test write clean data for wrong metric", {

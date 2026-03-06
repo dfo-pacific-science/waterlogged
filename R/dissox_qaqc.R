@@ -187,7 +187,7 @@ dissox_qaqc <- function(input_data,
   fun_name    <- "dissox_qaqc"
   action      <- "AUTO_QAQC"
   manual_note <- "Automatic dissolved oxygen QA/QC; no manual note provided."
-  run_time    <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+  run_time    <- Sys.time()
 
   rules <- list(
     # DO logger error

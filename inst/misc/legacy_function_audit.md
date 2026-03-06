@@ -700,7 +700,7 @@ replacements and are not used by any current vignette or workflow:
 
 - [ ] `R/adjust_logger_NA.R`: Change `conductivity_uScm_adj` → `conduct_uScm_adj`
   in the COND block (lines 358-417)
-- [ ] `R/adjust_wl_offset.R`: Change `adjust_waterlevel_cablebreak` →
+- [x] `R/adjust_wl_offset.R`: Change `adjust_waterlevel_cablebreak` →
   `adjust_WL_offset` in error messages (lines 66, 84, 90, 157)
 - [ ] `R/conductivity_temp_compensation.R`: Change `conduct_temp_comp()` →
   `conductivity_temp_compensation()` in error/warning messages (lines 51, 103)

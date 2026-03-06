@@ -2,33 +2,51 @@
 % Please edit documentation in R/airtemp_qaqc.R
 \name{airtemp_qaqc}
 \alias{airtemp_qaqc}
-\title{Automatic air temperature qaqc}
+\title{QA/QC a single air temperature time series}
 \usage{
 airtemp_qaqc(
   input_data,
   select_station,
-  var_airtemp_C = "airtemp_C_TidbiT",
-  plot_only = FALSE,
-  return_plots = TRUE
+  temp_low_limit = -40,
+  temp_high_limit = 40,
+  log_root = NULL,
+  user = NULL
 )
 }
 \arguments{
-\item{input_data}{raw data csv from air temperature TidbiT loggers}
+\item{input_data}{Data frame of barometric or air-temperature logger data
+containing at least \code{timestamp}, \code{site_station_code}, and
+\code{airtemp_C}.}
 
-\item{select_station}{site_station_code for desired logger station, supplied air temperature data will be filtered by this code}
+\item{select_station}{Character, station code to process
+(matches \code{site_station_code}).}
 
-\item{var_airtemp_C}{The variable for air temperature in degrees Celsius}
+\item{temp_low_limit}{Lower bound (C) for plausible air temperature.
+Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
 
-\item{plot_only}{logical, TRUE or FALSE; If TRUE, only plot is displayed; if FALSE, air temperature values out of range are removed and flagged}
+\item{temp_high_limit}{Upper bound (C) for plausible air temperature.
+Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
 
-\item{return_plots}{Logical; if \code{TRUE} (default), an interactive
-\pkg{plotly} chart is included in the returned list.  Set to
-\code{FALSE} to skip plot creation (faster, useful in Shiny or
-batch pipelines).}
+\item{log_root}{Root folder where QA/QC logs are written by
+\code{\link[=qaqc_log_maybe_append]{qaqc_log_maybe_append()}}. Pass \code{NULL} (default) to skip file writing.}
+
+\item{user}{Character username written into the QA/QC log. Defaults to
+\code{NULL}, which resolves to \code{Sys.info()[["user"]]}.}
 }
 \value{
-list of 2; return site dataframe with qaqc adjustments; return plot for visual qaqc
+A data frame containing only rows for \code{select_station}, sorted
+by \code{timestamp}, with \code{airtemp_C_adj} and \code{edit_temp_range}
+columns added. \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log
+rows.
 }
 \description{
-Format air-temperature data for output as "clean"
+Applies automatic range-check QA/QC to an air temperature logger time series
+for one station. Out-of-range values are set to \code{NA} in the adjusted
+column and flagged. Returns the input data (filtered to \code{select_station})
+with adjusted columns and a boolean edit flag.
+}
+\details{
+If \code{airtemp_C_adj} does not exist it is created as a copy of
+\code{airtemp_C}. \code{edit_temp_range} is created if missing and set to
+\code{TRUE} where the rule applies.
 }

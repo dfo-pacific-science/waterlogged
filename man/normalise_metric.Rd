@@ -28,7 +28,7 @@ A single canonical metric string.
 \description{
 Internal helper called by \code{\link{get_logger_data}} to
 standardise the \code{metric} argument.  Accepts common aliases
-(case-insensitive, whitespace-stripped) and returns one of the five
+(case-insensitive, whitespace-stripped) and returns one of the six
 canonical metric names used throughout the package.
 }
 \seealso{

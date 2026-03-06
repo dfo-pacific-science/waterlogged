@@ -66,7 +66,7 @@ read_logger_file <- function(file_path) {
 
   if (!"timestamp" %in% names(dat)) {
     ts_cand <- intersect(
-      c("timestamp", "Timestamp", "Date Time", "datetime", "date_time"),
+      c("Timestamp", "Date Time", "datetime", "date_time"),
       names(dat)
     )
     if (!length(ts_cand)) {
@@ -80,6 +80,14 @@ read_logger_file <- function(file_path) {
     dat$timestamp <- suppressWarnings(
       lubridate::ymd_hms(dat$timestamp, tz = "UTC")
     )
+    if (all(is.na(dat$timestamp))) {
+      warning(
+        "read_logger_file(): all timestamps failed to parse in '",
+        basename(file_path), "'. ",
+        "Check that the timestamp column uses a YYYY-MM-DD HH:MM:SS format.",
+        call. = FALSE
+      )
+    }
   }
 
   # Coerce known factor/code columns to character
@@ -95,7 +103,7 @@ read_logger_file <- function(file_path) {
 #'
 #' Internal helper called by \code{\link{get_logger_data}} to
 #' standardise the \code{metric} argument.  Accepts common aliases
-#' (case-insensitive, whitespace-stripped) and returns one of the five
+#' (case-insensitive, whitespace-stripped) and returns one of the six
 #' canonical metric names used throughout the package.
 #'
 #' @param metric Character scalar.  The user-supplied metric string.
@@ -248,8 +256,8 @@ resolve_data_processing_pattern <- function(data_processing) {
 #'   and the metric-specific \code{_adj} columns (see \strong{Details}).
 #' @param metric_norm Character scalar.  One of the canonical metric
 #'   names returned by \code{normalise_metric()}: \code{"dissolvedoxygen"},
-#'   \code{"waterlevel"}, \code{"barometric"}, \code{"watertemp"}, or
-#'   \code{"airtemp"}.
+#'   \code{"waterlevel"}, \code{"barometric"}, \code{"conductivity"},
+#'   \code{"watertemp"}, or \code{"airtemp"}.
 #' @param temporal_scale Character scalar.  One of \code{"hourly"},
 #'   \code{"daily"}, \code{"weekly"}, \code{"monthly"}, or
 #'   \code{"yearly"}.  Already validated upstream by
@@ -286,11 +294,10 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
     dplyr::mutate(
       time_group = dplyr::case_when(
         temporal_scale == "hourly"  ~ lubridate::floor_date(timestamp, "hour"),
-        temporal_scale == "daily"   ~ as.Date(timestamp),
+        temporal_scale == "daily"   ~ lubridate::floor_date(timestamp, "day"),
         temporal_scale == "weekly"  ~ lubridate::floor_date(timestamp, "week", week_start = 1),
         temporal_scale == "monthly" ~ lubridate::floor_date(timestamp, "month"),
-        temporal_scale == "yearly"  ~ lubridate::floor_date(timestamp, "year"),
-        TRUE ~ NA
+        temporal_scale == "yearly"  ~ lubridate::floor_date(timestamp, "year")
       )
     )
   
@@ -472,8 +479,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
 
 
 factor_cols <- c(
-  "sn", "baro_code", "qaqc_code", "wl_qaqc_code",
-  "do_qaqc_code", "wt_qaqc_code", "at_qaqc_code", "baro_qaqc_code"
+  "sn", "baro_qaqc_code"
 )
 
 

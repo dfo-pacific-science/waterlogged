@@ -6,7 +6,7 @@
 \usage{
 get_logger_data(
   path_to_data = NULL,
-  data_processing = c("v1.0", "raw", "v0.1", "v0.2", "v0.3"),
+  data_processing = "v1.0",
   metric = NULL,
   select_station = "all",
   temporal_scale = "none",

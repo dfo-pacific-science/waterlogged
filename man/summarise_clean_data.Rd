@@ -13,8 +13,8 @@ and the metric-specific \code{_adj} columns (see \strong{Details}).}
 
 \item{metric_norm}{Character scalar.  One of the canonical metric
 names returned by \code{normalise_metric()}: \code{"dissolvedoxygen"},
-\code{"waterlevel"}, \code{"barometric"}, \code{"watertemp"}, or
-\code{"airtemp"}.}
+\code{"waterlevel"}, \code{"barometric"}, \code{"conductivity"},
+\code{"watertemp"}, or \code{"airtemp"}.}
 
 \item{temporal_scale}{Character scalar.  One of \code{"hourly"},
 \code{"daily"}, \code{"weekly"}, \code{"monthly"}, or

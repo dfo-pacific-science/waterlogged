@@ -412,29 +412,26 @@ plot_qaqc_timeseries(
 # STEP 8: Export Clean Data
 # =============================================================================
 #
-# NOTE: As of this writing, write_clean_data() does not support the
-#       "conductivity" metric. It supports "dissolvedoxygen", "barometric",
-#       "waterlevel", "watertemp", and "airtemp". This is a known gap
-#       in the package. For now, you can export the data manually:
+# WHAT: Writes the final processed data to a v1.0 CSV file, one file per
+#       station per year, stored in <output_folder>/<year>/clean/.
+#
+# COLUMNS WRITTEN:
+#   Required: conduct_uScm (raw, never modified)
+#   Optional (if present): conduct_uScm_adj, spc_uScm_adj,
+#                          watertemp_C, watertemp_C_adj
+#   Auto-included: any flag_* and edit_* columns
 # -----------------------------------------------------------------------------
 
+# TODO UPDATE: set this to your desired output folder
+output_folder <- "conductivity/output"
 
+write_clean_data(
+  input_data            = cond_qc,
+  path_to_output_folder = output_folder,
+  metric                = "conductivity"
+)
 
-# Manual export (since write_clean_data doesn't support conductivity yet):
-
-# export_cols <- c("site_station_code", "timestamp",
-#                  "conduct_uScm", "conduct_uScm_adj",
-#                  "spc_uScm_adj",
-#                  "watertemp_C", "watertemp_C_adj",
-#                  grep("^(flag_|edit_)", names(cond_qc), value = TRUE))
-# export_cols <- intersect(export_cols, names(cond_qc))
-#
-# write.csv(
-#   cond_qc[, export_cols],
-#   file = "output/TUMT_WE_40_COND_v1.0.csv",
-#   row.names = FALSE
-# )
-# cat("Clean data exported to: output/TUMT_WE_40_COND_v1.0.csv\n")
+cat("Clean data written to:", output_folder, "\n")
 
 
 # =============================================================================
@@ -448,7 +445,7 @@ plot_qaqc_timeseries(
 #   Step 5:  conductivity_temp_compensation() -> cond_qc (adds SPC)
 #   Step 6:  Manual adjustments           -> cond_qc    (updated)
 #   Step 7:  plot_qaqc_timeseries()       -> (final review)
-#   Step 8:  Export                        -> CSV file
+#   Step 8:  write_clean_data()            -> CSV file (v1.0)
 #
 # KEY COLUMNS:
 #   conduct_uScm      = raw electrical conductivity (never modified)

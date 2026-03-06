@@ -72,9 +72,7 @@
 #'     detection).
 #'   \item \strong{Input data validation.}
 #'     \code{QAQC_wl_kpa_inputs()} checks required columns, parses
-#'     timestamps, verifies \code{logger_type}, and warns about
-#'     out-of-range values for water temperature, water pressure, and
-#'     barometric pressure.
+#'     timestamps, and verifies \code{logger_type}.
 #'   \item \strong{Fluid density.}
 #'     Temperature-dependent water density is calculated using the
 #'     IAPWS-recommended polynomial (Kell, 1975) and converted to
@@ -105,7 +103,7 @@
 #'
 #' @export
 convert_waterlevel_kPa_m <- function(input_data,
-                                     select_station,
+                                     select_station = "all",
                                      reference_data,      # path or data.frame
                                      reference_type = "stage",
                                      select_measurement = 1,

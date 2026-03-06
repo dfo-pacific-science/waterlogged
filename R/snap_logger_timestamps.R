@@ -28,7 +28,8 @@
 #'   `"floor"`, `"ceiling"`. See \code{lubridate::round_date()}.
 #' @param select_station Optional station code. If supplied and
 #'   `site_station_code` exists, the function will operate only on that
-#'   station's rows and return the filtered data frame.
+#'   station's rows. The full input data frame (all stations) is always
+#'   returned.
 #' @param metric Optional character code for the metric (e.g. `"WL"`,
 #'   `"DO"`, `"COND"`, `"BARO"`), used only for QA/QC logging.
 #' @param log_root Optional path to the root QA/QC log folder. If provided
@@ -51,10 +52,10 @@
 #' @examples
 #' \dontrun{
 #' aligned_wl <- resample_timestamps(
-#'   input_data     = wl_raw,
+#'   input_data     = wl_bound,
 #'   interval       = "15 min",
 #'   align          = "round",
-#'   select_station = "WL_ALBR_ST_30",
+#'   select_station = "ALBR_ST_30",
 #'   metric         = "WL",
 #'   log_root       = "data/processed"
 #' )
@@ -76,6 +77,8 @@ resample_timestamps <- function(input_data,
   }
   
   # Optional station filter ----------------------------------------------------
+  output_data <- input_data
+
   if (!is.null(select_station)) {
     if (!"site_station_code" %in% names(input_data)) {
       stop(
@@ -83,13 +86,15 @@ resample_timestamps <- function(input_data,
         "'site_station_code' column is missing."
       )
     }
-    
-    df <- input_data[input_data$site_station_code == select_station, , drop = FALSE]
-    
-    if (nrow(df) == 0) {
+
+    idx_station <- which(input_data$site_station_code == select_station)
+
+    if (length(idx_station) == 0) {
       warning("resample_timestamps(): no rows for station ", select_station)
-      return(df)
+      return(output_data)
     }
+
+    df <- input_data[idx_station, , drop = FALSE]
   } else {
     df <- input_data
   }
@@ -134,12 +139,21 @@ resample_timestamps <- function(input_data,
     floor   = lubridate::floor_date,
     ceiling = lubridate::ceiling_date
   )
-  
+
   snapped_ts <- snap_fun(df$timestamp, unit = interval)
-  
+
+  # Warn if snapping created duplicate timestamps
+  n_dups <- sum(duplicated(snapped_ts))
+  if (n_dups > 0) {
+    warning(
+      "resample_timestamps(): snapping created ", n_dups,
+      " duplicate timestamp(s). Consider aggregating before snapping."
+    )
+  }
+
   # Identify changed rows (for logging)
   changed_idx <- which(df$timestamp_raw != snapped_ts)
-  
+
   # Apply snapped timestamps
   df$timestamp <- snapped_ts
   
@@ -147,15 +161,15 @@ resample_timestamps <- function(input_data,
   do_logging <- !is.null(log_root) && !is.null(metric) && !is.null(select_station)
   
   if (do_logging) {
-    run_time    <- format(Sys.time(), "%Y-%m-%dT%H:%M:%S")
+    run_time    <- Sys.time()
     fun_name    <- "resample_timestamps"
     manual_note <- "Timestamps snapped to a regular interval."
     action      <- "SNAP_TIME"
     field       <- "timestamp"
-    
+
     if (length(changed_idx) > 0) {
       ts_changed <- df$timestamp_raw[changed_idx]
-      
+
       log_rows <- make_qaqc_log_row(
         timestamps  = ts_changed,
         station     = select_station,
@@ -173,28 +187,33 @@ resample_timestamps <- function(input_data,
         run_time    = run_time
       )
     } else {
-      log_rows <- dplyr::tibble(
-        station        = select_station,
-        metric         = metric,
-        field          = field,
-        action         = action,
-        code           = NA_character_,
-        action_note    = paste0(
+      log_rows <- make_qaqc_log_row(
+        timestamps  = range(df$timestamp_raw),
+        station     = select_station,
+        metric      = metric,
+        field       = field,
+        action      = action,
+        code        = "SNAP_TIME",
+        action_note = paste0(
           "resample_timestamps() ran; timestamps already aligned to ",
           interval, " (no changes applied)."
         ),
-        manual_note    = manual_note,
-        ts_start       = NA_character_,
-        ts_end         = NA_character_,
-        duration_hours = NA_real_,
-        fun_name       = fun_name,
-        run_at         = run_time,
-        user           = user
+        manual_note = manual_note,
+        fun_name    = fun_name,
+        user        = user,
+        run_time    = run_time
       )
     }
-    
+
     qaqc_log_maybe_append(log_root, select_station, metric, log_rows)
   }
 
-  return(df)
+  # Stitch back into full dataset ----------------------------------------------
+  if (!is.null(select_station)) {
+    output_data[idx_station, ] <- df
+  } else {
+    output_data <- df
+  }
+
+  return(output_data)
 }
