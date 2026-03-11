@@ -117,7 +117,7 @@ neither is available. Pass logger timestamps as POSIXct with the correct
 \code{tzone} to ensure accurate matching.
 }
 \seealso{
-\code{\link{waterlevel_qaqc}} (upstream automatic QAQC),
+\code{\link{qc_waterlevel}} (upstream automatic QAQC),
 \code{\link{convert_waterlevel_kPa_m}} (upstream kPa-to-m conversion),
 \code{\link{wl_multipoint_correction}} (water level drift correction)
 }

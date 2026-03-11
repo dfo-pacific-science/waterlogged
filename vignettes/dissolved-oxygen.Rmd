@@ -201,7 +201,7 @@ Adjusted columns created: `do_mgl_adj`, `do_percsat_adj`, `watertemp_C_do_adj`.
 The same flag vs edit pattern applies: `flag_*` = "please review" (data unchanged), `edit_*` = "we changed the data".
 
 ```{r do-qaqc}
-do_qc <- dissox_qaqc(
+do_qc <- qc_dissox(
   input_data     = do_data,
   select_station = "COOK_WE_40"
 )
@@ -411,7 +411,7 @@ write_clean_data(
 | 2 | `bind_hobo_files()` on DO | `do_data` (raw DO) |
 | 3 | `add_nearest_baro()` | `do_data` (DO + baro attached) |
 | 4 | `convert_do_mgl_percsat()` | `do_data` (adds %sat) |
-| 5 | `dissox_qaqc()` | `do_qc` (auto QAQC'd) |
+| 5 | `qc_dissox()` | `do_qc` (auto QAQC'd) |
 | 6 | `plot_qaqc_timeseries()` | (visual review) |
 | 7 | `wq_drift_correction()` | `do_qc` (drift corrected) |
 | 8 | Manual adjustments | `do_qc` (updated) |

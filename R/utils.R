@@ -7,6 +7,7 @@
 #' @param a,b Values to test and fall back from/to.
 #' @return \code{a} or \code{b}.
 #' @keywords internal
+#' @noRd
 `%||%` <- function(a, b) {
   if (!is.null(a) && length(a) && !is.na(a) && nzchar(a)) a else b
 }

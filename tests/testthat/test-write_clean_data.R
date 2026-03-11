@@ -1,185 +1,165 @@
+# ============================================================================
+# Tests for write_clean_data()
+#
+# This function exports the final "v1.0" clean data CSV files, split by
+# station and year. It only includes the columns relevant to each metric
+# (waterlevel, dissolved oxygen, conductivity, or barometric).
+#
+# PERFORMANCE NOTE: Water level tests use cached pipeline data from
+# helper-pipeline-fixtures.R. Conductivity tests run their own pipeline
+# because conductivity uses different fixtures and a separate processing path.
+# ============================================================================
+
 test_that("test write clean data", {
+  # Get QAQC'd water-level data from the shared cache
+  waterlevel_complete_QAQC <- get_wl_qaqc_data()
 
-  #bind level data
-  path_to_output_folder = withr::local_tempdir()
-  path_to_raw_folder = test_path("fixtures/level")
-  metadata_path = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
-  level_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                 path_to_output_folder = path_to_output_folder,
-                                 metadata_path = metadata_path)
+  # Use a FRESH temp directory for output — we need to verify that
+  # write_clean_data() creates the correct folder structure and files.
+  path_to_output_folder <- withr::local_tempdir()
 
-  #bind baro data
-  path_to_raw_folder = test_path("fixtures/baro")
-  baro_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                path_to_output_folder = path_to_output_folder,
-                                metadata_path = metadata_path)
-
-  #add baro data to level data
-  wl_data_with_baro <- add_nearest_baro(input_data = level_bound[[1]],
-                                        path_to_output_folder = path_to_output_folder,
-                                        baro_data_path = path_to_output_folder,
-                                        metric = "both",
-                                        baro_site_selection = "auto",
-                                        metadata_path = metadata_path)
-
-  #convert pressure to water level
-  reference_data = test_path("fixtures/NT_manual_waterlevel_20251119.csv")
-  converted_data <- convert_waterlevel_kPa_m(input_data = wl_data_with_baro[[1]],
-                                             select_station = "all",
-                                             reference_data = reference_data,
-                                             reference_type = "stage",
-                                             select_measurement = 1,
-                                             logger_type_expected = "u20",
-                                             path_to_output_folder= path_to_output_folder)
-
-  waterlevel_complete_QAQC <- waterlevel_qaqc(converted_data[[1]],
-                                              log_root = path_to_output_folder,
-                                              select_station = "ALBR_ST_30")
-
-  #check clean data doesnt exists before
+  # --- Verify clean data folders do NOT exist yet ---------------------------
   expect_false(dir.exists(file.path(path_to_output_folder, "2024/clean")))
   expect_false(dir.exists(file.path(path_to_output_folder, "2025/clean")))
 
-  output.files = list.files(path_to_output_folder, recursive = TRUE)
-  matches = grepl("2024/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
+  output.files <- list.files(path_to_output_folder, recursive = TRUE)
+  matches <- grepl("2024/clean/ALBR_ST_30_WL", output.files,
+                   ignore.case = FALSE, perl = TRUE)
   expect_false(any(matches))
-  matches = grepl("2025/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
+  matches <- grepl("2025/clean/ALBR_ST_30_WL", output.files,
+                   ignore.case = FALSE, perl = TRUE)
   expect_false(any(matches))
 
+  # --- Write clean data and verify files were created -----------------------
   clean_WL <- write_clean_data(
-      input_data = waterlevel_complete_QAQC,
-      path_to_output_folder = path_to_output_folder,
-      metric = "waterlevel"
+    input_data            = waterlevel_complete_QAQC,
+    path_to_output_folder = path_to_output_folder,
+    metric                = "waterlevel"
   )
 
-  #check clean data exists after
+  # Clean data folders should now exist for both years in the test data
   expect_true(dir.exists(file.path(path_to_output_folder, "2024/clean")))
   expect_true(dir.exists(file.path(path_to_output_folder, "2025/clean")))
 
-  output.files = list.files(path_to_output_folder, recursive = TRUE)
-  matches = grepl("2024/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
+  # Check that the output CSV files were created with correct naming
+  output.files <- list.files(path_to_output_folder, recursive = TRUE)
+  matches <- grepl("2024/clean/ALBR_ST_30_WL", output.files,
+                   ignore.case = FALSE, perl = TRUE)
   expect_true(any(matches))
-  matches = grepl("2025/clean/ALBR_ST_30_WL", output.files, ignore.case = FALSE, perl = TRUE)
+  matches <- grepl("2025/clean/ALBR_ST_30_WL", output.files,
+                   ignore.case = FALSE, perl = TRUE)
   expect_true(any(matches))
-
 })
 
 test_that("test write clean data without qaqc", {
+  # write_clean_data() requires QAQC'd data (with flag columns).
+  # Passing un-QAQC'd data should produce a clear error message.
 
-  #bind level data
-  path_to_output_folder = withr::local_tempdir()
-  path_to_raw_folder = test_path("fixtures/level")
-  metadata_path = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
-  level_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                 path_to_output_folder = path_to_output_folder,
-                                 metadata_path = metadata_path)
+  # Get the conversion result — this is a named list, NOT a data frame.
+  # Passing the list directly should error.
+  converted_data <- get_wl_converted_data()
+  path_to_output_folder <- withr::local_tempdir()
 
-  #bind baro data
-  path_to_raw_folder = test_path("fixtures/baro")
-  baro_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                path_to_output_folder = path_to_output_folder,
-                                metadata_path = metadata_path)
+  expect_error(
+    write_clean_data(
+      input_data            = converted_data,
+      path_to_output_folder = path_to_output_folder,
+      metric                = "waterlevel"
+    ),
+    "Missing required column"
+  )
 
-  #add baro data to level data
-  wl_data_with_baro <- add_nearest_baro(input_data = level_bound[[1]],
-                                        path_to_output_folder = path_to_output_folder,
-                                        baro_data_path = path_to_output_folder,
-                                        metric = "both",
-                                        baro_site_selection = "auto",
-                                        metadata_path = metadata_path)
-
-  #convert pressure to water level
-  reference_data = test_path("fixtures/NT_manual_waterlevel_20251119.csv")
-  converted_data <- convert_waterlevel_kPa_m(input_data = wl_data_with_baro[[1]],
-                                             select_station = "all",
-                                             reference_data = reference_data,
-                                             reference_type = "stage",
-                                             select_measurement = 1,
-                                             logger_type_expected = "u20",
-                                             path_to_output_folder= path_to_output_folder)
-
-  expect_error(write_clean_data(
-    input_data = converted_data,
-    path_to_output_folder = path_to_output_folder,
-    metric = "waterlevel"),
-    "Missing required column")
-
-  expect_error(write_clean_data(
-    input_data = converted_data$site_wl,
-    path_to_output_folder = path_to_output_folder,
-    metric = "waterlevel"),
-    "Missing required column")
-
+  # Passing just the site_wl data frame (still missing QAQC columns)
+  # should also error.
+  expect_error(
+    write_clean_data(
+      input_data            = converted_data$site_wl,
+      path_to_output_folder = path_to_output_folder,
+      metric                = "waterlevel"
+    ),
+    "Missing required column"
+  )
 })
 
 test_that("test write clean data for conductivity", {
+  # Conductivity uses a DIFFERENT pipeline (no baro step), so we run
+  # it from scratch here. This is not duplicated elsewhere in the tests.
 
-  path_to_raw_folder = test_path("fixtures/COND")
-  path_to_output_folder = withr::local_tempdir()
-  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
+  path_to_raw_folder    <- test_path("fixtures/COND")
+  path_to_output_folder <- withr::local_tempdir()
+  metadata_path         <- test_path("fixtures/testing_metadata_FP.csv")
 
-  expect_warning(cond_bound <- suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                                                path_to_output_folder = path_to_output_folder,
-                                                                metadata_path = metadata_path)),
-                 "Some files are in different units")
+  # Bind raw conductivity logger files
+  cond_bound <- suppressMessages(
+    bind_hobo_files(
+      path_to_raw_folder    = path_to_raw_folder,
+      path_to_output_folder = path_to_output_folder,
+      metadata_path         = metadata_path
+    )
+  )
 
-  sites_compiled = cond_bound[[1]]
+  sites_compiled <- cond_bound[[1]]
 
-  cond_complete_QAQC = suppressMessages(conductivity_qaqc(sites_compiled,
-                                                          log_root = path_to_output_folder,
-                                                          select_station = "MILE_WE_40"))
+  # Run conductivity QAQC (flags out-of-range values, etc.)
+  cond_complete_QAQC <- suppressMessages(
+    qc_conductivity(
+      sites_compiled,
+      log_root       = path_to_output_folder,
+      select_station = "MILE_WE_40"
+    )
+  )
 
-  # Add specific conductance (key output of temp compensation step)
-  cond_with_spc = conductivity_temp_compensation(cond_complete_QAQC)
+  # Temperature compensation converts raw conductivity to specific conductance
+  cond_with_spc <- conductivity_temp_compensation(cond_complete_QAQC)
   expect_true("spc_uScm_adj" %in% names(cond_with_spc))
 
+  # Verify no clean data exists before writing
   expect_false(dir.exists(file.path(path_to_output_folder, "2025/clean")))
 
+  # Write clean conductivity data
   write_clean_data(
-    input_data = cond_with_spc,
+    input_data            = cond_with_spc,
     path_to_output_folder = path_to_output_folder,
-    metric = "conductivity")
+    metric                = "conductivity"
+  )
 
-  #check clean data exists after
+  # Verify clean data was created with correct naming
   expect_true(dir.exists(file.path(path_to_output_folder, "2025/clean")))
 
-  output.files = list.files(path_to_output_folder, recursive = TRUE)
-  matches = grepl("2025/clean/MILE_WE_40_CO", output.files, ignore.case = FALSE, perl = TRUE)
+  output.files <- list.files(path_to_output_folder, recursive = TRUE)
+  matches <- grepl("2025/clean/MILE_WE_40_CO", output.files,
+                   ignore.case = FALSE, perl = TRUE)
   expect_true(any(matches))
 
-  # verify spc_uScm_adj is present in the written CSV
-  csv_path = file.path(path_to_output_folder,
-                       output.files[matches][1])
-  written = utils::read.csv(csv_path)
+  # Verify that specific conductance (spc_uScm_adj) is in the written CSV
+  csv_path <- file.path(path_to_output_folder, output.files[matches][1])
+  written <- utils::read.csv(csv_path)
   expect_true("spc_uScm_adj" %in% names(written))
-
 })
 
 test_that("test write clean data for wrong metric", {
+  # Passing an unsupported metric name should produce a clear error.
 
-  path_to_raw_folder = test_path("fixtures/COND")
-  path_to_output_folder = withr::local_tempdir()
-  metadata_path = test_path("fixtures/testing_metadata_FP.csv")
+  path_to_raw_folder    <- test_path("fixtures/COND")
+  path_to_output_folder <- withr::local_tempdir()
+  metadata_path         <- test_path("fixtures/testing_metadata_FP.csv")
 
-  expect_warning(cond_bound <- suppressMessages(bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                                                path_to_output_folder = path_to_output_folder,
-                                                                metadata_path = metadata_path)),
-                 "Some files are in different units")
+  cond_bound <- suppressMessages(
+    bind_hobo_files(
+      path_to_raw_folder    = path_to_raw_folder,
+      path_to_output_folder = path_to_output_folder,
+      metadata_path         = metadata_path
+    )
+  )
 
-  sites_compiled = cond_bound[[1]]
+  sites_compiled <- cond_bound[[1]]
 
-
-  #set temp high limit to 39 to make sure there is flags and log is written
-  cond_complete_QAQC = suppressMessages(conductivity_qaqc(sites_compiled,
-                                                          log_root = path_to_output_folder,
-                                                          select_station = "MILE_WE_40"))
-
-  expect_error(write_clean_data(
-    input_data = sites_compiled,
-    path_to_output_folder = path_to_output_folder,
-    metric = "fish"), "Unsupported metric")
-
-
-
+  expect_error(
+    write_clean_data(
+      input_data            = sites_compiled,
+      path_to_output_folder = path_to_output_folder,
+      metric                = "fish"
+    ),
+    "Unsupported metric"
+  )
 })
-

@@ -52,15 +52,15 @@
 #'       of QAQC log rows summarising every rule that fired.
 #'   }
 #'
-#' @seealso \code{\link{dissox_qaqc}} (analogous QAQC for dissolved oxygen),
-#'   \code{\link{conductivity_qaqc}} (analogous for conductivity),
+#' @seealso \code{\link{qc_dissox}} (analogous QAQC for dissolved oxygen),
+#'   \code{\link{qc_conductivity}} (analogous for conductivity),
 #'   \code{\link{adjust_waterlevel_spike}} (downstream spike removal),
 #'   \code{\link{adjust_logger_NA}} (downstream manual adjustment),
 #'   \code{\link{convert_waterlevel_kPa_m}} (upstream WL conversion)
 #'
 #' @export
 
-waterlevel_qaqc <- function(input_data,
+qc_waterlevel <- function(input_data,
                             select_station,
                             log_root = NULL,
                             user = NULL) {
@@ -80,7 +80,7 @@ waterlevel_qaqc <- function(input_data,
   missing_cols <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
-      "waterlevel_qaqc(): missing required column(s): ",
+      "qc_waterlevel(): missing required column(s): ",
       paste(missing_cols, collapse = ", ")
     )
   }
@@ -91,7 +91,7 @@ waterlevel_qaqc <- function(input_data,
     dplyr::arrange(timestamp)
 
   if (nrow(output_data) == 0) {
-    stop("waterlevel_qaqc(): no rows found for station '", select_station, "'.")
+    stop("qc_waterlevel(): no rows found for station '", select_station, "'.")
   }
 
   # Ensure timestamp is POSIXct (just in case)
@@ -123,7 +123,7 @@ waterlevel_qaqc <- function(input_data,
         wl_dt_secs <= 2 * med_step_secs &
         wl_diff_abs > 0.1,
 
-      # --- water temperature helpers (from old watertemp_qaqc) ---
+      # --- water temperature helpers (from old qc_watertemp) ---
       wt_high_dry   = !is.na(watertemp_C) & watertemp_C > 19,
       flag_ice      = !is.na(watertemp_C) & watertemp_C < 0.3,
       neg_lt_minus1 = !is.na(watertemp_C) & watertemp_C < -1,
@@ -134,7 +134,7 @@ waterlevel_qaqc <- function(input_data,
       wt_air_warmer = !is.na(watertemp_C) & !is.na(airtemp_C) &
         (airtemp_C - watertemp_C) > 0,
 
-      # old WL-based dry rule, updated to 19 deg C to match watertemp_qaqc doc
+      # old WL-based dry rule, updated to 19 deg C to match qc_watertemp doc
       flag_dry_wl = !is.na(waterlevel_m) & !is.na(watertemp_C) &
         !is.na(waterpress_kPa) & !is.na(airpress_kPa) &
         (watertemp_C > 19 | waterpress_kPa <= airpress_kPa),
@@ -162,7 +162,7 @@ waterlevel_qaqc <- function(input_data,
   # 4. Build QA/QC log rows from flags ----------------------------------------
   metric      <- "WL"
   action      <- "AUTO_QAQC"
-  fun_name    <- "waterlevel_qaqc"
+  fun_name    <- "qc_waterlevel"
   manual_note <- "Automatic water level & water temperature QA/QC; no manual note provided."
   run_time    <- Sys.time()
 

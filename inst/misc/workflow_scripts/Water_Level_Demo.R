@@ -364,9 +364,9 @@ head(site_wl[, c("timestamp", "waterpress_kPa", "airpress_kPa",
 #   neg_between        — TRUE where temp was -1 to 0 C (set to 0 in adj)
 # -----------------------------------------------------------------------------
 
-?waterlevel_qaqc
+?qc_waterlevel
 
-wl_qc <- waterlevel_qaqc(
+wl_qc <- qc_waterlevel(
   input_data     = site_wl,
   select_station = "ALBR_ST_30"
 )
@@ -646,7 +646,7 @@ head(wl_datum$wl_elev_m)
 #   Step 3:  bind_hobo_files() on level CSVs   -> level_data (raw WL)
 #   Step 4:  add_nearest_baro()                -> wl_data   (WL + baro attached)
 #   Step 5:  convert_waterlevel_kPa_m()        -> site_wl   (kPa -> metres)
-#   Step 6:  waterlevel_qaqc()                 -> wl_qc     (auto QAQC'd)
+#   Step 6:  qc_waterlevel()                 -> wl_qc     (auto QAQC'd)
 #   Step 7:  plot_qaqc_timeseries()            -> (visual review)
 #   Step 8:  Manual adjustments (as needed)    -> wl_qc     (updated)
 #   Step 9:  wl_set_datum() (optional)         -> (adds elevation)

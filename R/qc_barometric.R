@@ -50,7 +50,7 @@
 #' @seealso [barometric_qaqc_all()], [add_nearest_baro()]
 #'
 #' @export
-barometric_qaqc <- function(input_data,
+qc_barometric <- function(input_data,
                             select_station,
                             log_root = NULL,
                             user = NULL,
@@ -65,14 +65,18 @@ barometric_qaqc <- function(input_data,
 
   # ---- 1. Filter & basic checks ---------------------------------------------
   df <- input_data |>
-    dplyr::filter(site_station_code == select_station) |>
-    dplyr::arrange(timestamp)
+    dplyr::filter(.data$site_station_code == select_station) |>
+    dplyr::arrange(.data$timestamp)
 
-  if (nrow(df) == 0) stop("No rows for station ", select_station)
+  if (nrow(df) == 0) {
+    stop("No rows for station ", select_station, call. = FALSE)
+  }
 
   required <- c("timestamp", "airpress_kPa", "airtemp_C")
   miss <- setdiff(required, names(df))
-  if (length(miss) > 0) stop("Missing required columns: ", paste(miss, collapse=", "))
+  if (length(miss) > 0) {
+    stop("Missing required columns: ", paste(miss, collapse = ", "), call. = FALSE)
+  }
 
   # Create adjusted columns if missing
   if (!"airpress_kPa_adj" %in% names(df)) df$airpress_kPa_adj <- df$airpress_kPa
@@ -85,35 +89,48 @@ barometric_qaqc <- function(input_data,
 
 
   # ---- 2. Detection Rules ---------------------------------------------------
-  # Temperature outside realistic range
-  bad_temp <- df$airtemp_C < temp_low_limit | df$airtemp_C > temp_high_limit
+  press <- df$airpress_kPa
+  temp  <- df$airtemp_C
 
-  # Pressure outside expected terrestrial range
-  bad_press_low  <- df$airpress_kPa < pressure_low_kpa
-  bad_press_high <- df$airpress_kPa > pressure_high_kpa
+  # Temperature outside realistic range (NA-safe: NA → FALSE)
+  bad_temp <- !is.na(temp) & (temp < temp_low_limit | temp > temp_high_limit)
 
-  # Spikes (sudden jump > threshold)
-  diff_press <- c(NA, abs(diff(df$airpress_kPa)))
-  spikes     <- diff_press > spike_threshold_kpa
+  # Pressure outside expected terrestrial range (NA-safe)
+  bad_press_low  <- !is.na(press) & press < pressure_low_kpa
+  bad_press_high <- !is.na(press) & press > pressure_high_kpa
+
+  # Spikes: sudden jump > threshold (first element → FALSE, NA gaps → FALSE)
+  diff_press <- c(NA_real_, abs(diff(press)))
+  is_spike   <- !is.na(diff_press) & diff_press > spike_threshold_kpa
 
   # Flatline detection (n identical values in a row)
-  rle_vals <- rle(df$airpress_kPa)
-  flat_idx <- rep(rle_vals$lengths >= flatline_n, rle_vals$lengths)
-  flatline <- flat_idx
+  # Replace NAs with a sentinel so rle() doesn't treat NA runs as flatlines
+  press_for_rle <- press
+  press_for_rle[is.na(press_for_rle)] <- Inf
+  rle_vals    <- rle(press_for_rle)
+  is_flatline <- rep(rle_vals$lengths >= flatline_n, rle_vals$lengths)
+  # Don't flag actual NA runs
+
+  is_flatline[is.na(press)] <- FALSE
 
 
   # ---- 3. Apply Adjustments -------------------------------------------------
   df <- df |>
     dplyr::mutate(
       # Remove obviously wrong values
-      airpress_kPa_adj = dplyr::if_else(bad_press_low | bad_press_high, NA_real_, airpress_kPa_adj),
-      airtemp_C_adj    = dplyr::if_else(bad_temp, NA_real_, airtemp_C_adj),
+      airpress_kPa_adj = dplyr::if_else(
+        bad_press_low | bad_press_high, NA_real_, .data$airpress_kPa_adj
+      ),
+      airtemp_C_adj = dplyr::if_else(
+        bad_temp, NA_real_, .data$airtemp_C_adj
+      ),
 
-      edit_press_high = bad_press_high,
-      edit_press_low  = bad_press_low,
-      edit_temp_range = bad_temp,
-      edit_spike      = spikes,
-      edit_flatline   = flatline
+      # Preserve any existing TRUE flags from prior calls
+      edit_press_high = dplyr::if_else(bad_press_high, TRUE, .data$edit_press_high),
+      edit_press_low  = dplyr::if_else(bad_press_low,  TRUE, .data$edit_press_low),
+      edit_temp_range = dplyr::if_else(bad_temp,        TRUE, .data$edit_temp_range),
+      edit_spike      = dplyr::if_else(is_spike,        TRUE, .data$edit_spike),
+      edit_flatline   = dplyr::if_else(is_flatline,     TRUE, .data$edit_flatline)
     )
 
 
@@ -128,9 +145,9 @@ barometric_qaqc <- function(input_data,
          note=paste0("Pressure below ", pressure_low_kpa, " kPa removed")),
     list(name="TEMP_OUT_RANGE", idx=which(bad_temp),
          note=paste0("Temperature outside [", temp_low_limit,", ", temp_high_limit, "] C")),
-    list(name="SPIKE", idx=which(spikes),
+    list(name="SPIKE", idx=which(is_spike),
          note=paste0("Spike > ", spike_threshold_kpa, " kPa detected")),
-    list(name="FLATLINE", idx=which(flatline),
+    list(name="FLATLINE", idx=which(is_flatline),
          note=paste0("Flatline >= ", flatline_n, " identical readings"))
   )
 
@@ -148,7 +165,7 @@ barometric_qaqc <- function(input_data,
         code       = ev$name,
         action_note= ev$note,
         manual_note= "AUTOMATIC QC",
-        fun_name   = "barometric_qaqc",
+        fun_name   = "qc_barometric",
         user       = user
       )
 

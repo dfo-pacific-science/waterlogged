@@ -14,7 +14,7 @@ test_that("test airtemp qaqc", {
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
 
-  airtemp_complete_QAQC = airtemp_qaqc(sites_compiled,
+  airtemp_complete_QAQC = qc_airtemp(sites_compiled,
                select_station = "ALBR_ST_30")
 
   #check return type is a data frame (not a list)

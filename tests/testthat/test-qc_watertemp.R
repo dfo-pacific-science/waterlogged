@@ -24,7 +24,7 @@ test_that("test watertemp qaqc", {
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
 
-  watertemp_complete_QAQC = watertemp_qaqc(sites_compiled,
+  watertemp_complete_QAQC = qc_watertemp(sites_compiled,
                  select_station = "ALBR_ST_30")
 
   #check return type is a data frame (not a list)
@@ -55,7 +55,7 @@ test_that("test watertemp qaqc without airtemp_C succeeds", {
 
   # airtemp_C absent — should succeed (not error)
   expect_no_error(
-    result <- watertemp_qaqc(sites_compiled, select_station = "COOK_WE_40")
+    result <- qc_watertemp(sites_compiled, select_station = "COOK_WE_40")
   )
 
   # flag_wt_dry should exist but contain only the temperature-based signal

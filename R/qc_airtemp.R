@@ -30,7 +30,7 @@
 #'   rows.
 #'
 #' @export
-airtemp_qaqc <- function(input_data,
+qc_airtemp <- function(input_data,
                          select_station,
                          temp_low_limit  = -40,
                          temp_high_limit =  40,
@@ -43,12 +43,12 @@ airtemp_qaqc <- function(input_data,
     dplyr::filter(site_station_code == select_station) |>
     dplyr::arrange(timestamp)
 
-  if (nrow(df) == 0) stop("airtemp_qaqc(): no rows for station ", select_station)
+  if (nrow(df) == 0) stop("qc_airtemp(): no rows for station ", select_station)
 
   required <- c("timestamp", "site_station_code", "airtemp_C")
   miss <- setdiff(required, names(df))
   if (length(miss) > 0) {
-    stop("airtemp_qaqc(): input_data is missing required columns: ",
+    stop("qc_airtemp(): input_data is missing required columns: ",
          paste(miss, collapse = ", "), call. = FALSE)
   }
 
@@ -82,7 +82,7 @@ airtemp_qaqc <- function(input_data,
       action_note = paste0("Air temperature outside [", temp_low_limit, ", ",
                            temp_high_limit, "] C; set to NA"),
       manual_note = "AUTOMATIC QC",
-      fun_name    = "airtemp_qaqc",
+      fun_name    = "qc_airtemp",
       user        = user
     )
     if (!is.null(log_row)) log_rows_list[[1L]] <- log_row
@@ -102,7 +102,7 @@ airtemp_qaqc <- function(input_data,
       ts_start       = NA_character_,
       ts_end         = NA_character_,
       duration_hours = NA_real_,
-      fun_name       = "airtemp_qaqc",
+      fun_name       = "qc_airtemp",
       run_at         = Sys.time(),
       user           = user
     )

@@ -52,7 +52,7 @@
 #' seconds and written into \code{waterlevel_m_adj}. If the function cannot
 #' find unique raw values at both timestamps, it errors.
 #'
-#' @seealso \code{\link{waterlevel_qaqc}}, \code{\link{adjust_logger_NA}},
+#' @seealso \code{\link{qc_waterlevel}}, \code{\link{adjust_logger_NA}},
 #'   \code{\link{make_qaqc_log_row}}, \code{\link{qaqc_log_append}}
 #'
 #' @examples

@@ -28,13 +28,13 @@ Positive values shift levels up, negative values shift them down. If
 \code{NULL}, the offset is computed from the average water level between
 \code{timestamp_start} and \code{timestamp_end}.}
 
-\item{timestamp_start}{Start of window used to compute automatic zero
-(character \code{"YYYY-MM-DD HH:MM:SS"}, typically UTC), only used if
-\code{change_value} is \code{NULL}.}
+\item{timestamp_start}{Start of window (character \code{"YYYY-MM-DD HH:MM:SS"},
+UTC). Required when \code{change_value} is \code{NULL} (used to compute the mean).
+When supplied with an explicit \code{change_value}, the offset is applied only
+within the window instead of the entire series.}
 
-\item{timestamp_end}{End of window used to compute automatic zero
-(character \code{"YYYY-MM-DD HH:MM:SS"}, typically UTC), only used if
-\code{change_value} is \code{NULL}.}
+\item{timestamp_end}{End of window (character \code{"YYYY-MM-DD HH:MM:SS"}, UTC).
+See \code{timestamp_start}.}
 
 \item{manual_note}{Character, required. Description of why the zero shift
 was applied (stored in the QA/QC log).}
@@ -59,20 +59,18 @@ level. If \code{change_value} is \code{NULL}, the offset is computed from the me
 water level in a specified time window (assumed to represent the new zero).
 }
 \details{
-If \code{change_value} is supplied, that constant is added to the entire
-\code{waterlevel_m_adj} series.
+When \code{timestamp_start} and \code{timestamp_end} are supplied, the offset is
+applied only within that window. Otherwise, the entire series is shifted.
 
 If \code{change_value} is \code{NULL}, the function:
 \itemize{
 \item Filters rows between \code{timestamp_start} and \code{timestamp_end}.
-\item Computes the mean of \code{waterlevel_m_adj} in that window, if present;
-otherwise falls back to \code{waterlevel_m}.
+\item Computes the mean of \code{waterlevel_m_adj} in that window.
 \item Uses the negative of this mean as the offset, so that the mean level
 in that window becomes approximately 0 m.
-\item Applies this offset to all \code{waterlevel_m_adj} values.
 }
-In both cases, \code{edit_zero} is set to \code{TRUE} for all rows for which the
-adjusted series was shifted.
+In all cases, \code{edit_zero} is set to \code{TRUE} for rows where the adjusted
+series was shifted, preserving any existing \code{TRUE} values from prior calls.
 }
 \seealso{
 \code{\link[=adjust_WL_offset]{adjust_WL_offset()}}, \code{\link[=adjust_waterlevel_spike]{adjust_waterlevel_spike()}},

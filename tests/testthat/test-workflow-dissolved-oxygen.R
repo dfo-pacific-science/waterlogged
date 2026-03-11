@@ -67,7 +67,7 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   expect_true(max(do_data$do_percsat, na.rm = TRUE) < 200)
 
   # Step 5: DO QAQC
-  do_qc <- dissox_qaqc(
+  do_qc <- qc_dissox(
     input_data     = do_data,
     select_station = "COOK_WE_40"
   )

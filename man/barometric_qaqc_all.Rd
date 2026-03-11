@@ -36,7 +36,7 @@ files will be written. Year- and \code{processed}-subfolders are created as
 needed, e.g. \code{"data/testing/processed"}.}
 
 \item{log_root}{Root folder where QA/QC logs are written by
-\code{\link[=barometric_qaqc]{barometric_qaqc()}} and related functions, typically the same as
+\code{\link[=qc_barometric]{qc_barometric()}} and related functions, typically the same as
 \code{path_to_output_folder}, e.g. \code{"data/testing/processed"}.}
 
 \item{temp_low_limit}{Lower bound (°C) for plausible barometric logger
@@ -78,7 +78,7 @@ successfully, an empty tibble is returned and a warning is issued.
 }
 \description{
 Reads all barometric logger files for stations listed in the metadata
-(where \code{metric == "barometric"}), applies \code{barometric_qaqc()} to each
+(where \code{metric == "barometric"}), applies \code{qc_barometric()} to each
 station, writes yearly QA/QC CSVs (v0.1), and returns a combined data
 frame of all QA/QC'd barometric data.
 }
@@ -88,5 +88,5 @@ Files are expected to follow the naming pattern
 under \code{baro_data_path}.
 }
 \seealso{
-\code{\link[=barometric_qaqc]{barometric_qaqc()}}, \code{\link[=add_nearest_baro]{add_nearest_baro()}}
+\code{\link[=qc_barometric]{qc_barometric()}}, \code{\link[=add_nearest_baro]{add_nearest_baro()}}
 }

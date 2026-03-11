@@ -1,75 +1,63 @@
+# ============================================================================
+# Tests for convert_waterlevel_kPa_m()
+#
+# This function converts raw pressure readings (kPa) to water level (metres)
+# using field reference measurements for calibration.
+#
+# PERFORMANCE NOTE: The expensive pipeline steps (bind + add_nearest_baro)
+# are loaded from the shared cache in helper-pipeline-fixtures.R.
+# ============================================================================
+
 test_that("test convert wl kpa m", {
-
-  #bind level data
-  path_to_output_folder = withr::local_tempdir()
-  path_to_raw_folder = test_path("fixtures/level")
-  metadata_path = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
-  level_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                              path_to_output_folder = path_to_output_folder,
-                              metadata_path = metadata_path)
-
-  #check that level data doesnt have waterlevel column
-  wl_data = level_bound[[1]]
-  has_waterlevel_column = "waterlevel_m" %in% colnames(wl_data)
+  # --- Check that raw bound data does NOT have waterlevel_m yet -------------
+  # At this stage the data only has waterpressure_kPa (raw logger reading).
+  wl_data <- get_wl_level_bound_df()
+  has_waterlevel_column <- "waterlevel_m" %in% colnames(wl_data)
   expect_false(has_waterlevel_column)
 
-  #bind baro data
-  path_to_raw_folder = test_path("fixtures/baro")
-  baro_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                path_to_output_folder = path_to_output_folder,
-                                metadata_path = metadata_path)
-
-  #add baro data to level data
-  wl_data_with_baro <- add_nearest_baro(input_data = level_bound[[1]],
-                                    path_to_output_folder = path_to_output_folder,
-                                    baro_data_path = path_to_output_folder,
-                                    metric = "both",
-                                    baro_site_selection = "auto",
-                                    metadata_path = metadata_path)
-
-  #check that level data still doesnt have waterlevel column
-  has_waterlevel_column = "waterlevel_m" %in% colnames(wl_data_with_baro)
+  # --- Check that adding baro still doesn't create waterlevel_m -------------
+  # add_nearest_baro attaches air pressure but does NOT convert to depth.
+  wl_with_baro <- get_wl_with_baro_df()
+  has_waterlevel_column <- "waterlevel_m" %in% colnames(wl_with_baro)
   expect_false(has_waterlevel_column)
 
-  #convert pressure to water level
-  reference_data = test_path("fixtures/NT_manual_waterlevel_20251119.csv")
-  converted_data <- convert_waterlevel_kPa_m(input_data = wl_data_with_baro[[1]],
-                                             select_station = "all",
-                                             reference_data = reference_data,
-                                             reference_type = "stage",
-                                             select_measurement = 1,
-                                             logger_type_expected = "u20",
-                                             path_to_output_folder= path_to_output_folder)
+  # --- Check outputs from the conversion step -------------------------------
+  # convert_waterlevel_kPa_m returns a list with three elements:
+  #   $site_wl  — the data frame with new waterlevel_m column
+  #   $ref_dat  — the reference measurement data used for calibration
+  #   $wl_plot  — a plotly plot comparing logger vs reference readings
+  converted_data <- get_wl_converted_data()
 
-  #check outputs from conversion
   expect_s3_class(converted_data$site_wl, "data.frame")
   expect_s3_class(converted_data$ref_dat, "data.frame")
   expect_s3_class(converted_data$wl_plot, "plotly")
 
-  #check we now have waterlevel column
-  has_waterlevel_column = "waterlevel_m" %in% colnames(converted_data$site_wl)
+  # --- After conversion, waterlevel_m should now exist ----------------------
+  has_waterlevel_column <- "waterlevel_m" %in% colnames(converted_data$site_wl)
   expect_true(has_waterlevel_column)
-
 })
 
 test_that("test convert wl kpa m without baro data", {
+  # If a user tries to convert water level without first attaching
+  # barometric data, the function should throw a clear error.
+  # We use the raw bound data (no baro) to trigger this error.
+  level_bound_df <- get_wl_level_bound_df()
 
-  #bind level data
-  path_to_output_folder = withr::local_tempdir()
-  path_to_raw_folder = test_path("fixtures/level")
-  metadata_path = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
-  level_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
-                                 path_to_output_folder = path_to_output_folder,
-                                 metadata_path = metadata_path)
+  # convert_waterlevel_kPa_m needs airpress_kPa from add_nearest_baro.
+  # Without it, it should error with a helpful message.
+  path_to_output_folder <- withr::local_tempdir()
+  reference_data <- test_path("fixtures/NT_manual_waterlevel_20251119.csv")
 
-  #check that convert_waterlevel_kPa_m throws an error if there is no baro data
-  reference_data = test_path("fixtures/NT_manual_waterlevel_20251119.csv")
-  expect_error(convert_waterlevel_kPa_m(input_data = level_bound[[1]],
-                                        select_station = "all",
-                                        reference_data = reference_data,
-                                        reference_type = "stage",
-                                        select_measurement = 1,
-                                        logger_type_expected = "u20",
-                                        path_to_output_folder= path_to_output_folder),
-               "input_data is missing required column")
+  expect_error(
+    convert_waterlevel_kPa_m(
+      input_data            = level_bound_df,
+      select_station        = "all",
+      reference_data        = reference_data,
+      reference_type        = "stage",
+      select_measurement    = 1,
+      logger_type_expected  = "u20",
+      path_to_output_folder = path_to_output_folder
+    ),
+    "input_data is missing required column"
+  )
 })

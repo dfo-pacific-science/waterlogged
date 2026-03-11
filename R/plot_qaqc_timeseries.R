@@ -1,7 +1,8 @@
 #' Plot QA/QC time series for logger data
 #'
 #' Creates a multi-panel plot showing water level (WL), dissolved oxygen (DO),
-#' barometric pressure (BARO), and conductivity (COND) time series (raw vs.
+#' barometric pressure (BARO), conductivity (COND), standalone air temperature
+#' (AT), and/or standalone water temperature (WT) time series (raw vs.
 #' adjusted), corresponding logger/air temperatures, and QA/QC flags.
 #'
 #' Each data set is filtered to \code{select_station}, and any available
@@ -12,6 +13,15 @@
 #' @param baro_data Optional data frame of barometric records. If \code{NULL}
 #'   and WL data contain barometric columns, those are used.
 #' @param cond_data Optional data frame of conductivity records.
+#' @param airtemp_data Optional data frame of standalone air temperature
+#'   records (e.g. output of \code{\link{qc_airtemp}}). Expected columns:
+#'   \code{airtemp_C}, \code{airtemp_C_adj}, and optionally
+#'   \code{edit_temp_range}.
+#' @param watertemp_data Optional data frame of standalone water temperature
+#'   records (e.g. output of \code{\link{qc_watertemp}}). Expected columns:
+#'   \code{watertemp_C}, \code{watertemp_C_adj}, and optionally flag/edit
+#'   columns \code{flag_ice}, \code{flag_wt_dry}, \code{edit_temp_lt_minus1},
+#'   \code{edit_temp_neg_near}.
 #' @param select_station Character station code to plot.
 #' @param static Logical. If \code{FALSE} (default), returns an interactive
 #'   Plotly \code{htmlwidget} with a range-slider for navigation. If
@@ -31,21 +41,32 @@
 #'   cond_data = station_cond_dat,
 #'   select_station = "ALBR_ST_30"
 #' )
+#'
+#' # standalone temperature plots
+#' plot_qaqc_timeseries(
+#'   airtemp_data   = qc_airtemp_result,
+#'   watertemp_data = qc_watertemp_result,
+#'   select_station = "ALBR_ST_30"
+#' )
 #' }
-plot_qaqc_timeseries <- function(wl_data   = NULL,
-                                 do_data   = NULL,
-                                 baro_data = NULL,
-                                 cond_data = NULL,
+plot_qaqc_timeseries <- function(wl_data        = NULL,
+                                 do_data        = NULL,
+                                 baro_data      = NULL,
+                                 cond_data      = NULL,
+                                 airtemp_data   = NULL,
+                                 watertemp_data = NULL,
                                  select_station,
                                  static = FALSE) {
   
   cols <- qaqc_plot_cols()
   
   # ---- normalise / filter each dataset --------------------------------------
-  wl_df   <- normalize_qaqc_df(wl_data,   select_station)
-  do_df   <- normalize_qaqc_df(do_data,   select_station)
-  baro_df <- normalize_qaqc_df(baro_data, select_station)
-  co_df   <- normalize_qaqc_df(cond_data, select_station)
+  wl_df   <- normalize_qaqc_df(wl_data,        select_station)
+  do_df   <- normalize_qaqc_df(do_data,        select_station)
+  baro_df <- normalize_qaqc_df(baro_data,      select_station)
+  co_df   <- normalize_qaqc_df(cond_data,      select_station)
+  at_df   <- normalize_qaqc_df(airtemp_data,   select_station)
+  wt_df   <- normalize_qaqc_df(watertemp_data, select_station)
   
   # If no explicit baro_data, see if WL carries baro columns
   if (is.null(baro_df) && !is.null(wl_df)) {
@@ -62,22 +83,27 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
     }
   }
   
-  if (is.null(wl_df) && is.null(do_df) && is.null(baro_df) && is.null(co_df)) {
+  if (is.null(wl_df) && is.null(do_df) && is.null(baro_df) &&
+      is.null(co_df) && is.null(at_df) && is.null(wt_df)) {
     stop("plot_qaqc_timeseries(): no data for station '", select_station,
-         "' in wl_data, do_data, baro_data, or cond_data.")
+         "' in wl_data, do_data, baro_data, cond_data, airtemp_data, or watertemp_data.")
   }
   
   has_wl   <- !is.null(wl_df)   && all(c("waterlevel_m", "waterlevel_m_adj") %in% names(wl_df))
   has_do   <- !is.null(do_df)   && all(c("do_mgl", "do_mgl_adj")           %in% names(do_df))
   has_baro <- !is.null(baro_df) && all(c("airpress_kPa", "airpress_kPa_adj") %in% names(baro_df))
   has_co   <- !is.null(co_df)   && all(c("conduct_uScm", "conduct_uScm_adj") %in% names(co_df))
+  has_at   <- !is.null(at_df)   && "airtemp_C" %in% names(at_df)
+  has_wt   <- !is.null(wt_df)   && "watertemp_C" %in% names(wt_df)
   
   # x-ranges for each dataset (used so flag panels don't shrink the view)
   if (!is.null(do_df))   do_x_range   <- range(do_df$timestamp,   na.rm = TRUE)
   if (!is.null(wl_df))   wl_x_range   <- range(wl_df$timestamp,   na.rm = TRUE)
   if (!is.null(co_df))   co_x_range   <- range(co_df$timestamp,   na.rm = TRUE)
   if (!is.null(baro_df)) baro_x_range <- range(baro_df$timestamp, na.rm = TRUE)
-  
+  if (!is.null(at_df))   at_x_range   <- range(at_df$timestamp,   na.rm = TRUE)
+  if (!is.null(wt_df))   wt_x_range   <- range(wt_df$timestamp,   na.rm = TRUE)
+
   panels  <- list()
   heights <- numeric(0)
   
@@ -542,6 +568,159 @@ plot_qaqc_timeseries <- function(wl_data   = NULL,
     }
   }
   
+  # ---- AIR TEMPERATURE PANELS ------------------------------------------------
+  if (has_at) {
+    # 1) Air temperature timeseries
+    p_at <- ggplot2::ggplot(at_df, ggplot2::aes(x = timestamp))
+    at_line_cols <- c()
+
+    p_at <- p_at +
+      ggplot2::geom_line(
+        ggplot2::aes(y = airtemp_C, colour = "airtemp_raw"),
+        alpha = 0.5
+      )
+    at_line_cols["airtemp_raw"] <- cols$air_temp_raw
+
+    if ("airtemp_C_adj" %in% names(at_df)) {
+      p_at <- p_at +
+        ggplot2::geom_line(
+          ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj")
+        )
+      at_line_cols["airtemp_adj"] <- cols$air_temp_adj
+    }
+
+    p_at <- p_at +
+      ggplot2::scale_color_manual(values = at_line_cols) +
+      ggplot2::labs(
+        title  = paste("Air temperature -", select_station),
+        y      = "Air temperature (\u00b0C)",
+        x      = "",
+        colour = ""
+      ) +
+      ggplot2::theme_classic()
+
+    panels  <- c(panels, list(p_at))
+    heights <- c(heights, 0.20)
+
+    # 2) Air temperature QA/QC flags panel
+    at_flag_cols <- c("edit_temp_range")
+    at_flags     <- build_flag_long(at_df, at_flag_cols)
+
+    if (!is.null(at_flags)) {
+      levels_at <- levels(at_flags$flag_type)
+      style_at  <- qaqc_flag_style(levels_at)
+
+      p_at_qaqc <- ggplot2::ggplot(
+        at_flags,
+        ggplot2::aes(
+          x      = timestamp,
+          y      = flag_type,
+          shape  = flag_type,
+          colour = flag_type
+        )
+      ) +
+        ggplot2::geom_point(size = 1.8) +
+        ggplot2::scale_shape_manual(values = style_at$shape) +
+        ggplot2::scale_color_manual(values = style_at$colour) +
+        ggplot2::scale_x_datetime(limits = at_x_range) +
+        ggplot2::labs(
+          title  = "Air temperature QA/QC flags",
+          x      = "",
+          y      = "",
+          shape  = "",
+          colour = ""
+        ) +
+        ggplot2::theme_classic()
+
+      panels  <- c(panels, list(p_at_qaqc))
+      heights <- c(heights, 0.10)
+    }
+  }
+
+  # ---- WATER TEMPERATURE PANELS ----------------------------------------------
+  if (has_wt) {
+    # 1) Water temperature timeseries
+    p_wt <- ggplot2::ggplot(wt_df, ggplot2::aes(x = timestamp))
+    wt_line_cols <- c()
+
+    p_wt <- p_wt +
+      ggplot2::geom_line(
+        ggplot2::aes(y = watertemp_C, colour = "watertemp_raw"),
+        alpha = 0.5
+      )
+    wt_line_cols["watertemp_raw"] <- cols$water_temp_raw
+
+    if ("watertemp_C_adj" %in% names(wt_df)) {
+      p_wt <- p_wt +
+        ggplot2::geom_line(
+          ggplot2::aes(y = watertemp_C_adj, colour = "watertemp_adj")
+        )
+      wt_line_cols["watertemp_adj"] <- cols$water_temp_adj
+    }
+
+    # optionally overlay air temperature if present
+    if ("airtemp_C" %in% names(wt_df)) {
+      p_wt <- p_wt +
+        ggplot2::geom_line(
+          ggplot2::aes(y = airtemp_C, colour = "airtemp"),
+          alpha = 0.5
+        )
+      wt_line_cols["airtemp"] <- cols$air_temp_raw
+    }
+
+    p_wt <- p_wt +
+      ggplot2::scale_color_manual(values = wt_line_cols) +
+      ggplot2::labs(
+        title  = paste("Water temperature -", select_station),
+        y      = "Water temperature (\u00b0C)",
+        x      = "",
+        colour = ""
+      ) +
+      ggplot2::theme_classic()
+
+    panels  <- c(panels, list(p_wt))
+    heights <- c(heights, 0.20)
+
+    # 2) Water temperature QA/QC flags panel
+    wt_flag_cols <- c(
+      "flag_ice",
+      "flag_wt_dry",
+      "edit_temp_lt_minus1",
+      "edit_temp_neg_near"
+    )
+    wt_flags <- build_flag_long(wt_df, wt_flag_cols)
+
+    if (!is.null(wt_flags)) {
+      levels_wt <- levels(wt_flags$flag_type)
+      style_wt  <- qaqc_flag_style(levels_wt)
+
+      p_wt_qaqc <- ggplot2::ggplot(
+        wt_flags,
+        ggplot2::aes(
+          x      = timestamp,
+          y      = flag_type,
+          shape  = flag_type,
+          colour = flag_type
+        )
+      ) +
+        ggplot2::geom_point(size = 1.8) +
+        ggplot2::scale_shape_manual(values = style_wt$shape) +
+        ggplot2::scale_color_manual(values = style_wt$colour) +
+        ggplot2::scale_x_datetime(limits = wt_x_range) +
+        ggplot2::labs(
+          title  = "Water temperature QA/QC flags",
+          x      = "",
+          y      = "",
+          shape  = "",
+          colour = ""
+        ) +
+        ggplot2::theme_classic()
+
+      panels  <- c(panels, list(p_wt_qaqc))
+      heights <- c(heights, 0.10)
+    }
+  }
+
   # ---- combine panels --------------------------------------------------------
   if (!length(panels)) {
     stop("plot_qaqc_timeseries(): no panels were built.")

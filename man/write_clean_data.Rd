@@ -35,8 +35,8 @@ Subsets QAQC'd logger data to the columns relevant for a given metric,
 splits by station and year, and writes per-station per-year v1.0 CSV
 files to a \code{<year>/clean/} directory.
 This is the final step in the processing pipeline, typically run after
-all QAQC adjustments (e.g. \code{\link{waterlevel_qaqc}},
-\code{\link{dissox_qaqc}}) are complete.
+all QAQC adjustments (e.g. \code{\link{qc_waterlevel}},
+\code{\link{qc_dissox}}) are complete.
 }
 \details{
 Each metric maps to a set of required and optional columns, plus a
@@ -46,7 +46,7 @@ file-name prefix:
 \item{\code{"dissolvedoxygen"} (DO)}{Required:
 \code{do_mgl}, \code{do_mgl_adj}, \code{do_percsat},
 \code{do_percsat_adj}.
-Optional: \code{watertemp_C}, \code{watertemp_C_adj}.}
+Optional: \code{watertemp_C_do}, \code{watertemp_C_do_adj}.}
 \item{\code{"barometric"} (BARO)}{Required:
 \code{airpress_kPa}, \code{airpress_kPa_adj}.
 Optional: \code{airtemp_C}, \code{airtemp_C_adj}.}
@@ -75,7 +75,7 @@ differs from the \code{metric} argument, a warning is issued.
 }
 \seealso{
 \code{\link{get_logger_data}} (reads the v1.0 files produced
-by this function), \code{\link{waterlevel_qaqc}},
-\code{\link{dissox_qaqc}}, \code{\link{barometric_qaqc}} (upstream
+by this function), \code{\link{qc_waterlevel}},
+\code{\link{qc_dissox}}, \code{\link{qc_barometric}} (upstream
 QAQC functions whose output is typically passed here)
 }

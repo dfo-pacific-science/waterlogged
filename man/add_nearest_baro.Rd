@@ -124,7 +124,7 @@ Timestamps are coerced to POSIXct (UTC) if not already.
 }
 \seealso{
 \code{\link{bind_hobo_files}} (upstream, produces v0.1 data),
-\code{\link{barometric_qaqc}} and \code{\link{barometric_qaqc_all}} (QAQC
+\code{\link{qc_barometric}} and \code{\link{barometric_qaqc_all}} (QAQC
 baro data before this step),
 \code{\link{resolve_metrics_param}},
 \code{\link{calibrate_baro_series}}

@@ -125,5 +125,5 @@ CSVs are written to
 \code{\link{add_nearest_baro}} (upstream, attaches barometric
 data), \code{\link{QAQC_reference_data}} (validates reference
 measurements), \code{\link{wl_set_datum}} (downstream, sets
-arbitrary datum), \code{\link{waterlevel_qaqc}} (downstream QAQC)
+arbitrary datum), \code{\link{qc_waterlevel}} (downstream QAQC)
 }

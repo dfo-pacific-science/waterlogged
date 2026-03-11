@@ -275,7 +275,7 @@ What it checks:
 - `edit_*` columns = "we changed the data" — the `_adj` value was modified (usually set to `NA`).
 
 ```{r wl-qaqc}
-wl_qc <- waterlevel_qaqc(
+wl_qc <- qc_waterlevel(
   input_data     = site_wl,
   select_station = "ALBR_ST_30"
 )
@@ -451,7 +451,7 @@ write_clean_data(
 | 3 | `bind_hobo_files()` on level CSVs | `level_data` (raw WL) |
 | 4 | `add_nearest_baro()` | `wl_data` (WL + baro attached) |
 | 5 | `convert_waterlevel_kPa_m()` | `site_wl` (kPa → metres) |
-| 6 | `waterlevel_qaqc()` | `wl_qc` (auto QAQC'd) |
+| 6 | `qc_waterlevel()` | `wl_qc` (auto QAQC'd) |
 | 7 | `plot_qaqc_timeseries()` | (visual review) |
 | 8 | Manual adjustments (as needed) | `wl_qc` (updated) |
 | 9 | `wl_set_datum()` (optional) | (adds elevation) |

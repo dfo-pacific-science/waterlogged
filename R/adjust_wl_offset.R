@@ -53,23 +53,24 @@
 #' @export
 
 adjust_WL_offset <- function(input_data,
-                                         select_station,
-                                         timestamp_start,
-                                         timestamp_end,
-                                         manual_note,
-                                         log_root = NULL,
-                                         user = NULL) {
+                             select_station,
+                             timestamp_start,
+                             timestamp_end,
+                             manual_note,
+                             log_root = NULL,
+                             user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
 
   #  QAQC inputs
   if (missing(manual_note) || trimws(manual_note) == "") {
-    stop("adjust_WL_offset(): 'manual_note' must be a non-empty string.")
+    stop("adjust_WL_offset(): 'manual_note' must be a non-empty string.",
+         call. = FALSE)
   }
   
   # ---- Filter to selected station & sort -------------------------------------
   waterlevel_data <- input_data |>
-    dplyr::filter(site_station_code == select_station) |>
-    dplyr::arrange(timestamp)
+    dplyr::filter(.data$site_station_code == select_station) |>
+    dplyr::arrange(.data$timestamp)
   
   required_cols <- c(
     "timestamp",
@@ -82,48 +83,60 @@ adjust_WL_offset <- function(input_data,
   if (length(missing_cols) > 0) {
     stop(
       "adjust_WL_offset(): Missing required column(s): ",
-      paste(missing_cols, collapse = ", ")
+      paste(missing_cols, collapse = ", "),
+      call. = FALSE
     )
   }
   
   if (nrow(waterlevel_data) == 0) {
-    stop("adjust_WL_offset(): no rows found for station '", select_station, "'.")
+    stop("adjust_WL_offset(): no rows found for station '", select_station, "'.",
+         call. = FALSE)
   }
   
   # ---- Parse timestamps (character -> POSIXct) -------------------------------
-  ts_start <- lubridate::ymd_hms(timestamp_start)
-  ts_end   <- lubridate::ymd_hms(timestamp_end)
-  
+  ts_start <- lubridate::ymd_hms(timestamp_start, tz = "UTC")
+  ts_end   <- lubridate::ymd_hms(timestamp_end,   tz = "UTC")
+
   if (is.na(ts_start) || is.na(ts_end)) {
     stop(
       "Could not parse timestamp_start or timestamp_end with ymd_hms(). ",
-      "Use 'YYYY-MM-DD HH:MM:SS' format if passing character values."
+      "Use 'YYYY-MM-DD HH:MM:SS' format if passing character values.",
+      call. = FALSE
     )
   }
-  
+
   if (ts_end <= ts_start) {
-    stop("timestamp_end must be after timestamp_start.")
+    stop("timestamp_end must be after timestamp_start.", call. = FALSE)
   }
   
   # ---- Get start/end water levels (raw) --------------------------------------
   before_break <- waterlevel_data |>
-    dplyr::filter(timestamp == ts_start) |>
-    dplyr::pull(waterlevel_m) |>
+    dplyr::filter(.data$timestamp == ts_start) |>
+    dplyr::pull(.data$waterlevel_m) |>
     round(3)
-  
+
   after_break <- waterlevel_data |>
-    dplyr::filter(timestamp == ts_end) |>
-    dplyr::pull(waterlevel_m) |>
+    dplyr::filter(.data$timestamp == ts_end) |>
+    dplyr::pull(.data$waterlevel_m) |>
     round(3)
-  
+
   if (length(before_break) != 1L || length(after_break) != 1L) {
     stop(
       "Could not find unique waterlevel_m at both timestamp_start and ",
-      "timestamp_end for station ", select_station, "."
+      "timestamp_end for station ", select_station, ".",
+      call. = FALSE
     )
   }
-  
-  # Offset needed to realign post-break data to pre-break level
+
+  if (is.na(before_break) || is.na(after_break)) {
+    stop(
+      "adjust_WL_offset(): waterlevel_m is NA at one or both reference ",
+      "timestamps. Cannot compute offset.",
+      call. = FALSE
+    )
+  }
+
+  # Offset = post minus pre; subtracted later to realign post-break data
   corr_break <- after_break - before_break
   
   # ---- Ensure flag column exists ---------------------------------------------

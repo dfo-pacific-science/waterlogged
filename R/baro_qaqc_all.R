@@ -1,7 +1,7 @@
 #' Run barometric QA/QC for all baro stations in metadata
 #'
 #' Reads all barometric logger files for stations listed in the metadata
-#' (where `metric == "barometric"`), applies `barometric_qaqc()` to each
+#' (where `metric == "barometric"`), applies `qc_barometric()` to each
 #' station, writes yearly QA/QC CSVs (v0.1), and returns a combined data
 #' frame of all QA/QC'd barometric data.
 #'
@@ -21,7 +21,7 @@
 #'   files will be written. Year- and `processed`-subfolders are created as
 #'   needed, e.g. `"data/testing/processed"`.
 #' @param log_root Root folder where QA/QC logs are written by
-#'   [barometric_qaqc()] and related functions, typically the same as
+#'   [qc_barometric()] and related functions, typically the same as
 #'   `path_to_output_folder`, e.g. `"data/testing/processed"`.
 #' @param temp_low_limit Lower bound (°C) for plausible barometric logger
 #'   temperatures. Values outside this range may be flagged or removed.
@@ -52,7 +52,7 @@
 #'    barometric data for all stations. If no stations are processed
 #'   successfully, an empty tibble is returned and a warning is issued.
 #'
-#' @seealso [barometric_qaqc()], [add_nearest_baro()]
+#' @seealso [qc_barometric()], [add_nearest_baro()]
 #'
 #' @export
 barometric_qaqc_all <- function(
@@ -71,18 +71,17 @@ barometric_qaqc_all <- function(
     baro_data = NULL
 ) {
   if (is.null(user)) user <- Sys.info()[["user"]]
-  # helper to escape regex specials
-  escape_regex <- function(x) gsub("([][{}()+*^$|\\.?\\\\-])", "\\\\\\1", x)
 
   metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
 
   baro_sites <- metadata |>
-    dplyr::filter(metric == "barometric") |>
-    dplyr::pull(site_station_code) |>
+    dplyr::filter(.data$metric == "barometric") |>
+    dplyr::pull(.data$site_station_code) |>
     unique()
 
   if (!length(baro_sites)) {
-    stop("barometric_qaqc_all(): No barometric stations found in metadata (metric == 'barometric').")
+    stop("barometric_qaqc_all(): No barometric stations found in metadata ",
+         "(metric == 'barometric').", call. = FALSE)
   }
 
   all_baro_list <- list()
@@ -92,7 +91,7 @@ barometric_qaqc_all <- function(
 
     if (!is.null(baro_data) && is.data.frame(baro_data)) {
       raw_baro <- baro_data |>
-        dplyr::filter(site_station_code == stn)
+        dplyr::filter(.data$site_station_code == stn)
       if (!nrow(raw_baro)) {
         warning("  No baro data for station ", stn, " in baro_data. Skipping.")
         next
@@ -139,7 +138,7 @@ barometric_qaqc_all <- function(
     }
 
     # run single-station QA/QC (this keeps all original cols + *_adj + baro_qaqc_*)
-    checked <- barometric_qaqc(
+    checked <- qc_barometric(
       input_data         = raw_baro,
       select_station     = stn,
       log_root           = log_root,
@@ -153,17 +152,23 @@ barometric_qaqc_all <- function(
     )
 
     # simple printed summary (not returned)
-    n_tot   <- nrow(checked)
-    n_flag  <- sum(!is.na(checked$baro_qaqc_code))
-    n_spike <- sum(checked$baro_qaqc_code == "SPIKE", na.rm = TRUE)
-    n_flat  <- sum(checked$baro_qaqc_code == "FLATLINE", na.rm = TRUE)
-    n_press <- sum(checked$baro_qaqc_code == "PRESSURE_RANGE", na.rm = TRUE)
+    n_tot        <- nrow(checked)
+    n_spike      <- sum(checked$edit_spike,      na.rm = TRUE)
+    n_flat       <- sum(checked$edit_flatline,    na.rm = TRUE)
+    n_press_high <- sum(checked$edit_press_high,  na.rm = TRUE)
+    n_press_low  <- sum(checked$edit_press_low,   na.rm = TRUE)
+    n_temp       <- sum(checked$edit_temp_range,  na.rm = TRUE)
+    n_any        <- sum(checked$edit_spike | checked$edit_flatline |
+                        checked$edit_press_high | checked$edit_press_low |
+                        checked$edit_temp_range, na.rm = TRUE)
 
     message("  Total rows:      ", n_tot)
-    message("  Any flags:       ", n_flag)
+    message("  Any flags:       ", n_any)
     message("    SPIKE:         ", n_spike)
     message("    FLATLINE:      ", n_flat)
-    message("    PRESSURE_RANGE:", n_press)
+    message("    PRESSURE_HIGH: ", n_press_high)
+    message("    PRESSURE_LOW:  ", n_press_low)
+    message("    TEMP_RANGE:    ", n_temp)
 
     # store for combined return
     all_baro_list[[stn]] <- checked
@@ -171,14 +176,14 @@ barometric_qaqc_all <- function(
     # ---- write yearly v0.1 BARO files (adjusted, guarded) ----
     if (!is.null(path_to_output_folder)) {
       checked_year <- checked |>
-        dplyr::mutate(year = lubridate::year(timestamp))
+        dplyr::mutate(year = lubridate::year(.data$timestamp))
 
       years_i <- sort(unique(checked_year$year))
 
       for (yy in years_i) {
         sub <- checked_year |>
-          dplyr::filter(year == yy) |>
-          dplyr::arrange(timestamp)
+          dplyr::filter(.data$year == yy) |>
+          dplyr::arrange(.data$timestamp)
 
         if (!nrow(sub)) next
 

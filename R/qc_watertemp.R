@@ -46,7 +46,7 @@
 #'   \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log rows.
 #'
 #' @export
-watertemp_qaqc <- function(input_data,
+qc_watertemp <- function(input_data,
                            select_station,
                            temp_ice_threshold_C  = 0.3,
                            temp_high_dry_C       = 19,
@@ -60,7 +60,7 @@ watertemp_qaqc <- function(input_data,
   missing_cols  <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
-      "watertemp_qaqc(): input_data is missing required columns: ",
+      "qc_watertemp(): input_data is missing required columns: ",
       paste(missing_cols, collapse = ", "),
       call. = FALSE
     )
@@ -71,7 +71,7 @@ watertemp_qaqc <- function(input_data,
     dplyr::arrange(timestamp)
 
   if (nrow(df) == 0) {
-    stop("watertemp_qaqc(): no rows found for station '", select_station, "'.")
+    stop("qc_watertemp(): no rows found for station '", select_station, "'.")
   }
 
   if (!inherits(df$timestamp, "POSIXct")) {
@@ -119,7 +119,7 @@ watertemp_qaqc <- function(input_data,
 
   # ---- 4. Log entries -------------------------------------------------------
   metric   <- "WT"
-  fun_name <- "watertemp_qaqc"
+  fun_name <- "qc_watertemp"
   run_time <- Sys.time()
 
   rules <- list(

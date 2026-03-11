@@ -158,9 +158,9 @@ print(cond_plot)
 #   flag_co_dry       — TRUE where sensor appears to be out of water
 # -----------------------------------------------------------------------------
 
-?conductivity_qaqc
+?qc_conductivity
 
-cond_qc <- conductivity_qaqc(
+cond_qc <- qc_conductivity(
   input_data                 = cond_data,
   select_station             = "TUMT_WE_40",
   temp_low_limit_C           = -2,
@@ -354,7 +354,7 @@ print(sample_rows)
 #
 # NOTE: adjust_logger_NA() expects metric = "conductivity" and targets
 #       the column conductivity_uScm_adj. If your data uses conduct_uScm_adj
-#       (as produced by conductivity_qaqc), you may need to verify the
+#       (as produced by qc_conductivity), you may need to verify the
 #       column name matches what adjust_logger_NA() expects.
 # -----------------------------------------------------------------------------
 
@@ -439,7 +439,7 @@ cat("Clean data written to:", output_folder, "\n")
 # =============================================================================
 #
 #   Step 1:  bind_hobo_files() on COND    -> cond_data  (raw conductivity)
-#   Step 2:  conductivity_qaqc()          -> cond_qc    (auto QAQC'd)
+#   Step 2:  qc_conductivity()          -> cond_qc    (auto QAQC'd)
 #   Step 3:  plot_qaqc_timeseries()       -> (visual review)
 #   Step 4:  wq_drift_correction()        -> cond_qc    (drift corrected)
 #   Step 5:  conductivity_temp_compensation() -> cond_qc (adds SPC)

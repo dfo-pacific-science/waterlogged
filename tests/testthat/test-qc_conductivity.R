@@ -19,7 +19,7 @@ test_that("multiplication works", {
   expect_false(file.exists(file.path(path_to_output_folder, "logs/MILE_WE_40_COND_qaqc_log.csv")))
 
   #set temp high limit to 39 to make sure there is flags and log is written
-  cond_complete_QAQC = conductivity_qaqc(sites_compiled,
+  cond_complete_QAQC = qc_conductivity(sites_compiled,
                                              log_root = path_to_output_folder,
                                              select_station = "MILE_WE_40")
 

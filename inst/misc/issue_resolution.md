@@ -9,7 +9,7 @@
 
 `make_qaqc_log_row()` computed `ts_start` and `ts_end` using `min()` and `max()` across all flagged timestamps, producing a single log entry that spanned the entire range — including any gaps where the flag was FALSE. For example, a flag sequence of T, T, F, F, T would generate one log row from the first T to the last T, incorrectly implying the intermediate FALSE period was also flagged.
 
-This affected the four auto-QAQC callers (`waterlevel_qaqc`, `barometric_qaqc`, `dissox_qaqc`, `conductivity_qaqc`) which pass `output_data$timestamp[flag_vector]` — a potentially non-contiguous set of timestamps. Manual-adjustment callers (e.g., `adjust_logger_NA`, `adjust_wl_offset`) were not affected because they pass continuous timestamp ranges from user-specified windows.
+This affected the four auto-QAQC callers (`qc_waterlevel`, `qc_barometric`, `qc_dissox`, `qc_conductivity`) which pass `output_data$timestamp[flag_vector]` — a potentially non-contiguous set of timestamps. Manual-adjustment callers (e.g., `adjust_logger_NA`, `adjust_wl_offset`) were not affected because they pass continuous timestamp ranges from user-specified windows.
 
 ### Fix
 
@@ -49,7 +49,7 @@ Changed `colour = "red"` to `colour = "do_raw"` on line 87, matching the key def
 2. **No warning when log not written:** When `log_root = NULL` (Shiny mode), the function silently skipped writing the QAQC log with no feedback to the user.
 3. **BARO: air temperature not removed; invalid reasons accepted:** The barometric block only NA'd `airpress_kPa_adj` — it never touched `airtemp_C_adj`. It also accepted `"ice"` and `"dry"` which are not meaningful for barometric loggers.
 4. **Air temperature metric not supported:** No `metric = "airtemp"` option existed. Users needed to NA air temperature data for disturbance events.
-5. **DO: wrong temperature column:** The DO block checked for and modified `watertemp_C_adj`, but `dissox_qaqc()` produces `watertemp_C_do_adj`. Temperature was never actually removed for DO data.
+5. **DO: wrong temperature column:** The DO block checked for and modified `watertemp_C_adj`, but `qc_dissox()` produces `watertemp_C_do_adj`. Temperature was never actually removed for DO data.
 6. **COND: wrong column name crashes function:** Lines 355–423 referenced `conductivity_uScm_adj` throughout, but upstream functions produce `conduct_uScm_adj`. The existence check on line 358 would `stop()` immediately, making COND adjustments impossible.
 
 ### Fixes applied
@@ -58,8 +58,8 @@ Changed `colour = "red"` to `colour = "do_raw"` on line 87, matching the key def
 2. **Log warning:** Added `warning("adjust_logger_NA(): log_root is NULL; QA/QC log was not written to disk.")` when rows are modified but `log_root` is NULL.
 3. **BARO fixes:** Restricted BARO to `reason_to_adjust = "disturbance"` only (early `stop()` for ice/dry). Added `airtemp_C_adj` handling with `keep_temp` support — when `keep_temp = FALSE` (default), both pressure and air temperature are NA'd.
 4. **Air temperature metric:** Added `metric = "airtemp"` (also accepts `"air temperature"`, `"AT"`, `"air_temp"`). Restricted to `reason_to_adjust = "disturbance"` only. NAs `airtemp_C_adj` in the specified window.
-5. **DO temperature column:** Changed all references from `watertemp_C_adj` to `watertemp_C_do_adj` in the DO block, matching the column name produced by `dissox_qaqc()`.
-6. **COND column name:** Replaced all occurrences of `conductivity_uScm_adj` with `conduct_uScm_adj` throughout the file, matching the column name produced by `conductivity_qaqc()` and all other upstream functions.
+5. **DO temperature column:** Changed all references from `watertemp_C_adj` to `watertemp_C_do_adj` in the DO block, matching the column name produced by `qc_dissox()`.
+6. **COND column name:** Replaced all occurrences of `conductivity_uScm_adj` with `conduct_uScm_adj` throughout the file, matching the column name produced by `qc_conductivity()` and all other upstream functions.
 
 Roxygen documentation updated to reflect the new `"airtemp"` metric, reason restrictions for BARO/AT, and expanded `keep_temp` behaviour.
 
@@ -82,14 +82,14 @@ Roxygen documentation updated to reflect the new `"airtemp"` metric, reason rest
 
 ---
 
-## Issue #65 — conductivity_qaqc: allow conductivity_temp_compensation() before QAQC
+## Issue #65 — qc_conductivity: allow conductivity_temp_compensation() before QAQC
 
 **File:** `R/conductivity_temp_compensation.R`
 **Status:** Fixed
 
 ### Problem
 
-`conductivity_temp_compensation()` hard-required `conduct_uScm_adj` and `watertemp_C_adj`, which only exist after `conductivity_qaqc()` has run. The developer requested that temp compensation be runnable **before** QAQC so that SPC values are available for quality review. Additionally, the error and warning messages incorrectly referenced the old function name `conduct_temp_comp()` instead of `conductivity_temp_compensation()`.
+`conductivity_temp_compensation()` hard-required `conduct_uScm_adj` and `watertemp_C_adj`, which only exist after `qc_conductivity()` has run. The developer requested that temp compensation be runnable **before** QAQC so that SPC values are available for quality review. Additionally, the error and warning messages incorrectly referenced the old function name `conduct_temp_comp()` instead of `conductivity_temp_compensation()`.
 
 ### Fix
 
@@ -160,7 +160,7 @@ Added a `max_stations` parameter (default `5L`) that controls how many nearest b
 
 ### Problem
 
-`QAQC_wl_kpa_inputs()` contained three range-check warnings for `watertemp_C` ([-5, 40] °C), `waterpress_kPa` ([80, 300] kPa), and `airpress_kPa` ([80, 120] kPa), implemented via an internal `warn_by_station_year()` helper. These checks were redundant because the same values are QA/QC'd by `waterlevel_qaqc()` and `watertemp_qaqc()` in the next pipeline step. Additionally, the fixed pressure ranges were inappropriate for all deployment contexts — deep-water, sea-level, and alpine sites can produce valid readings outside these bounds. Barometric data should already be cleaned before reaching this step.
+`QAQC_wl_kpa_inputs()` contained three range-check warnings for `watertemp_C` ([-5, 40] °C), `waterpress_kPa` ([80, 300] kPa), and `airpress_kPa` ([80, 120] kPa), implemented via an internal `warn_by_station_year()` helper. These checks were redundant because the same values are QA/QC'd by `qc_waterlevel()` and `qc_watertemp()` in the next pipeline step. Additionally, the fixed pressure ranges were inappropriate for all deployment contexts — deep-water, sea-level, and alpine sites can produce valid readings outside these bounds. Barometric data should already be cleaned before reaching this step.
 
 ### Fix
 

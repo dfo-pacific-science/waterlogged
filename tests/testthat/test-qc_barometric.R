@@ -19,7 +19,7 @@ test_that("test barometric qaqc", {
   expect_false(file.exists(file.path(path_to_output_folder, "logs/DARL_ST_30_BARO_qaqc_log.csv")))
 
   #set temp high limit to 39 to make sure there is flags and log is written
-  barometric_complete_QAQC = barometric_qaqc(sites_compiled,
+  barometric_complete_QAQC = qc_barometric(sites_compiled,
                                        log_root = path_to_output_folder,
                                        select_station = "DARL_ST_30",
                                        temp_high_limit=39)

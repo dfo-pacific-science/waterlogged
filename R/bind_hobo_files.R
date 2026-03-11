@@ -114,8 +114,14 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   # extract data from hobo file(s)
   hobo_data_raw <- purrr::map(path_to_files, extract_alldata_from_file) |> dplyr::bind_rows()
 
-  # Error messages for file binding
-  if (length(unique(hobo_data_raw$data1_type)) > 1) {
+  # Error messages for file binding — suppress for conductivity (Low/Full Range
+
+  # is expected and handled downstream)
+  is_conductivity_folder <- any(grepl("conduct|Range",
+                                      hobo_data_raw$data1_type,
+                                      ignore.case = TRUE))
+
+  if (length(unique(hobo_data_raw$data1_type)) > 1 && !is_conductivity_folder) {
     warning(
       "Folder contains different types of HOBO loggers. ",
       "Check that all files in input folder are of the same logger type ",
@@ -126,39 +132,9 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   # link sn to site_station_code in metadata
   metadat_link <- metadata |> dplyr::filter(sn %in% unique(hobo_data_raw$sn))
 
-  measurement_type <- unique(metadat_link$metric)
-
-  # Ensure a single metric type before doing any further work
-  if (length(measurement_type) != 1) {
-    stop("Multiple metric types found for these loggers: ",
-         paste(measurement_type, collapse = ", "),
-         "\nMake sure your input folder only contains one metric type (e.g., all barometric or all waterlevel).")
-  }
-
-  # Safely check units for channel 1 and (if present) channel 2
-  units1_mixed <- length(unique(hobo_data_raw$data1_unit)) > 1
-
-  if(length(measurement_type) == 1 && measurement_type == "airtemp") {
-    units2_mixed = FALSE
-  } else {
-    units2_mixed <- "data2_unit" %in% names(hobo_data_raw) &&
-      length(unique(hobo_data_raw$data2_unit)) > 1
-  }
-
-  is_conductivity_folder <- any(grepl("conduct", tolower(hobo_data_raw$data1_type)))
-
-  if (units1_mixed || units2_mixed) {
-    if (is_conductivity_folder) {
-      warning(
-        "Conductivity files have different HOBO channel layouts (e.g., Low Range vs Full Range). ",
-        "All channels are in \u00b5S/cm. bind_hobo_files() will merge them into a single ",
-        "`conduct_uScm` column and record the source in `conduct_source`."
-      )
-    } else {
-      warning("Some files are in different units.")
-    }
-  }
-
+  # Defer the single-metric check until after timestamps are parsed (needed
+  # for resolve_metric_by_overlap). Store for now.
+  metadat_link_needs_resolution <- length(unique(metadat_link$metric)) > 1
 
   # format timestamp using the timezone string extracted from the HOBO file header
   tz_str <- normalize_tz(hobo_data_raw$timezone[1]) %||% "UTC"
@@ -180,6 +156,50 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     missing_ts_sn <- unique(missing_ts$sn)
 
     warning(paste("NAs produced in timestamp_deploy for logger SN:",missing_ts_sn,". Make sure the timestamp column in csv is formatted the same as the input data and is noted correctly in timestamp_format. Correct and try again."))
+  }
+
+  # --- Resolve multi-metric SNs using timestamp overlap -----------------------
+  # Now that timestamps are parsed, we can compare deployment windows against
+  # actual raw data timestamps. A single SN can appear in metadata with
+  # different metrics across deployment periods (e.g. U20 used as barometric
+  # one season, waterlevel the next).
+  if (metadat_link_needs_resolution) {
+    metadat_link <- resolve_metric_by_overlap(metadat_link, hobo_data_raw,
+                                              timestamp_timezone)
+  }
+
+  measurement_type <- unique(metadat_link$metric)
+
+  # Ensure a single metric type after timestamp-based filtering
+  if (length(measurement_type) != 1) {
+    stop("Multiple metric types found for these loggers: ",
+         paste(measurement_type, collapse = ", "),
+         "\nMake sure your input folder only contains one metric type ",
+         "(e.g., all barometric or all waterlevel).\n",
+         "If a serial number was redeployed for a different metric, check ",
+         "that the raw files and metadata deployment timestamps are consistent.")
+  }
+
+  # Safely check units for channel 1 and (if present) channel 2
+  units1_mixed <- length(unique(hobo_data_raw$data1_unit)) > 1
+
+  if(length(measurement_type) == 1 && measurement_type == "airtemp") {
+    units2_mixed = FALSE
+  } else {
+    units2_mixed <- "data2_unit" %in% names(hobo_data_raw) &&
+      length(unique(hobo_data_raw$data2_unit)) > 1
+  }
+
+  if (units1_mixed || units2_mixed) {
+    if (is_conductivity_folder) {
+      warning(
+        "Conductivity files have different HOBO channel layouts (e.g., Low Range vs Full Range). ",
+        "All channels are in \u00b5S/cm. bind_hobo_files() will merge them into a single ",
+        "`conduct_uScm` column and record the source in `conduct_source`."
+      )
+    } else {
+      warning("Some files are in different units.")
+    }
   }
 
   # make dummy columns and datasets to fill in
@@ -392,6 +412,15 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     sites_compiled$data1_unit <- "\u00b5S/cm"
     sites_compiled$data2_type <- "Temp"
     sites_compiled$data2_unit <- "\u00b0C"
+
+    # Drop the raw Low Range / Full Range / Temp columns now that unified
+    # conduct_uScm, conduct_source, and watertemp_C columns exist
+    cols_to_drop <- c(low_col, full_col, temp_col)
+    cols_to_drop <- cols_to_drop[!is.na(cols_to_drop)]
+    if (length(cols_to_drop) > 0) {
+      sites_compiled <- sites_compiled |>
+        dplyr::select(-dplyr::all_of(cols_to_drop))
+    }
   }
 
 

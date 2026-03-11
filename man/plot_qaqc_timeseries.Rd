@@ -9,6 +9,8 @@ plot_qaqc_timeseries(
   do_data = NULL,
   baro_data = NULL,
   cond_data = NULL,
+  airtemp_data = NULL,
+  watertemp_data = NULL,
   select_station,
   static = FALSE
 )
@@ -23,6 +25,17 @@ and WL data contain barometric columns, those are used.}
 
 \item{cond_data}{Optional data frame of conductivity records.}
 
+\item{airtemp_data}{Optional data frame of standalone air temperature
+records (e.g. output of \code{\link{qc_airtemp}}). Expected columns:
+\code{airtemp_C}, \code{airtemp_C_adj}, and optionally
+\code{edit_temp_range}.}
+
+\item{watertemp_data}{Optional data frame of standalone water temperature
+records (e.g. output of \code{\link{qc_watertemp}}). Expected columns:
+\code{watertemp_C}, \code{watertemp_C_adj}, and optionally flag/edit
+columns \code{flag_ice}, \code{flag_wt_dry}, \code{edit_temp_lt_minus1},
+\code{edit_temp_neg_near}.}
+
 \item{select_station}{Character station code to plot.}
 
 \item{static}{Logical. If \code{FALSE} (default), returns an interactive
@@ -36,7 +49,8 @@ When \code{static = FALSE}, a Plotly \code{htmlwidget}. When
 }
 \description{
 Creates a multi-panel plot showing water level (WL), dissolved oxygen (DO),
-barometric pressure (BARO), and conductivity (COND) time series (raw vs.
+barometric pressure (BARO), conductivity (COND), standalone air temperature
+(AT), and/or standalone water temperature (WT) time series (raw vs.
 adjusted), corresponding logger/air temperatures, and QA/QC flags.
 }
 \details{
@@ -50,6 +64,13 @@ plot_qaqc_timeseries(
   do_data   = station_do_dat,
   baro_data = all_checked_baro_data,
   cond_data = station_cond_dat,
+  select_station = "ALBR_ST_30"
+)
+
+# standalone temperature plots
+plot_qaqc_timeseries(
+  airtemp_data   = qc_airtemp_result,
+  watertemp_data = qc_watertemp_result,
   select_station = "ALBR_ST_30"
 )
 }

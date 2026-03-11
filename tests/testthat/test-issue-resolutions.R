@@ -269,13 +269,13 @@ test_that("#73 - keep_temp = TRUE preserves temp for ice (WL)", {
   expect_equal(result$watertemp_C_adj[3], 3)
 })
 
-test_that("#73 - warning when log_root is NULL and rows modified", {
+test_that("#73 - message when log_root is NULL and rows modified", {
   df <- make_test_df(list(
     waterlevel_m     = c(1, 1.1, 1.2, 1.1, 1),
     waterlevel_m_adj = c(1, 1.1, 1.2, 1.1, 1),
     watertemp_C_adj  = c(5, 4, 3, 4, 5)
   ))
-  expect_warning(
+  expect_message(
     adjust_logger_NA(
       input_data      = df,
       select_station  = "TEST_ST_01",

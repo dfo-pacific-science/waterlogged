@@ -55,14 +55,14 @@
 #'       of QAQC log rows summarising every rule that fired.
 #'   }
 #'
-#' @seealso \code{\link{waterlevel_qaqc}} (analogous QAQC for water level),
-#'   \code{\link{conductivity_qaqc}} (analogous for conductivity),
+#' @seealso \code{\link{qc_waterlevel}} (analogous QAQC for water level),
+#'   \code{\link{qc_conductivity}} (analogous for conductivity),
 #'   \code{\link{adjust_logger_NA}} (downstream manual adjustment),
 #'   \code{\link{convert_do_mgl_percsat}} (upstream DO conversion)
 #'
 #' @export
 
-dissox_qaqc <- function(input_data,
+qc_dissox <- function(input_data,
                         select_station,
                         log_root = NULL,
                         user = NULL) {
@@ -81,7 +81,7 @@ dissox_qaqc <- function(input_data,
   missing_cols <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
-      "dissox_qaqc(): input_data is missing required columns: ",
+      "qc_dissox(): input_data is missing required columns: ",
       paste(missing_cols, collapse = ", "),
       call. = FALSE
     )
@@ -93,7 +93,7 @@ dissox_qaqc <- function(input_data,
     dplyr::arrange(.data$timestamp)
 
   if (nrow(output_data) == 0) {
-    warning("dissox_qaqc(): no rows for station ", select_station)
+    warning("qc_dissox(): no rows for station ", select_station)
     return(output_data)
   }
 
@@ -184,7 +184,7 @@ dissox_qaqc <- function(input_data,
 
   # ---- 6. Build QAQC log rows (WL-style rules list) -------------------------
   metric      <- "DO"
-  fun_name    <- "dissox_qaqc"
+  fun_name    <- "qc_dissox"
   action      <- "AUTO_QAQC"
   manual_note <- "Automatic dissolved oxygen QA/QC; no manual note provided."
   run_time    <- Sys.time()

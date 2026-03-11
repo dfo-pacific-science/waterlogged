@@ -70,10 +70,10 @@ longer used.
 | `convert_waterlevel_kPa_m()` | with `var_*` params | modern API | — | — | **Rewritten** |
 | `convert_do_mgl_percsat()` | with `var_*` params | — | modern API | — | **Rewritten** |
 | `barometric_qaqc_all()` | — | modern API | modern API | — | **New** |
-| `barometric_qaqc()` | climate station API | (via `_all`) | (via `_all`) | — | **Rewritten** |
-| `waterlevel_qaqc()` | with `var_*` params | modern API | — | — | **Rewritten** |
-| `dissox_qaqc()` | with `var_*` params | — | modern API | — | **Rewritten** |
-| `conductivity_qaqc()` | with `var_*` params | — | — | modern API | **Rewritten** |
+| `qc_barometric()` | climate station API | (via `_all`) | (via `_all`) | — | **Rewritten** |
+| `qc_waterlevel()` | with `var_*` params | modern API | — | — | **Rewritten** |
+| `qc_dissox()` | with `var_*` params | — | modern API | — | **Rewritten** |
+| `qc_conductivity()` | with `var_*` params | — | — | modern API | **Rewritten** |
 | `plot_qaqc_timeseries()` | — | modern API | modern API | modern API | **New** |
 | `wq_drift_correction()` | — | — | modern API | modern API | **New** |
 | `conductivity_temp_compensation()` | — | — | — | modern API | **Rewritten** |
@@ -88,8 +88,8 @@ longer used.
 | `correct_drift()` | old API | — | — | — | **Legacy, unused in new** |
 | `conduct_temp_comp()` | old API | — | — | — | **Removed (renamed)** |
 | `get_logger_data()` | with `logger_type=` | — | — | — | **Rewritten, unused in new** |
-| `watertemp_qaqc()` | — | — | — | — | **Legacy, unused in either** |
-| `airtemp_qaqc()` | — | — | — | — | **Legacy, unused in either** |
+| `qc_watertemp()` | — | — | — | — | **Legacy, unused in either** |
+| `qc_airtemp()` | — | — | — | — | **Legacy, unused in either** |
 
 ### Old vignette — old-style parameter values used
 
@@ -104,8 +104,8 @@ bind_hobo_files(..., logger_type = "dissolvedoxygen_U26", metadata = metadat)
 add_nearest_baro(..., input_logger_type = "waterlevel_U20", metadata = baro_metadat)
 add_nearest_baro(..., input_logger_type = "dissolvedoxygen_U26", metadata = baro_metadat)
 
-# dissox_qaqc with _U20/_U26 column names (old API)
-dissox_qaqc(..., var_waterlevel_m = "waterlevel_m_U20_adj",
+# qc_dissox with _U20/_U26 column names (old API)
+qc_dissox(..., var_waterlevel_m = "waterlevel_m_U20_adj",
                  var_watertemp_C_2 = "watertemp_C_U20_adj")
 
 # adjust_logger_NA with logger_to_adjust (old API)
@@ -113,8 +113,8 @@ adjust_logger_NA(..., logger_to_adjust = "dissolvedoxygen_U26")
 adjust_logger_NA(..., logger_to_adjust = "conductivity_U24",
                       var_watertemp_C = "watertemp_C_U24")
 
-# conductivity_qaqc with _U24 column names (old API)
-conductivity_qaqc(..., var_conduct_uScm = "conduct_uScm_U24",
+# qc_conductivity with _U24 column names (old API)
+qc_conductivity(..., var_conduct_uScm = "conduct_uScm_U24",
                        var_watertemp_C = "watertemp_C_U24")
 
 # correct_drift with _U24 column names (old API)
@@ -148,9 +148,9 @@ add_nearest_baro(..., metric = "DO", baro_site_selection = "DARL_ST_30",
                       metadata_path = ...)
 
 # QAQC functions — no var_* params, just station
-waterlevel_qaqc(input_data = ..., select_station = "ALBR_ST_30")
-dissox_qaqc(input_data = ..., select_station = "COOK_WE_40")
-conductivity_qaqc(input_data = ..., select_station = "TUMT_WE_40")
+qc_waterlevel(input_data = ..., select_station = "ALBR_ST_30")
+qc_dissox(input_data = ..., select_station = "COOK_WE_40")
+qc_conductivity(input_data = ..., select_station = "TUMT_WE_40")
 
 # adjust_logger_NA — metric string, not logger_to_adjust
 adjust_logger_NA(..., metric = "waterlevel", reason_to_adjust = "ice",
@@ -217,23 +217,23 @@ defaults, no QAQC log integration, and for-loop processing patterns.
 | **Legacy signs** | Already marked `[Superseded]` in roxygen. Defaults `var_conduct_uScm = "conduct_uScm_U24_adj"`, creates `_dc` columns, uses `co_qaqc_*` triplet, no QAQC log |
 | **Recommendation** | **Remove** from package and NAMESPACE |
 
-### 2.4 `airtemp_qaqc()`
+### 2.4 `qc_airtemp()`
 
 | | |
 |---|---|
-| **File** | `R/airtemp_qaqc.R` |
+| **File** | `R/qc_airtemp.R` |
 | **Replaced by** | No direct modern replacement exists |
 | **Used in old vignette** | No |
 | **Used in new vignettes** | No |
 | **Legacy signs** | Default `var_airtemp_C = "airtemp_C_TidbiT"`, uses `at_qaqc_code`/`at_qaqc_adj`/`at_qaqc_note` columns, for-loop, no QAQC log |
 | **Recommendation** | **Modernize** if air temperature QAQC is needed, otherwise **remove** |
 
-### 2.5 `watertemp_qaqc()`
+### 2.5 `qc_watertemp()`
 
 | | |
 |---|---|
-| **File** | `R/watertemp_qaqc.R` |
-| **Replaced by** | No direct modern replacement (water temp QAQC handled inline by `waterlevel_qaqc()` and `dissox_qaqc()`) |
+| **File** | `R/qc_watertemp.R` |
+| **Replaced by** | No direct modern replacement (water temp QAQC handled inline by `qc_waterlevel()` and `qc_dissox()`) |
 | **Used in old vignette** | No |
 | **Used in new vignettes** | No |
 | **Legacy signs** | Defaults `var_airtemp_C = "airtemp_C_U20"`, `var_watertemp_C = "watertemp_C_U20"`, hardcoded `airtemp_C_U20` in `plot_only = TRUE` ggplot path, uses generic `qaqc_code`/`qaqc_note` columns, for-loop, no QAQC log |
@@ -254,12 +254,12 @@ branches (not duplicates — the develop version replaced the main version):
 
 | Function | main API | develop API |
 |---|---|---|
-| `barometric_qaqc()` | Climate station normals, `var_*` params | Configurable thresholds, fixed column names |
+| `qc_barometric()` | Climate station normals, `var_*` params | Configurable thresholds, fixed column names |
 | `bind_hobo_files()` | `logger_type=` param, `_U20` columns | Auto-detected metric, modern columns |
 | `adjust_logger_NA()` | `logger_to_adjust=` param, `var_*` params | `metric=` param, fixed column names |
-| `waterlevel_qaqc()` | `var_*` params, `plot_only` | No params, no plot |
-| `dissox_qaqc()` | `var_*` params, `plot_only` | No params, no plot |
-| `conductivity_qaqc()` | `var_*` params, `plot_only` | Configurable thresholds, no plot |
+| `qc_waterlevel()` | `var_*` params, `plot_only` | No params, no plot |
+| `qc_dissox()` | `var_*` params, `plot_only` | No params, no plot |
+| `qc_conductivity()` | `var_*` params, `plot_only` | Configurable thresholds, no plot |
 | `write_clean_data()` | `logger_type=` param, `var_*` params | `metric=` param, config-driven |
 | `convert_waterlevel_kPa_m()` | `var_*` params | Fixed column names, helpers split out |
 | `convert_do_mgl_percsat()` | `var_*` params | Fixed column names |
@@ -319,7 +319,7 @@ undocumented — a silent source of error for non-standard deployments. Old vers
 does backward interpolation between reference pairs. The new algorithm does forward-
 linear ramps from each segment start, restarting at calibration boundaries.
 
-### 4.4 Barometric QAQC: `barometric_qaqc()` (main vs develop)
+### 4.4 Barometric QAQC: `qc_barometric()` (main vs develop)
 
 | Aspect | OLD (129 lines) | NEW (170 lines) |
 |--------|------------------|------------------|
@@ -411,7 +411,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 
 **Regression in NEW:** Conductivity export support is missing from the `metric_config`.
 
-### 4.10 waterlevel_qaqc: main (140 lines) vs develop (230 lines)
+### 4.10 qc_waterlevel: main (140 lines) vs develop (230 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -424,7 +424,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 | **QAQC tracking** | `wl_qaqc_code/adj/note` triplet (one code per row) | Multiple coexisting boolean flags: `flag_disturbance`, `flag_ice`, `flag_wl_dry`, `neg_lt_minus1`, `neg_between` |
 | **Return value** | `list(data, plotly)` | Single data frame with `attr("qaqc_log")` |
 
-### 4.11 dissox_qaqc: main (244 lines) vs develop (293 lines)
+### 4.11 qc_dissox: main (244 lines) vs develop (293 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -437,7 +437,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 | **QAQC tracking** | `do_qaqc_code/adj/note` triplet | Multiple boolean flags: `do_error`, `do_neg_between`, `do_neg_lt_minus1`, `do_high`, `temp_flag_ice`, `flag_do_dry` |
 | **Return value** | `list(data, plotly)` | Single data frame with `attr("qaqc_log")` |
 
-### 4.12 conductivity_qaqc: main (273 lines) vs develop (281 lines)
+### 4.12 qc_conductivity: main (273 lines) vs develop (281 lines)
 
 | Aspect | OLD | NEW |
 |--------|-----|-----|
@@ -459,7 +459,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
    to boolean `flag_*`/`edit_*` columns + structured `make_qaqc_log_row()` logging with
    `attr(result, "qaqc_log")`.
 3. **Vectorization:** All `for` loops replaced with `dplyr::mutate()` / `case_when()` /
-   `if_else()` (except the dry-flag sliding window in `dissox_qaqc`).
+   `if_else()` (except the dry-flag sliding window in `qc_dissox`).
 4. **Plotting removed:** All inline `ggplot2` + `plotly` plotting removed from QAQC
    functions. No `plot_only` parameter. Plotting centralized in
    `plot_qaqc_timeseries()`.
@@ -481,7 +481,7 @@ is actually `conduct_uScm_adj`. Will crash at runtime.
 The COND branch expects and modifies `conductivity_uScm_adj` (line 358), but every
 other function produces `conduct_uScm_adj`:
 
-- `conductivity_qaqc()` creates `conduct_uScm_adj`
+- `qc_conductivity()` creates `conduct_uScm_adj`
 - `wq_drift_correction()` modifies `conduct_uScm_adj`
 - `conductivity_temp_compensation()` reads `conduct_uScm_adj`
 - `plot_qaqc_timeseries()` reads `conduct_uScm_adj`
@@ -509,13 +509,13 @@ other function produces `conduct_uScm_adj`:
 **File:** `R/globals.R`, line 7
 
 The `utils::globalVariables()` call includes `"airtemp_C_U20"`, a legacy column name
-only used by `watertemp_qaqc()` (itself legacy).
+only used by `qc_watertemp()` (itself legacy).
 
-**Fix:** Remove when `watertemp_qaqc()` is cleaned up or removed.
+**Fix:** Remove when `qc_watertemp()` is cleaned up or removed.
 
-### 5.4 `dissox_qaqc()` — `watertemp_C_do` vs `watertemp_C`
+### 5.4 `qc_dissox()` — `watertemp_C_do` vs `watertemp_C`
 
-**File:** `R/dissox_qaqc.R`
+**File:** `R/qc_dissox.R`
 
 DO QAQC renames `watertemp_C` to `watertemp_C_do` and creates `watertemp_C_do_adj`.
 This is intentional (to distinguish DO-logger temp from other temp sources) but differs
@@ -647,8 +647,8 @@ New internal modules:
 | `adjust_waterlevel_cablebreak` | Legacy, replaced by `adjust_WL_offset` | **Remove export** |
 | `adjust_waterlevel_zero` | Legacy, replaced by `adjust_WL_zero` | **Remove export** |
 | `correct_drift` | Legacy, marked `[Superseded]`, replaced by `wq_drift_correction` | **Remove export** |
-| `airtemp_qaqc` | Legacy, no modern replacement | Modernize or remove |
-| `watertemp_qaqc` | Legacy, no modern replacement | Modernize or remove |
+| `qc_airtemp` | Legacy, no modern replacement | Modernize or remove |
+| `qc_watertemp` | Legacy, no modern replacement | Modernize or remove |
 | `QAQC_metadata` | Exported helper; could be internal | Consider `@keywords internal` |
 | `QAQC_reference_data` | Exported helper; could be internal | Consider `@keywords internal` |
 
@@ -710,15 +710,15 @@ replacements and are not used by any current vignette or workflow:
 
 ### Priority 3 — Modernize or remove remaining legacy functions
 
-- [ ] `R/airtemp_qaqc.R`: Update column defaults from `airtemp_C_TidbiT` to modern
+- [ ] `R/qc_airtemp.R`: Update column defaults from `airtemp_C_TidbiT` to modern
   names, add QAQC log integration, or remove if not needed
-- [ ] `R/watertemp_qaqc.R`: Update column defaults from `_U20` to modern names, fix
+- [ ] `R/qc_watertemp.R`: Update column defaults from `_U20` to modern names, fix
   hardcoded `airtemp_C_U20` in plot path, add QAQC log, or remove
 
 ### Priority 4 — Clean up dead code
 
 - [ ] Remove `R/plot_helpers.R` (`make_qaqc_subplot()` is never called)
-- [ ] Remove `airtemp_C_U20` from `R/globals.R` (after addressing `watertemp_qaqc`)
+- [ ] Remove `airtemp_C_U20` from `R/globals.R` (after addressing `qc_watertemp`)
 - [ ] Remove `normalise_temporal_scale`, `read_logger_file`, `build_plots` from
   `R/globals.R` (after implementing or removing from `get_logger_data`)
 - [ ] Clean up legacy `factor_cols` in `R/get_logger_data_helpers.R`
@@ -742,19 +742,19 @@ replacements and are not used by any current vignette or workflow:
 | `adjust_waterlevel_cablebreak.R` | `adjust_waterlevel_cablebreak.R` | **Unchanged** — legacy, should remove |
 | `adjust_waterlevel_spike.R` | `adjust_waterlevel_spike.R` | **Rewritten** — new API, fixed row-index bug |
 | `adjust_waterlevel_zero.R` | `adjust_waterlevel_zero.R` | **Unchanged** — legacy, should remove |
-| `airtemp_qaqc.R` | `airtemp_qaqc.R` | **Minimally changed** — still legacy |
-| `barometric_qaqc.R` | `barometric_qaqc.R` | **Rewritten** — completely new implementation |
+| `qc_airtemp.R` | `qc_airtemp.R` | **Minimally changed** — still legacy |
+| `qc_barometric.R` | `qc_barometric.R` | **Rewritten** — completely new implementation |
 | `bind_hobo_files.R` | `bind_hobo_files.R` | **Rewritten** — new API, no `logger_type` param |
-| `conductivity_qaqc.R` | `conductivity_qaqc.R` | **Rewritten** — new API |
+| `qc_conductivity.R` | `qc_conductivity.R` | **Rewritten** — new API |
 | `conductivity_temp_compensation.R` | `conductivity_temp_compensation.R` | **Rewritten** — renamed from `conduct_temp_comp`, simplified |
 | `convert_do_mgl_percsat.R` | `convert_do_mgl_percsat.R` | **Rewritten** — new API |
 | `convert_waterlevel_kPa_m.R` | `convert_wl_kpa_m.R` | **Rewritten** — file renamed, new API |
 | `correct_drift.R` | `correct_drift.R` | **Marked superseded** — should remove |
-| `dissox_qaqc.R` | `dissox_qaqc.R` | **Rewritten** — new API |
+| `qc_dissox.R` | `qc_dissox.R` | **Rewritten** — new API |
 | `get_logger_data.R` | `get_logger_data.R` | **Rewritten** — new API, missing helpers |
 | `NTSERP_palette.R` | `NTSERP_palette.R` | **Unchanged** |
-| `waterlevel_qaqc.R` | `waterlevel_qaqc.R` | **Rewritten** — new API |
-| `watertemp_qaqc.R` | `watertemp_qaqc.R` | **Minimally changed** — still legacy |
+| `qc_waterlevel.R` | `qc_waterlevel.R` | **Rewritten** — new API |
+| `qc_watertemp.R` | `qc_watertemp.R` | **Minimally changed** — still legacy |
 | `write_clean_data.R` | `write_clean_data.R` | **Rewritten** — new API |
 
 ### Files only on develop (20 new files)

@@ -79,7 +79,7 @@ test_that("water level workflow runs end-to-end", {
   expect_false(all(is.na(site_wl$waterlevel_m)))
 
   # Step 6: Water level QAQC
-  wl_qc <- waterlevel_qaqc(
+  wl_qc <- qc_waterlevel(
     input_data     = site_wl,
     select_station = "ALBR_ST_30"
   )

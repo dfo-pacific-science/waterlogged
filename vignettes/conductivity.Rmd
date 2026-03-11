@@ -134,7 +134,7 @@ Adjusted columns created: `conduct_uScm_adj`, `watertemp_C_adj`.
 Flag columns: `flag_co_spike`, `flag_co_temp_ice`, `flag_co_temp_low`, `flag_co_temp_high`, `flag_co_temp_neg_near`, `flag_co_dry`.
 
 ```{r cond-qaqc}
-cond_qc <- conductivity_qaqc(
+cond_qc <- qc_conductivity(
   input_data                 = cond_data,
   select_station             = "TUMT_WE_40",
   temp_low_limit_C           = -2,
@@ -350,7 +350,7 @@ write.csv(
 | Step | Function | Result |
 |------|----------|--------|
 | 1 | `bind_hobo_files()` on COND | `cond_data` (raw conductivity) |
-| 2 | `conductivity_qaqc()` | `cond_qc` (auto QAQC'd) |
+| 2 | `qc_conductivity()` | `cond_qc` (auto QAQC'd) |
 | 3 | `plot_qaqc_timeseries()` | (visual review) |
 | 4 | `wq_drift_correction()` | `cond_qc` (drift corrected) |
 | 5 | `conductivity_temp_compensation()` | `cond_qc` (adds SPC) |

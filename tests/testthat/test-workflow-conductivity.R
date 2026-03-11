@@ -19,7 +19,7 @@ test_that("conductivity workflow runs end-to-end", {
   expect_true(min(cond_data$conduct_uScm, na.rm = TRUE) > 0)
 
   # Step 2: Conductivity QAQC
-  cond_qc <- conductivity_qaqc(
+  cond_qc <- qc_conductivity(
     input_data                 = cond_data,
     select_station             = "TUMT_WE_40",
     temp_low_limit_C           = -2,

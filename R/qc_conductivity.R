@@ -71,12 +71,12 @@
 #'
 #' @seealso \code{\link{conductivity_qaqc_all}} (wrapper that runs this
 #'   function across all conductivity stations),
-#'   \code{\link{waterlevel_qaqc}} (analogous QAQC for water level),
-#'   \code{\link{dissox_qaqc}} (analogous for dissolved oxygen),
+#'   \code{\link{qc_waterlevel}} (analogous QAQC for water level),
+#'   \code{\link{qc_dissox}} (analogous for dissolved oxygen),
 #'   \code{\link{wq_drift_correction}} (downstream drift correction)
 #'
 #' @export
-conductivity_qaqc <- function(
+qc_conductivity <- function(
     input_data,
     select_station,
     log_root = NULL,
@@ -102,14 +102,14 @@ conductivity_qaqc <- function(
     dplyr::arrange(timestamp)
   
   if (nrow(df) == 0) {
-    stop("conductivity_qaqc(): no rows for station ", select_station)
+    stop("qc_conductivity(): no rows for station ", select_station)
   }
   
   required <- c("timestamp", "conduct_uScm", "watertemp_C")
   missing_cols <- setdiff(required, names(df))
   if (length(missing_cols) > 0) {
     stop(
-      "conductivity_qaqc(): missing required column(s): ",
+      "qc_conductivity(): missing required column(s): ",
       paste(missing_cols, collapse = ", ")
     )
   }
@@ -183,7 +183,7 @@ conductivity_qaqc <- function(
   
   # ---- 5. Build QA/QC log rows (COND-style rules list) ----------------------
   metric      <- "COND"
-  fun_name    <- "conductivity_qaqc"
+  fun_name    <- "qc_conductivity"
   action      <- "AUTO_QAQC"
   manual_note <- "Automatic conductivity QA/QC; no manual note provided."
   run_time    <- Sys.time()

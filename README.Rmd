@@ -77,7 +77,7 @@ files and as flag/edit columns in the data.
   proximity → v0.2
 - **`convert_waterlevel_kPa_m()`** — convert pressure to water level in
   metres using baro compensation and a field reference → v0.3
-- **`waterlevel_qaqc()`** — auto QAQC (negative temps, ice, step
+- **`qc_waterlevel()`** — auto QAQC (negative temps, ice, step
   disturbances, dry sensor)
 - **`plot_qaqc_timeseries()`** — multi-panel time-series plot for visual
   review
@@ -96,7 +96,7 @@ files and as flag/edit columns in the data.
 - **`add_nearest_baro()`** — attach nearest baro station → v0.2
 - **`convert_do_mgl_percsat()`** — compute percent saturation from mg/L,
   temperature, and pressure → v0.3
-- **`dissox_qaqc()`** — auto QAQC (errors, negative DO, high outliers, ice,
+- **`qc_dissox()`** — auto QAQC (errors, negative DO, high outliers, ice,
   dry sensor)
 - **`plot_qaqc_timeseries()`** — visual review
 - **`wq_drift_correction()`** — correct sensor drift using field reference
@@ -110,7 +110,7 @@ files and as flag/edit columns in the data.
 No barometric data required.
 
 - **`bind_hobo_files()`** — read raw conductivity CSVs → v0.1
-- **`conductivity_qaqc()`** — auto QAQC (spikes, ice, temp range, dry
+- **`qc_conductivity()`** — auto QAQC (spikes, ice, temp range, dry
   sensor)
 - **`plot_qaqc_timeseries()`** — visual review
 - **`wq_drift_correction()`** — correct sensor drift using field reference

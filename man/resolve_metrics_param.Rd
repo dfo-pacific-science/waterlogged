@@ -8,8 +8,9 @@ resolve_metrics_param(metrics)
 }
 \arguments{
 \item{metrics}{A single character string specifying which metrics require
-barometric data (e.g., \code{"DO"}, \code{"water level"}, or
-\code{"both"}).}
+barometric data. Accepted values: \code{"DO"}, \code{"water level"},
+\code{"conductivity"}, \code{"both"} (water level + DO), or \code{"all"}
+(water level + DO + conductivity).}
 }
 \value{
 A list with components:
@@ -23,7 +24,8 @@ should receive barometric data.
 \description{
 Normalizes and validates the \code{metric} argument used in
 \code{add_nearest_baro()}, ensuring it is one of \code{"DO"},
-\code{"water level"}, or \code{"both"}. Returns a list describing the
-normalized input and the set of metric keys that require barometric data.
+\code{"water level"}, \code{"conductivity"}, \code{"both"}, or \code{"all"}.
+Returns a list describing the normalized input and the set of metric keys
+that require barometric data.
 }
 \keyword{internal}

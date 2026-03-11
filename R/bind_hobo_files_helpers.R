@@ -374,3 +374,92 @@ extract_alldata_from_file <- function(file) {
   
   return(data_clean)
 }
+
+
+#' Filter metadata to rows whose deployment windows overlap raw data timestamps
+#'
+#' When a serial number appears in metadata with multiple metric types (e.g.
+#' a U20 deployed as barometric one season and waterlevel the next), this
+#' helper keeps only the metadata rows whose deployment/removal window
+#' overlaps with the actual timestamps present in the raw HOBO data for
+#' that serial number.
+#'
+#' @param metadat_link Data frame of metadata rows matching the raw-file SNs.
+#' @param hobo_data_raw Data frame of parsed raw HOBO data (must have
+#'   \code{sn} and \code{timestamp} columns; timestamps must be POSIXct).
+#' @param timestamp_timezone Character timezone for filling open-ended
+#'   deployments (where \code{timestamp_remove} is \code{NA}).
+#'
+#' @return A filtered version of \code{metadat_link} containing only rows
+#'   that overlap with the raw data.
+#' @keywords internal
+#' @noRd
+resolve_metric_by_overlap <- function(metadat_link, hobo_data_raw,
+                                      timestamp_timezone = "UTC") {
+
+  # Compute min/max timestamp per SN in the raw data
+  sn_ranges <- hobo_data_raw |>
+    dplyr::group_by(sn) |>
+    dplyr::summarise(
+      raw_min = min(timestamp, na.rm = TRUE),
+      raw_max = max(timestamp, na.rm = TRUE),
+      .groups = "drop"
+    )
+
+  # For each metadata row, check if the deployment window overlaps the raw data
+  keep_rows <- logical(nrow(metadat_link))
+
+  for (i in seq_len(nrow(metadat_link))) {
+    sn_i     <- metadat_link$sn[i]
+    deploy_i <- metadat_link$timestamp_deploy[i]
+    remove_i <- metadat_link$timestamp_remove[i]
+
+    # Fill open-ended deployments with current time
+    if (is.na(remove_i)) {
+      remove_i <- lubridate::now(tzone = timestamp_timezone)
+    }
+
+    # Find the raw data range for this SN
+    sn_range <- sn_ranges[sn_ranges$sn == sn_i, , drop = FALSE]
+    if (nrow(sn_range) == 0) {
+      keep_rows[i] <- FALSE
+      next
+    }
+
+    # Check for any overlap: deployment window intersects raw data range
+    # Overlap exists when: deploy <= raw_max AND remove >= raw_min
+    keep_rows[i] <- !is.na(deploy_i) &&
+      deploy_i <= sn_range$raw_max[1] &&
+      remove_i >= sn_range$raw_min[1]
+  }
+
+  filtered <- metadat_link[keep_rows, , drop = FALSE]
+
+  if (nrow(filtered) == 0) {
+    stop(
+      "bind_hobo_files(): No metadata deployment windows overlap with the ",
+      "raw data timestamps. Check that the metadata file matches the raw ",
+      "HOBO files being processed."
+    )
+  }
+
+  # Report what was filtered out
+  n_removed <- sum(!keep_rows)
+  if (n_removed > 0) {
+    removed <- metadat_link[!keep_rows, , drop = FALSE]
+    message(
+      "Note: ", n_removed, " metadata row(s) filtered out (deployment window ",
+      "does not overlap raw data timestamps): ",
+      paste(
+        sprintf("SN %s as %s (%s to %s)",
+                removed$sn, removed$metric,
+                removed$timestamp_deploy,
+                ifelse(is.na(removed$timestamp_remove), "ongoing",
+                       as.character(removed$timestamp_remove))),
+        collapse = "; "
+      )
+    )
+  }
+
+  filtered
+}

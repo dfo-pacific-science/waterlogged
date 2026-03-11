@@ -35,11 +35,11 @@ directory where per-year v0.1 COND CSVs will be written. When
 \code{NULL} (default, Shiny mode), no files are written.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for
-QAQC log files, passed through to \code{\link{conductivity_qaqc}}.
+QAQC log files, passed through to \code{\link{qc_conductivity}}.
 When \code{NULL} (default), no log files are written.}
 
 \item{temp_low_limit_C}{Numeric. Lower bound for acceptable water
-temperature (passed to \code{\link{conductivity_qaqc}}). Default
+temperature (passed to \code{\link{qc_conductivity}}). Default
 \code{-2}.}
 
 \item{temp_high_limit_C}{Numeric. Upper bound for acceptable water
@@ -82,7 +82,7 @@ successfully, an empty tibble is returned with a warning.
 \description{
 Reads conductivity logger data for every station listed in the metadata
 (where \code{metric == "conductivity"}), applies
-\code{\link{conductivity_qaqc}} to each station, optionally writes
+\code{\link{qc_conductivity}} to each station, optionally writes
 per-year v0.1 CSVs, and returns a combined data frame of all QAQC'd
 conductivity data.
 }
@@ -92,7 +92,7 @@ When reading from disk, files are expected to match the pattern
 \code{cond_data_path} (searched recursively).
 }
 \seealso{
-\code{\link{conductivity_qaqc}} (per-station QAQC called
+\code{\link{qc_conductivity}} (per-station QAQC called
 internally), \code{\link{barometric_qaqc_all}} (analogous batch
 wrapper for barometric data),
 \code{\link{bind_hobo_files}} (upstream data ingestion)

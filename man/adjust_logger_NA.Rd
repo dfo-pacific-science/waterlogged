@@ -50,9 +50,11 @@ temperature column is associated (\code{"watertemp"}, \code{"airtemp"}).}
 
 \item{apply_to_all_data}{Logical; if \code{FALSE} (default), only values
 within \code{timestamp_start}–\code{timestamp_end} are set to NA. If
-\code{TRUE} and a water level column is present, a dry threshold is
-derived from the window and applied to the whole record (for supported
-metrics and reasons).}
+\code{TRUE} and \code{reason_to_adjust = "dry"}, a water level threshold
+is derived from the window and applied to the whole record. Requires
+a water level column (\code{waterlevel_m_adj} or \code{waterlevel_m}).
+Ignored for non-dry reasons and for metrics without water level support
+(\code{"watertemp"}, \code{"barometric"}, \code{"airtemp"}).}
 
 \item{manual_note}{Character; required free-text explanation describing why
 this adjustment is being made. Stored in the QA/QC log.}
@@ -87,7 +89,7 @@ to the requested \code{metric} and sets a matching \code{edit_*} flag
 entry is written.
 }
 \seealso{
-\code{\link{waterlevel_qaqc}}, \code{\link{dissox_qaqc}},
+\code{\link{qc_waterlevel}}, \code{\link{qc_dissox}},
 \code{\link{make_qaqc_log_row}},
 \code{\link{qaqc_log_append}}
 }

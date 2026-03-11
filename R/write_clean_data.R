@@ -4,8 +4,8 @@
 #' splits by station and year, and writes per-station per-year v1.0 CSV
 #' files to a \code{<year>/clean/} directory.
 #' This is the final step in the processing pipeline, typically run after
-#' all QAQC adjustments (e.g. \code{\link{waterlevel_qaqc}},
-#' \code{\link{dissox_qaqc}}) are complete.
+#' all QAQC adjustments (e.g. \code{\link{qc_waterlevel}},
+#' \code{\link{qc_dissox}}) are complete.
 #'
 #' @param input_data A data frame of QAQC'd logger observations.
 #'   Must contain at minimum \code{site_station_code}, \code{timestamp},
@@ -35,7 +35,7 @@
 #'   \item{\code{"dissolvedoxygen"} (DO)}{Required:
 #'     \code{do_mgl}, \code{do_mgl_adj}, \code{do_percsat},
 #'     \code{do_percsat_adj}.
-#'     Optional: \code{watertemp_C}, \code{watertemp_C_adj}.}
+#'     Optional: \code{watertemp_C_do}, \code{watertemp_C_do_adj}.}
 #'   \item{\code{"barometric"} (BARO)}{Required:
 #'     \code{airpress_kPa}, \code{airpress_kPa_adj}.
 #'     Optional: \code{airtemp_C}, \code{airtemp_C_adj}.}
@@ -63,8 +63,8 @@
 #' differs from the \code{metric} argument, a warning is issued.
 #'
 #' @seealso \code{\link{get_logger_data}} (reads the v1.0 files produced
-#'   by this function), \code{\link{waterlevel_qaqc}},
-#'   \code{\link{dissox_qaqc}}, \code{\link{barometric_qaqc}} (upstream
+#'   by this function), \code{\link{qc_waterlevel}},
+#'   \code{\link{qc_dissox}}, \code{\link{qc_barometric}} (upstream
 #'   QAQC functions whose output is typically passed here)
 #'
 #' @export
@@ -87,8 +87,8 @@ write_clean_data <- function(
         "do_percsat_adj"
       ),
       optional = c(
-        "watertemp_C",
-        "watertemp_C_adj"
+        "watertemp_C_do",
+        "watertemp_C_do_adj"
       )
     ),
     barometric = list(

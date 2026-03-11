@@ -31,7 +31,7 @@ fitted to the published coefficient table and applied as
 \code{SPC = f(T) * EC}.
 }
 \details{
-Can be run either before or after \code{\link{conductivity_qaqc}}.
+Can be run either before or after \code{\link{qc_conductivity}}.
 The function prefers \code{*_adj} columns when available and falls
 back to the raw columns (\code{conduct_uScm}, \code{watertemp_C})
 otherwise.
@@ -45,7 +45,7 @@ The table is pivoted to long format and a 5th-order polynomial
 25 degrees C the coefficient equals 1.0 (i.e. no correction).
 }
 \seealso{
-\code{\link{conductivity_qaqc}},
+\code{\link{qc_conductivity}},
 \code{\link{wq_drift_correction}}
 (optional drift correction for conductivity)
 }

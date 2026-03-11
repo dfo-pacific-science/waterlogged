@@ -269,9 +269,9 @@ head(do_data[, c("timestamp", "do_mgl", "watertemp_C",
 #   edit_* = "we changed the data" (values set to NA or corrected)
 # -----------------------------------------------------------------------------
 
-?dissox_qaqc
+?qc_dissox
 
-do_qc <- dissox_qaqc(
+do_qc <- qc_dissox(
   input_data     = do_data,
   select_station = "COOK_WE_40"
 )
@@ -546,7 +546,7 @@ print(summary(do_qc$do_mgl_adj))
 #   Step 2:  bind_hobo_files() on DO     -> do_data     (raw DO)
 #   Step 3:  add_nearest_baro()          -> do_data     (DO + baro attached)
 #   Step 4:  convert_do_mgl_percsat()    -> do_data     (adds %sat)
-#   Step 5:  dissox_qaqc()               -> do_qc       (auto QAQC'd)
+#   Step 5:  qc_dissox()               -> do_qc       (auto QAQC'd)
 #   Step 6:  plot_qaqc_timeseries()      -> (visual review)
 #   Step 7:  wq_drift_correction()       -> do_qc       (drift corrected)
 #   Step 8:  Manual adjustments          -> do_qc       (updated)

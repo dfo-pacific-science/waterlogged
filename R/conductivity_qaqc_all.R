@@ -2,7 +2,7 @@
 #'
 #' Reads conductivity logger data for every station listed in the metadata
 #' (where \code{metric == "conductivity"}), applies
-#' \code{\link{conductivity_qaqc}} to each station, optionally writes
+#' \code{\link{qc_conductivity}} to each station, optionally writes
 #' per-year v0.1 CSVs, and returns a combined data frame of all QAQC'd
 #' conductivity data.
 #'
@@ -21,10 +21,10 @@
 #'   directory where per-year v0.1 COND CSVs will be written. When
 #'   \code{NULL} (default, Shiny mode), no files are written.
 #' @param log_root Character scalar or \code{NULL}. Root directory for
-#'   QAQC log files, passed through to \code{\link{conductivity_qaqc}}.
+#'   QAQC log files, passed through to \code{\link{qc_conductivity}}.
 #'   When \code{NULL} (default), no log files are written.
 #' @param temp_low_limit_C Numeric. Lower bound for acceptable water
-#'   temperature (passed to \code{\link{conductivity_qaqc}}). Default
+#'   temperature (passed to \code{\link{qc_conductivity}}). Default
 #'   \code{-2}.
 #' @param temp_high_limit_C Numeric. Upper bound for acceptable water
 #'   temperature. Default \code{40}.
@@ -55,7 +55,7 @@
 #'   conductivity data for all stations. If no stations are processed
 #'   successfully, an empty tibble is returned with a warning.
 #'
-#' @seealso \code{\link{conductivity_qaqc}} (per-station QAQC called
+#' @seealso \code{\link{qc_conductivity}} (per-station QAQC called
 #'   internally), \code{\link{barometric_qaqc_all}} (analogous batch
 #'   wrapper for barometric data),
 #'   \code{\link{bind_hobo_files}} (upstream data ingestion)
@@ -160,7 +160,7 @@ conductivity_qaqc_all <- function(
     }
     
     # Run single-station QA/QC
-    checked <- conductivity_qaqc(
+    checked <- qc_conductivity(
       input_data               = raw_cond,
       select_station           = stn,
       log_root                 = log_root,
