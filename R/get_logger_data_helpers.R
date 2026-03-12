@@ -309,8 +309,8 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   
   # --- metric-specific summaries -------------------------------------
   if (metric_norm == "dissolvedoxygen") {
-    
-    required <- c("do_mgl_adj", "do_percsat_adj", "watertemp_C_adj")
+
+    required <- c("do_mgl_adj", "do_percsat_adj", "watertemp_C_do_adj")
     missing  <- setdiff(required, names(dat))
     if (length(missing) > 0L) {
       stop(
@@ -327,13 +327,13 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
       dplyr::summarise(
         mean_do_mgl      = mean(do_mgl_adj,      na.rm = TRUE),
         mean_do_percsat  = mean(do_percsat_adj,  na.rm = TRUE),
-        mean_watertemp_C = mean(watertemp_C_adj, na.rm = TRUE),
+        mean_watertemp_C = mean(watertemp_C_do_adj, na.rm = TRUE),
         min_do_mgl       = min(do_mgl_adj,       na.rm = TRUE),
         min_do_percsat   = min(do_percsat_adj,   na.rm = TRUE),
-        min_watertemp_C  = min(watertemp_C_adj,  na.rm = TRUE),
+        min_watertemp_C  = min(watertemp_C_do_adj,  na.rm = TRUE),
         max_do_mgl       = max(do_mgl_adj,       na.rm = TRUE),
         max_do_percsat   = max(do_percsat_adj,   na.rm = TRUE),
-        max_watertemp_C  = max(watertemp_C_adj,  na.rm = TRUE),
+        max_watertemp_C  = max(watertemp_C_do_adj,  na.rm = TRUE),
         .groups          = "drop"
       )
     
