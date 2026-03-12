@@ -94,7 +94,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   }
 
   # QAQC and format metadata file (dual input)
-  metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
+  metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata, tz = timestamp_timezone)
 
   if (!is.null(file_paths)) {
     path_to_files <- file_paths
