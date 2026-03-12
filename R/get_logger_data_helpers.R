@@ -129,15 +129,15 @@ normalise_metric <- function(metric, allow_all = FALSE) {
   if (is.null(metric) || length(metric) != 1L) {
     stop("`metric` must be a single, non-NULL value.", call. = FALSE)
   }
-  
+
   m <- tolower(trimws(metric))
   m <- gsub("\\s+", "", m)
-  
+
   if (m == "all") {
     if (allow_all) return("all")
     stop("`metric = 'all'` is only allowed when explicitly permitted.", call. = FALSE)
   }
-  
+
   if (m %in% c("waterlevel", "stage"))               return("waterlevel")
   if (m %in% c("do", "dissolvedoxygen", "oxygen"))   return("dissolvedoxygen")
   if (m %in% c("baro", "barometric", "airpressure")) return("barometric")
@@ -189,14 +189,14 @@ normalise_metric <- function(metric, allow_all = FALSE) {
 #'
 #' @keywords internal
 resolve_data_processing_pattern <- function(data_processing) {
-  
+
   if (is.null(data_processing) || length(data_processing) != 1L) {
     stop("`data_processing` must be a single value.", call. = FALSE)
   }
-  
+
   dp <- tolower(trimws(data_processing))
   dp <- gsub("\\s+", "", dp)
-  
+
   # explicit mappings
   if (dp %in% c("raw")) {
     dp <- "raw"
@@ -228,7 +228,7 @@ resolve_data_processing_pattern <- function(data_processing) {
       )
     }
   }
-  
+
   pattern <- switch(
     dp,
     "raw"  = "\\.csv$",      # any csv
@@ -238,7 +238,7 @@ resolve_data_processing_pattern <- function(data_processing) {
     "v1.0" = "v1.0\\.csv$",
     stop("Unexpected `data_processing` value after QC: ", dp, call. = FALSE)
   )
-  
+
   list(data_processing = dp, pattern = pattern)
 }
 
@@ -288,7 +288,7 @@ resolve_data_processing_pattern <- function(data_processing) {
 #' @keywords internal
 summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   # temporal_scale already validated upstream
-  
+
   # --- create time_group ---------------------------------------------
   dat <- dat |>
     dplyr::mutate(
@@ -300,13 +300,13 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         temporal_scale == "yearly"  ~ lubridate::floor_date(timestamp, "year")
       )
     )
-  
+
   if (all(is.na(dat$time_group))) {
     stop("Failed to create `time_group` for temporal_scale = ", temporal_scale, call. = FALSE)
   }
-  
+
   group_vars <- c("site_station_code", "time_group")
-  
+
   # --- metric-specific summaries -------------------------------------
   if (metric_norm == "dissolvedoxygen") {
 
@@ -321,7 +321,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         call. = FALSE
       )
     }
-    
+
     out <- dat |>
       dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
@@ -336,9 +336,9 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         max_watertemp_C  = max(watertemp_C_do_adj,  na.rm = TRUE),
         .groups          = "drop"
       )
-    
+
   } else if (metric_norm == "waterlevel") {
-    
+
     required <- c("waterlevel_m_adj", "watertemp_C_adj")
     missing  <- setdiff(required, names(dat))
     if (length(missing) > 0L) {
@@ -350,7 +350,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         call. = FALSE
       )
     }
-    
+
     out <- dat |>
       dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
@@ -362,9 +362,9 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         max_watertemp_C   = max(watertemp_C_adj,   na.rm = TRUE),
         .groups           = "drop"
       )
-    
+
   } else if (metric_norm == "barometric") {
-    
+
     required <- c("airpress_kPa_adj", "airtemp_C_adj")
     missing  <- setdiff(required, names(dat))
     if (length(missing) > 0L) {
@@ -376,7 +376,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         call. = FALSE
       )
     }
-    
+
     out <- dat |>
       dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
@@ -388,9 +388,9 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         max_airtemp_C     = max(airtemp_C_adj,     na.rm = TRUE),
         .groups           = "drop"
       )
-    
+
   } else if (metric_norm == "airtemp") {
-    
+
     required <- c("airtemp_C_adj")
     missing  <- setdiff(required, names(dat))
     if (length(missing) > 0L) {
@@ -401,7 +401,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         call. = FALSE
       )
     }
-    
+
     out <- dat |>
       dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
@@ -410,9 +410,9 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         max_airtemp_C  = max(airtemp_C_adj,  na.rm = TRUE),
         .groups        = "drop"
       )
-    
+
   } else if (metric_norm == "watertemp") {
-    
+
     required <- c("watertemp_C_adj")
     missing  <- setdiff(required, names(dat))
     if (length(missing) > 0L) {
@@ -423,7 +423,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         call. = FALSE
       )
     }
-    
+
     out <- dat |>
       dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
@@ -432,10 +432,10 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
         max_watertemp_C  = max(watertemp_C_adj,  na.rm = TRUE),
         .groups          = "drop"
       )
-    
+
   } else if (metric_norm == "conductivity") {
 
-    required <- c("conduct_uScm_adj", "watertemp_C_adj")
+    required <- c("conduct_uScm_adj", "spc_uScm_adj","watertemp_C_adj")
     missing  <- setdiff(required, names(dat))
     if (length(missing) > 0L) {
       stop(
@@ -450,10 +450,13 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
     out <- dat |>
       dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) |>
       dplyr::summarise(
+        mean_spc_uScm     = mean(spc_uScm_adj,     na.rm = TRUE),
         mean_conduct_uScm = mean(conduct_uScm_adj, na.rm = TRUE),
         mean_watertemp_C  = mean(watertemp_C_adj,  na.rm = TRUE),
+        min_spc_uScm      = min(spc_uScm_adj,      na.rm = TRUE),
         min_conduct_uScm  = min(conduct_uScm_adj,  na.rm = TRUE),
         min_watertemp_C   = min(watertemp_C_adj,   na.rm = TRUE),
+        max_spc_uScm      = min(spc_uScm_adj,      na.rm = TRUE),
         max_conduct_uScm  = max(conduct_uScm_adj,  na.rm = TRUE),
         max_watertemp_C   = max(watertemp_C_adj,   na.rm = TRUE),
         .groups           = "drop"
@@ -462,18 +465,18 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   } else {
     stop("Metric '", metric_norm, "' not implemented in summarise_clean_data().", call. = FALSE)
   }
-  
+
   # round numeric, clean Inf/NaN ------------------------------------------------
   out <- out |>
     dplyr::mutate(dplyr::across(dplyr::where(is.numeric), ~ round(.x, 2)))
-  
+
   out[] <- lapply(out, function(x) {
     if (is.numeric(x)) {
       x[is.infinite(x) | is.nan(x)] <- NA_real_
     }
     x
   })
-  
+
   out
 }
 
@@ -557,10 +560,13 @@ build_plots <- function(dat_sum, metric_norm, temporal_scale) {
     return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
 
   } else if (metric_norm == "conductivity") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_conduct_uScm", "min_conduct_uScm",
+    p1 <- make_ribbon_plot(dat_sum, "mean_spc_uScm", "min_spc_uScm",
+                           "max_spc_uScm", "Specific Conductance (\u00b5S/cm)",
+                           paste("Specific Conductance", label), "#4682B4")
+    p2 <- make_ribbon_plot(dat_sum, "mean_conduct_uScm", "min_conduct_uScm",
                            "max_conduct_uScm", "Conductivity (\u00b5S/cm)",
                            paste("Conductivity", label), "#000000")
-    p2 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
+    p3 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
                            "max_watertemp_C", "Water Temp (\u00b0C)",
                            paste("Water Temperature", label), "#619b8a")
     return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
