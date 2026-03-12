@@ -138,7 +138,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
   # format timestamp using the timezone string extracted from the HOBO file header
   tz_str <- normalize_tz(hobo_data_raw$timezone[1]) %||% "UTC"
-  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = tz_str)
+  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = "UTC")
 
   if(any(is.na(hobo_data_raw$timestamp))) {
     missing_ts <- hobo_data_raw |>
