@@ -64,6 +64,7 @@ test_that("#53 - get_logger_data summarises waterlevel daily", {
 test_that("#53 - get_logger_data summarises conductivity daily", {
   df <- make_logger_df(list(
     conduct_uScm_adj = runif(24, 100, 500),
+    spc_uScm_adj     = runif(24, 100, 500),
     watertemp_C_adj  = runif(24, 10, 20)
   ))
   result <- get_logger_data(
@@ -75,6 +76,7 @@ test_that("#53 - get_logger_data summarises conductivity daily", {
   )
   expect_equal(nrow(result), 1)
   expect_true("mean_conduct_uScm" %in% names(result))
+  expect_true("mean_spc_uScm" %in% names(result))
   expect_true("mean_watertemp_C" %in% names(result))
 })
 
