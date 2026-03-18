@@ -20,7 +20,7 @@ test_that("test watertemp qaqc", {
   sites_compiled = DO_with_Baro[[1]]
 
   #check modern flag columns don't exist before
-  qa.columns = c("flag_ice", "flag_wt_dry", "edit_temp_lt_minus1", "edit_temp_neg_near")
+  qa.columns = c("FLAG_ICE", "FLAG_DRY", "OUTLIER_WT")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
 
@@ -60,7 +60,7 @@ test_that("test watertemp qaqc without airtemp_C succeeds", {
 
   # flag_wt_dry should exist but contain only the temperature-based signal
   # (no air-water comparison since airtemp_C is absent)
-  expect_true("flag_wt_dry" %in% names(result))
+  expect_true("FLAG_DRY" %in% names(result))
 
   # confirm no air-water comparison columns leaked into the output
   expect_false("wt_air_close"  %in% names(result))
