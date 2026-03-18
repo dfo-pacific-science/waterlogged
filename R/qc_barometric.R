@@ -35,8 +35,8 @@
 #' @details
 #' If `airpress_kPa_adj` or `airtemp_C_adj` do not exist, they are created as
 #' copies of the raw `airpress_kPa` / `airtemp_C` columns and then modified
-#' by the QA/QC rules. Edit flags (`edit_press_high`, `edit_press_low`,
-#' `edit_temp_range`, `edit_spike`, `edit_flatline`) are created if missing
+#' by the QA/QC rules. Edit flags (`OUTLIER_AP`,
+#' `OUTLIER_AT`, `FLAG_DISTURBANCE`, `FLAG_FLATLINE`) are created if missing
 #' and set to `TRUE` where each rule applies.
 #'
 #' For each rule that triggers, a corresponding QA/QC log entry is appended via
@@ -83,8 +83,8 @@ qc_barometric <- function(input_data,
   if (!"airtemp_C_adj"   %in% names(df)) df$airtemp_C_adj   <- df$airtemp_C
 
   # Create edit flags if missing
-  flags <- c("edit_press_high","edit_press_low","edit_flatline",
-             "edit_spike","edit_temp_range")
+  flags <- c("OUTLIER_AP","FLAG_FLATLINE",
+             "FLAG_DISTURBANCE","OUTLIER_AT")
   for (f in flags) if (!f %in% names(df)) df[[f]] <- FALSE
 
 
@@ -120,17 +120,18 @@ qc_barometric <- function(input_data,
       # Remove obviously wrong values
       airpress_kPa_adj = dplyr::if_else(
         bad_press_low | bad_press_high, NA_real_, .data$airpress_kPa_adj
+        # bad_press, NA_real_, .data$airpress_kPa_adj
       ),
       airtemp_C_adj = dplyr::if_else(
         bad_temp, NA_real_, .data$airtemp_C_adj
       ),
 
       # Preserve any existing TRUE flags from prior calls
-      edit_press_high = dplyr::if_else(bad_press_high, TRUE, .data$edit_press_high),
-      edit_press_low  = dplyr::if_else(bad_press_low,  TRUE, .data$edit_press_low),
-      edit_temp_range = dplyr::if_else(bad_temp,        TRUE, .data$edit_temp_range),
-      edit_spike      = dplyr::if_else(is_spike,        TRUE, .data$edit_spike),
-      edit_flatline   = dplyr::if_else(is_flatline,     TRUE, .data$edit_flatline)
+      OUTLIER_AP = dplyr::if_else(bad_press_high, TRUE, .data$OUTLIER_AP),
+      OUTLIER_AP  = dplyr::if_else(bad_press_low,  TRUE, .data$OUTLIER_AP),
+      OUTLIER_AT = dplyr::if_else(bad_temp,        TRUE, .data$OUTLIER_AT),
+      FLAG_DISTURBANCE      = dplyr::if_else(is_spike,        TRUE, .data$FLAG_DISTURBANCE),
+      FLAG_FLATLINE   = dplyr::if_else(is_flatline,     TRUE, .data$FLAG_FLATLINE)
     )
 
 
