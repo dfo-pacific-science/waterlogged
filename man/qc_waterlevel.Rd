@@ -4,7 +4,15 @@
 \alias{qc_waterlevel}
 \title{Automatic QAQC for water level logger data}
 \usage{
-qc_waterlevel(input_data, select_station, log_root = NULL, user = NULL)
+qc_waterlevel(
+  input_data,
+  select_station,
+  temp_ice_threshold_C = 0.3,
+  temp_high_dry_C = 19,
+  wl_disturb_threshold_m = 0.1,
+  log_root = NULL,
+  user = NULL
+)
 }
 \arguments{
 \item{input_data}{A data frame of water level observations. Must contain
@@ -35,9 +43,9 @@ The filtered data frame for \code{select_station}, sorted by
 \itemize{
 \item \strong{Adjusted columns:} \code{waterlevel_m_adj},
 \code{watertemp_C_adj}.
-\item \strong{Flag columns:} \code{flag_disturbance},
-\code{neg_lt_minus1}, \code{neg_between}, \code{flag_ice},
-\code{flag_wl_dry}.
+\item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+\code{OUTLIER_WT}, \code{FLAG_ICE},
+\code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 of QAQC log rows summarising every rule that fired.
 }
@@ -59,10 +67,8 @@ degrees C corrected to 0.}
 for possible ice conditions.}
 \item{\code{FLAG_DISTURBANCE}}{Consecutive water level step change
 > 0.1 m flagged as potential logger disturbance.}
-\item{\code{FLAG_WL_DRY}}{Possible dry sensor: water temperature
-> 19 degrees C, water pressure <= air pressure, or
-air--water temperature within 2 degrees C / air warmer than
-water.}
+\item{\code{FLAG_DRY}}{Possible dry sensor: water temperature
+> 19 degrees C, water pressure <= air pressure.}
 }
 }
 \seealso{
