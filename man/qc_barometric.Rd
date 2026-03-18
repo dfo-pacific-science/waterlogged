@@ -68,8 +68,8 @@ flags.
 \details{
 If \code{airpress_kPa_adj} or \code{airtemp_C_adj} do not exist, they are created as
 copies of the raw \code{airpress_kPa} / \code{airtemp_C} columns and then modified
-by the QA/QC rules. Edit flags (\code{edit_press_high}, \code{edit_press_low},
-\code{edit_temp_range}, \code{edit_spike}, \code{edit_flatline}) are created if missing
+by the QA/QC rules. Edit flags (\code{OUTLIER_AP},
+\code{OUTLIER_AT}, \code{FLAG_DISTURBANCE}, \code{FLAG_FLATLINE}) are created if missing
 and set to \code{TRUE} where each rule applies.
 
 For each rule that triggers, a corresponding QA/QC log entry is appended via
