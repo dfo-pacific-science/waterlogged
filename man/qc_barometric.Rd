@@ -11,8 +11,8 @@ qc_barometric(
   user = NULL,
   temp_low_limit = -40,
   temp_high_limit = 50,
-  pressure_low_kpa = 85,
-  pressure_high_kpa = 105,
+  pressure_low_kpa = 51,
+  pressure_high_kpa = 112,
   spike_threshold_kpa = 1.5,
   flatline_n = 6
 )
@@ -42,16 +42,16 @@ Values outside \verb{[temp_low_limit, temp_high_limit]} are set to \code{NA} in
 \item{temp_high_limit}{Upper bound (C) for plausible barometric temperatures.}
 
 \item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric pressure.
-Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged.}
+Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 51 kPa.}
 
 \item{pressure_high_kpa}{Upper bound (kPa) for plausible barometric pressure.
-Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged.}
+Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 112 kPa.}
 
 \item{spike_threshold_kpa}{Threshold (kPa) for flagging sudden pressure
-spikes between consecutive timesteps (absolute difference in kPa).}
+spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.}
 
 \item{flatline_n}{Integer; number of consecutive identical values required
-to flag a potential flatline in the pressure series.}
+to flag a potential flatline in the pressure series. Default is 6.}
 }
 \value{
 A data frame containing only rows for \code{select_station}, sorted by

@@ -24,13 +24,13 @@
 #'   `airtemp_C_adj` and flagged.
 #' @param temp_high_limit Upper bound (C) for plausible barometric temperatures.
 #' @param pressure_low_kpa Lower bound (kPa) for plausible barometric pressure.
-#'   Values below this are set to `NA` in `airpress_kPa_adj` and flagged.
+#'   Values below this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 51 kPa.
 #' @param pressure_high_kpa Upper bound (kPa) for plausible barometric pressure.
-#'   Values above this are set to `NA` in `airpress_kPa_adj` and flagged.
+#'   Values above this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 112 kPa.
 #' @param spike_threshold_kpa Threshold (kPa) for flagging sudden pressure
-#'   spikes between consecutive timesteps (absolute difference in kPa).
+#'   spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.
 #' @param flatline_n Integer; number of consecutive identical values required
-#'   to flag a potential flatline in the pressure series.
+#'   to flag a potential flatline in the pressure series. Default is 6.
 #'
 #' @details
 #' If `airpress_kPa_adj` or `airtemp_C_adj` do not exist, they are created as
@@ -56,8 +56,8 @@ qc_barometric <- function(input_data,
                             user = NULL,
                             temp_low_limit  = -40,
                             temp_high_limit = 50,
-                            pressure_low_kpa  = 85,
-                            pressure_high_kpa = 105,
+                            pressure_low_kpa  = 51,
+                            pressure_high_kpa = 112,
                             spike_threshold_kpa = 1.5,   # sudden >1.5 kPa jump
                             flatline_n = 6               # 6 consecutive identical values
 ) {
