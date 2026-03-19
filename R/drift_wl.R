@@ -1,7 +1,4 @@
-#' Apply multi-point linear drift correction to water level \[DRAFT\]
-#'
-#' \strong{DRAFT — not fully tested. Do not use in production workflows
-#' without independent verification of results.}
+#' Apply multi-point linear drift correction to water level
 #'
 #' This function applies a piecewise-linear drift correction to
 #' `waterlevel_m_adj` for a single station. You provide a set of

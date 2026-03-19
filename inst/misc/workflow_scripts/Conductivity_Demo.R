@@ -52,10 +52,8 @@
 library(waterlogged)
 
 # Set the path to the input data folder.
-# All paths are relative to the demos/ project root (where demos.Rproj lives).
-
-# TODO UPDATE INPUTS TO: waterlogged\inst\extdata\conductivity
-data_dir <- "conductivity/input_data"
+# system.file() locates the installed package's extdata directory.
+data_dir <- system.file("extdata", "conductivity", package = "waterlogged")
 
 metadata_file   <- file.path(data_dir, "metadata.csv")
 cond_folder     <- file.path(data_dir, "COND")
@@ -353,9 +351,7 @@ print(sample_rows)
 #                   Sets conduct_uScm_adj and watertemp_C_adj to NA
 #
 # NOTE: adjust_logger_NA() expects metric = "conductivity" and targets
-#       the column conductivity_uScm_adj. If your data uses conduct_uScm_adj
-#       (as produced by qc_conductivity), you may need to verify the
-#       column name matches what adjust_logger_NA() expects.
+#       the column conduct_uScm_adj (matching qc_conductivity output).
 # -----------------------------------------------------------------------------
 
 
@@ -422,8 +418,8 @@ plot_qaqc_timeseries(
 #   Auto-included: any flag_* and edit_* columns
 # -----------------------------------------------------------------------------
 
-# TODO UPDATE: set this to your desired output folder
-output_folder <- "conductivity/output"
+# Set this to your desired output folder. We use tempdir() for the demo.
+output_folder <- file.path(tempdir(), "conductivity_output")
 
 write_clean_data(
   input_data            = cond_qc,

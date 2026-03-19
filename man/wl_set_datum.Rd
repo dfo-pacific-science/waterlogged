@@ -12,7 +12,8 @@ wl_set_datum(
   user = NULL,
   level_runs = NULL,
   max_anchor_gap_h = 1,
-  bm_tolerance_m = 0.02
+  bm_tolerance_m = 0.02,
+  datum_elev_m = 100
 )
 }
 \arguments{
@@ -52,6 +53,11 @@ Default \code{1}. Increase for loggers with coarse time steps (e.g.
 (in metres). A warning is issued if the inferred absolute elevation for
 a benchmark differs by more than this amount across visits. Default
 \code{0.02}.}
+
+\item{datum_elev_m}{Numeric scalar. The arbitrary elevation (in metres)
+assigned to the first valid visit's primary benchmark. Default
+\code{100}. Adjust if you want a different datum origin (e.g. a known
+geodetic elevation).}
 }
 \value{
 The full \code{input_data} data frame with two columns
@@ -67,7 +73,8 @@ station rows where the datum was applied).
 \description{
 Creates a consistent arbitrary elevation system for a station by
 anchoring the first valid levelling visit's primary benchmark (PBM) at
-100.0 m and translating all other benchmarks using within-visit survey
+a user-specified elevation (default 100.0 m) and translating all other
+benchmarks using within-visit survey
 differences.  If later visits use a different PBM, its arbitrary
 elevation is inferred from the existing benchmark network (it is
 \emph{not} forced to 100.0 m).

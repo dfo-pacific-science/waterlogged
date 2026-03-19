@@ -2,7 +2,7 @@
 % Please edit documentation in R/drift_wl.R
 \name{wl_multipoint_correction}
 \alias{wl_multipoint_correction}
-\title{Apply multi-point linear drift correction to water level [DRAFT]}
+\title{Apply multi-point linear drift correction to water level}
 \usage{
 wl_multipoint_correction(
   input_data,
@@ -50,17 +50,14 @@ correction was applied) for \code{select_station}. All other stations/rows
 are unchanged.
 }
 \description{
-\strong{DRAFT — not fully tested. Do not use in production workflows
-without independent verification of results.}
-}
-\details{
 This function applies a piecewise-linear drift correction to
 \code{waterlevel_m_adj} for a single station. You provide a set of
 time-stamped drift control points , each with a desired drift value in metres.
 The function linearly interpolates between successive control points and
 adds that correction to \code{waterlevel_m_adj}. Data before the first
 control point and after the last control point are left unchanged.
-
+}
+\details{
 For each interval \eqn{[t_i, t_{i+1}]} between control points, a linear
 correction is constructed:
 

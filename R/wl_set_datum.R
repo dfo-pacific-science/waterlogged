@@ -2,7 +2,8 @@
 #'
 #' Creates a consistent arbitrary elevation system for a station by
 #' anchoring the first valid levelling visit's primary benchmark (PBM) at
-#' 100.0 m and translating all other benchmarks using within-visit survey
+#' a user-specified elevation (default 100.0 m) and translating all other
+#' benchmarks using within-visit survey
 #' differences.  If later visits use a different PBM, its arbitrary
 #' elevation is inferred from the existing benchmark network (it is
 #' \emph{not} forced to 100.0 m).
@@ -40,6 +41,10 @@
 #'   (in metres). A warning is issued if the inferred absolute elevation for
 #'   a benchmark differs by more than this amount across visits. Default
 #'   \code{0.02}.
+#' @param datum_elev_m Numeric scalar. The arbitrary elevation (in metres)
+#'   assigned to the first valid visit's primary benchmark. Default
+#'   \code{100}. Adjust if you want a different datum origin (e.g. a known
+#'   geodetic elevation).
 #'
 #' @return The full \code{input_data} data frame with two columns
 #'   added/updated for \code{select_station}:
@@ -103,7 +108,8 @@ wl_set_datum <- function(input_data,
                          user = NULL,
                          level_runs = NULL,
                          max_anchor_gap_h = 1,
-                         bm_tolerance_m   = 0.02) {
+                         bm_tolerance_m   = 0.02,
+                         datum_elev_m     = 100) {
   if (is.null(user)) user <- Sys.info()[["user"]]
 
   # ---- 0. Basic checks -------------------------------------------------------
@@ -301,11 +307,11 @@ wl_set_datum <- function(input_data,
   # bm_abs_map: named numeric vector stored as list for easy lookup
   bm_abs_map <- list()
   
-  # anchor: primary BM at 100.0
+
   anchor_pbm_id  <- lv$primary_bm[first_idx]   # e.g., "BM1"
   anchor_pbm_raw <- lv[[anchor_pbm_id]][first_idx]
-  
-  bm_abs_map[[anchor_pbm_id]] <- 100.0
+
+  bm_abs_map[[anchor_pbm_id]] <- datum_elev_m
   
   infer_pbm_abs <- function(pbm_id, pbm_raw, visit_row) {
     # If PBM abs isn't known, infer it from any BM/TBM in this visit that IS known.
@@ -445,7 +451,7 @@ wl_set_datum <- function(input_data,
     action_note = paste0(
       "Applied arbitrary datum using first valid levelling visit (",
       as.character(anchor_dt), "). Primary BM '", anchor_pbm_id,
-      "' anchored at 100.0 m. Datum offset = ", round(datum_offset_m, 3),
+      "' anchored at ", datum_elev_m, " m. Datum offset = ", round(datum_offset_m, 3),
       " m (wl_elev_m = ", stage_col, " + offset)."
     ),
     manual_note = "AUTOMATIC DATUM SET",

@@ -1,9 +1,6 @@
 # R/quality/wq_drift_correction.R
 
-#' Water-quality drift correction (COND / DO / pH) \[DRAFT\]
-#'
-#' \strong{DRAFT — not fully tested. Do not use in production workflows
-#' without independent verification of results.}
+#' Water-quality drift correction (COND / DO / pH)
 #'
 #' Apply forward linear drift correction to a water-quality time series
 #' using discrete reference measurements collected during field visits.
@@ -155,7 +152,10 @@ wq_drift_correction <- function(input_data,
   if (length(missing_logger)) {
     stop("wq_drift_correction(): input_data missing: ", paste(missing_logger, collapse=", "))
   }
-  
+
+  # Add temporary row ID for safe join-back (handles duplicate timestamps)
+  input_data$.wq_drift_row_id <- seq_len(nrow(input_data))
+
   logger_data <- input_data |>
     dplyr::filter(.data$site_station_code == select_station) |>
     dplyr::arrange(.data$timestamp)
@@ -475,8 +475,8 @@ wq_drift_correction <- function(input_data,
   
   new_cols <- setdiff(names(logger_data), names(input_data))
   if (length(new_cols)) for (nm in new_cols) input_data[[nm]] <- FALSE
-  
-  input_data <- dplyr::rows_update(input_data, logger_data, by = c("site_station_code","timestamp"))
+
+  input_data <- dplyr::rows_update(input_data, logger_data, by = ".wq_drift_row_id")
   edited_ts <- logger_data$timestamp[edited]
 
   idx_station <- input_data$site_station_code == select_station
@@ -507,6 +507,7 @@ wq_drift_correction <- function(input_data,
     qaqc_log_maybe_append(log_root, select_station, metric_log, log_row)
   }
 
+  input_data$.wq_drift_row_id <- NULL
   attr(input_data, "qaqc_log") <- log_row
   input_data
 }

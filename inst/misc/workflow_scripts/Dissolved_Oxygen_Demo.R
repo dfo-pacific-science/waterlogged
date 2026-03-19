@@ -49,10 +49,8 @@
 library(waterlogged)
 
 # Set the path to the input data folder.
-# All paths are relative to the demos/ project root (where demos.Rproj lives).
-
-# TODO update directory to \waterlogged\inst\extdata\dissolved_oxygen
-data_dir <- "dissolved_oxygen/input_data"
+# system.file() locates the installed package's extdata directory.
+data_dir <- system.file("extdata", "dissolved_oxygen", package = "waterlogged")
 
 # Define paths to input files.
 

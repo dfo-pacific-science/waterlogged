@@ -2,7 +2,7 @@
 % Please edit documentation in R/drift_conductivity.R
 \name{wq_drift_correction}
 \alias{wq_drift_correction}
-\title{Water-quality drift correction (COND / DO / pH) [DRAFT]}
+\title{Water-quality drift correction (COND / DO / pH)}
 \usage{
 wq_drift_correction(
   input_data,
@@ -69,16 +69,13 @@ A \code{"qaqc_log"} attribute is attached containing the log
 rows as a tibble (or \code{NULL} if no rows were corrected).
 }
 \description{
-\strong{DRAFT — not fully tested. Do not use in production workflows
-without independent verification of results.}
-}
-\details{
 Apply forward linear drift correction to a water-quality time series
 using discrete reference measurements collected during field visits.
 The correction ramps linearly from zero at the start of each segment
 to the full correction at the visit endpoint, then restarts at the
 next segment. No correction is applied after the last visit.
-
+}
+\details{
 Two correction methods are available:
 \itemize{
 \item \strong{ratio} (multiplicative): each value is scaled by a

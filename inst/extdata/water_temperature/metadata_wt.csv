@@ -1,0 +1,4 @@
+﻿site_station_code,timestamp_deploy,timestamp_remove,model,sn,metric,status,latitude,longitude
+HAGG_ST_30,8/6/2020 17:10,10/24/2025 14:11,TidBit V2,20764236,airtemp,removed,51.243714,-119.92978
+LEMI_ST_20,8/21/2020 14:30,,TidBit V2,20712099,watertemp,logging,51.432384,-120.208005
+LEMI_ST_20,4/10/2024 10:26,,TidBit V2,20712099,watertemp,logging,51.432384,-120.208005
