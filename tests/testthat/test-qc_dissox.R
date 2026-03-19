@@ -17,14 +17,12 @@ test_that("Test dissox QAQC", {
 
   # --- Verify QAQC flag columns do NOT exist before running QAQC -----------
   qa.columns <- c(
-    "do_error",
-    "do_neg_between",
-    "do_neg_lt_minus1",
-    "do_high",
-    "temp_flag_ice",
-    "temp_neg_between",
-    "temp_neg_leq_minus1",
-    "flag_do_dry"
+    "ERROR_DO",
+    "OUTLIER_DO",
+    "OUTLIER_WT",
+    "FLAG_RANGE",
+    "FLAG_ICE",
+    "FLAG_DRY"
   )
   missing_cols <- setdiff(qa.columns, colnames(converted_percSat))
   expect_equal(missing_cols, qa.columns)

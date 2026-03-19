@@ -8,18 +8,17 @@
 #'
 #' The following rules are applied in order:
 #' \describe{
-#'   \item{\code{DO_ERROR}}{Logger error code (\code{-888.88}) in DO or
+#'   \item{\code{ERROR_DO}}{Logger error code (\code{-888.88}) in DO or
 #'     water temperature -- DO and percent sat set to \code{NA}.}
-#'   \item{\code{NEGATIVE_DO}}{DO between 0 and \code{-1} mg/L corrected to
-#'     0; DO less than \code{-1} mg/L removed (\code{NA}).}
-#'   \item{\code{OUTLIER_DO}}{DO greater than 21 mg/L removed (\code{NA}).}
-#'   \item{\code{NEGATIVE_TEMP}}{Water temperature between 0 and \code{-1}
+#'   \item{\code{OUTLIER_DO}}{DO between 0 and \code{-1} mg/L corrected to
+#'     0; DO less than \code{-1} mg/L or greater than 30 mg/L removed (\code{NA}).}
+#'   \item{\code{OUTLIER_WT}}{Water temperature below \code{-1}
+#'     degrees C removed (\code{NA}); between \code{-1} and 0
 #'     degrees C corrected to 0.}
-#'   \item{\code{LOGGER_ICE}}{Water temperature <= \code{-1}
-#'     degrees C removed (\code{NA}).}
+#'   \item{\code{FLAG_RANGE}}{Sliding 12-point window where DO mg/L is greater than the calibration range of 20 mg/L.}
 #'   \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
 #'     for possible ice conditions.}
-#'   \item{\code{FLAG_DO_DRY}}{Sliding 12-point window where percent sat
+#'   \item{\code{FLAG_DRY}}{Sliding 12-point window where percent sat
 #'     >= 100 and air--water temperature difference <= 2
 #'     degrees C, indicating a potentially dry sensor.}
 #' }
@@ -47,10 +46,9 @@
 #'   \itemize{
 #'     \item \strong{Adjusted columns:} \code{do_mgl_adj},
 #'       \code{do_percsat_adj}, \code{watertemp_C_do_adj}.
-#'     \item \strong{Flag columns:} \code{do_error}, \code{do_neg_between},
-#'       \code{do_neg_lt_minus1}, \code{do_high}, \code{temp_flag_ice},
-#'       \code{temp_neg_between}, \code{temp_neg_leq_minus1},
-#'       \code{flag_do_dry}.
+#'     \item \strong{Flag columns:} \code{ERROR_DO}, \code{OUTLIER_DO},
+#'        \code{OUTLIER_WT}, \code{FLAG_ICE},
+#'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 #'       of QAQC log rows summarising every rule that fired.
 #'   }
@@ -64,6 +62,8 @@
 
 qc_dissox <- function(input_data,
                         select_station,
+                        do_high_limit_mgl = 30,
+                        do_low_limit_mgl = 0,
                         log_root = NULL,
                         user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -131,13 +131,13 @@ qc_dissox <- function(input_data,
       air_watertemp_diff = airtemp_C_baro - watertemp_C_do_adj,
 
       # DO flags (using adj as working column)
-      do_error         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
+      ERROR_DO         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
       do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= -1,
       do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < -1,
-      do_high          = !is.na(do_mgl_adj) & do_mgl_adj > 21,
+      do_high          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_limit_mgl,
 
       # temperature flags (using adj as working col)
-      temp_flag_ice       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0.3,
+      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0.3,
       temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj > -1,
       temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= -1
     )
@@ -147,12 +147,12 @@ qc_dissox <- function(input_data,
     dplyr::mutate(
       # DO adjustments, applied to adj column only
       do_mgl_adj = dplyr::case_when(
-        do_error | do_neg_lt_minus1 | do_high ~ NA_real_,
+        ERROR_DO | do_neg_lt_minus1 | do_high ~ NA_real_,
         do_neg_between                         ~ 0,
         TRUE                                   ~ do_mgl_adj
       ),
       do_percsat_adj = dplyr::case_when(
-        do_error | do_neg_lt_minus1 | do_high ~ NA_real_,
+        ERROR_DO | do_neg_lt_minus1 | do_high ~ NA_real_,
         do_neg_between                         ~ 0,
         TRUE                                   ~ do_percsat_adj
       ),
@@ -161,12 +161,24 @@ qc_dissox <- function(input_data,
         temp_neg_leq_minus1 ~ NA_real_,
         temp_neg_between    ~ 0,
         TRUE                ~ watertemp_C_do_adj
-      )
+      ),
+
+       # combine outlier flags
+
+      OUTLIER_DO = do_high | do_neg_between | do_neg_lt_minus1,
+      OUTLIER_WT =  temp_neg_between | temp_neg_leq_minus1
+
+       ) |>
+    # drop only internal helpers we don't want in the output
+    dplyr::select(
+      -do_neg_between, -do_neg_lt_minus1, -do_high,
+      -temp_neg_leq_minus1, -temp_neg_between
     )
 
-  # ---- 5. 12-point dry flag (FLAG_DO_DRY) using adj DO -----------------------
+
+  # ---- 5. 12-point dry flag (FLAG_DRY) using adj DO -----------------------
   n <- nrow(output_data)
-  output_data$flag_do_dry <- FALSE
+  output_data$FLAG_DRY <- FALSE
 
   if (n >= 12) {
     for (j in 1:(n - 11)) {
@@ -176,11 +188,33 @@ qc_dissox <- function(input_data,
       if (any(!is.na(window_diff)) && any(!is.na(window_do))) {
         if (max(abs(window_diff), na.rm = TRUE) <= 2 &&
             min(window_do, na.rm = TRUE) >= 100) {
-          output_data$flag_do_dry[j:(j + 11)] <- TRUE
+          output_data$FLAG_DRY[j:(j + 11)] <- TRUE
         }
       }
     }
   }
+
+
+  output_data$FLAG_RANGE <- FALSE
+
+  if (n >= 12) {
+    for (j in 1:(n - 11)) {
+      window_do   <- output_data$do_mgl_adj[j:(j + 11)]
+
+      if (any(!is.na(window_do))) {
+        if (min(window_do, na.rm = TRUE) >= 20) {
+          output_data$FLAG_RANGE[j:(j + 11)] <- TRUE
+        }
+      }
+    }
+  }
+
+
+ # drop only internal helpers we don't want in the output
+  output_data <- output_data |>
+  dplyr::select(
+    -air_watertemp_diff
+  )
 
   # ---- 6. Build QAQC log rows (WL-style rules list) -------------------------
   metric      <- "DO"
@@ -192,56 +226,44 @@ qc_dissox <- function(input_data,
   rules <- list(
     # DO logger error
     list(
-      flag        = output_data$do_error %in% TRUE,
+      flag        = output_data$ERROR_DO %in% TRUE,
       field       = "do_mgl_adj",
-      code        = "DO_ERROR",
+      code        = "ERROR_DO",
       action_note = "Logger error code (-888.88) in DO or DO temperature; DO and %sat removed."
     ),
-    # negative DO
+    # DO out of range
     list(
-      flag        = output_data$do_neg_between %in% TRUE,
-      field       = "do_mgl_adj",
-      code        = "NEGATIVE_DO",
-      action_note = "DO between 0 and -1 mg/L corrected to 0 (and %sat to 0)."
-    ),
-    list(
-      flag        = output_data$do_neg_lt_minus1 %in% TRUE,
-      field       = "do_mgl_adj",
-      code        = "NEGATIVE_DO",
-      action_note = "DO less than -1 mg/L removed (DO and %sat set to NA)."
-    ),
-    # very high DO
-    list(
-      flag        = output_data$do_high %in% TRUE,
+      flag        = output_data$OUTLIER_DO %in% TRUE,
       field       = "do_mgl_adj",
       code        = "OUTLIER_DO",
-      action_note = "DO greater than 21 mg/L removed (DO and %sat set to NA)."
+      action_note = paste0("DO greater than ", do_high_limit_mgl, " mg/L removed (DO and %sat set to NA). Negative DO corrected to 0 (-1 to 0 mg/L) or removed (< 1 mg/L)")
     ),
     # temperature-driven rules
     list(
-      flag        = output_data$temp_neg_between %in% TRUE,
+      flag        = output_data$OUTLIER_WT %in% TRUE,
       field       = "watertemp_C_do_adj",
-      code        = "NEGATIVE_TEMP",
-      action_note = "DO water temp between 0 and -1 \u00b0C corrected to 0 \u00b0C."
+      code        = "OUTLIER_WT",
+      action_note = "Negative water temperature detected; removed (< -1 C) or corrected to 0C (-1 to 0 C)."
     ),
     list(
-      flag        = output_data$temp_neg_leq_minus1 %in% TRUE,
-      field       = "watertemp_C_do_adj",
-      code        = "LOGGER_ICE",
-      action_note = "DO water temp <= -1 \u00b0C removed (set to NA)."
-    ),
-    list(
-      flag        = output_data$temp_flag_ice %in% TRUE,
+      flag        = output_data$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "FLAG_ICE",
       action_note = "Possible ice conditions: DO water temp < 0.3 \u00b0C; flagged for review."
     ),
     # dry periods (12-point rule) - DO-specific
     list(
-      flag        = output_data$flag_do_dry %in% TRUE,
+      flag        = output_data$FLAG_DRY %in% TRUE,
       field       = "do_mgl_adj",
-      code        = "FLAG_DO_DRY",
+      code        = "FLAG_DRY",
       action_note = "Possible dry sensor: DO %sat >= 100 and air-water temps within 2 \u00b0C for >= 12 points."
+    ),
+    # range flag (12-point rule) - DO-specific
+    list(
+      flag        = output_data$FLAG_RANGE %in% TRUE,
+      field       = "do_mgl_adj",
+      code        = "FLAG_RANGE",
+      action_note = "Sensor reading outside calibration range: DO between 20 and 30 mg/L for >= 12 points."
     )
   )
 
@@ -289,5 +311,6 @@ qc_dissox <- function(input_data,
   qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
   attr(output_data, "qaqc_log") <- log_this
+
   return(output_data)
 }
