@@ -185,13 +185,11 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     # 3) DO QA/QC flags panel
     do_flag_cols <- c(
       "ERROR_DO",
-      "do_neg_between",
-      "do_neg_lt_minus1",
       "OUTLIER_DO",
-      "temp_flag_ice",
-      "temp_neg_between",
-      "temp_neg_leq_minus1",
-      "flag_do_dry"
+      "OUTLIER_WT",
+      "FLAG_ICE",
+      "FLAG_DRY",
+      "FLAG_RANGE"
     )
 
     do_flags <- build_flag_long(do_df, do_flag_cols)
