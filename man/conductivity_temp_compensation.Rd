@@ -36,11 +36,10 @@ The function prefers \code{*_adj} columns when available and falls
 back to the raw columns (\code{conduct_uScm}, \code{watertemp_C})
 otherwise.
 
-The compensation coefficients are read from
-\code{inst/extdata/tempcomp27888.csv} (shipped with the package),
-which tabulates the ISO 27888 correction factor at 0.1 degrees C
-resolution from 0 to 35 degrees C.
-The table is pivoted to long format and a 5th-order polynomial
+The compensation coefficients are from ISO 27888, tabulating the
+correction factor at 0.1 degrees C resolution from 0 to 35 degrees C.
+The coefficients are embedded directly in the function source.
+A 5th-order polynomial
 \eqn{f(T)} is fitted by ordinary least squares.  At
 25 degrees C the coefficient equals 1.0 (i.e. no correction).
 }
