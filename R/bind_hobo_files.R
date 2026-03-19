@@ -138,7 +138,15 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
   # format timestamp using the timezone string extracted from the HOBO file header
   tz_str <- normalize_tz(hobo_data_raw$timezone[1]) %||% "UTC"
-  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = "UTC")
+
+  # detect if csv is in hh:mm:ss or hh:mm (common if excel file was opened prior to import)
+  if(lengths(gregexpr(":", hobo_data_raw$timestamp[1])) == 2) {
+    hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = "UTC")
+  }
+
+  if(lengths(gregexpr(":", hobo_data_raw$timestamp[1])) == 1) {
+    hobo_data_raw$timestamp <- lubridate::mdy_hm(hobo_data_raw$timestamp, tz = "UTC")
+  }
 
   if(any(is.na(hobo_data_raw$timestamp))) {
     missing_ts <- hobo_data_raw |>
