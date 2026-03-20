@@ -302,8 +302,11 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
 
     # 3) Conductivity QA/QC flags panel
     co_flag_cols <- c(
-      "flag_co_spike", "flag_co_temp_ice", "flag_co_temp_low",
-      "flag_co_temp_high", "flag_co_temp_neg_near", "flag_co_dry"
+      "FLAG_DISTURBANCE",
+      "FLAG_ICE",
+      "FLAG_DRY",
+      "FLAG_RANGE",
+      "OUTLIER_WT"
     )
     co_flags <- build_flag_long(co_df, co_flag_cols)
 
