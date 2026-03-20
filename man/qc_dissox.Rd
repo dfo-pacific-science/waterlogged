@@ -9,6 +9,7 @@ qc_dissox(
   select_station,
   do_high_limit_mgl = 30,
   do_low_limit_mgl = 0,
+  temp_ice_threshold_C = 0.3,
   log_root = NULL,
   user = NULL
 )
@@ -22,11 +23,13 @@ the output of \code{\link{convert_do_mgl_percsat}} or
 \code{\link{add_nearest_baro}}.}
 
 \item{select_station}{Character scalar. The \code{site_station_code} to
-process. Only rows matching this station are retained.}
+process. Only rows matching this station are retained.
+@param temp_ice_threshold_C Water temperature (C) below which ice conditions
+are flagged. Default \code{0.3}.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
-\code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
 \item{user}{Character scalar. User name recorded in the QAQC log.
