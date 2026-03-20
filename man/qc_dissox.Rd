@@ -42,7 +42,7 @@ The filtered data frame for \code{select_station}, sorted by
 \item \strong{Adjusted columns:} \code{do_mgl_adj},
 \code{do_percsat_adj}, \code{watertemp_C_do_adj}.
 \item \strong{Flag columns:} \code{ERROR_DO}, \code{OUTLIER_DO},
-\code{OUTLIER_WT}, \code{FLAG_ICE},
+\code{OUTLIER_WT}, \code{FLAG_RANGE}, \code{FLAG_ICE},
 \code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 of QAQC log rows summarising every rule that fired.
