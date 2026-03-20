@@ -19,8 +19,10 @@
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
 #'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
 #'   is present). Default \code{2}.
-#' @param log_root Root folder where QA/QC logs are written by
-#'   [qaqc_log_maybe_append()]. Pass \code{NULL} (default) to skip file writing.
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log CSV is written via
+#'   \code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
 #' @param user Character username written into the QA/QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.
 #'
