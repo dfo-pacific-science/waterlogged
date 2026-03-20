@@ -27,8 +27,10 @@ Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
 \item{temp_high_limit}{Upper bound (C) for plausible air temperature.
 Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
 
-\item{log_root}{Root folder where QA/QC logs are written by
-\code{\link[=qaqc_log_maybe_append]{qaqc_log_maybe_append()}}. Pass \code{NULL} (default) to skip file writing.}
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+log files. When non-\code{NULL}, a log CSV is written via
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+mode), no file is written.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.}

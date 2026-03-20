@@ -11,6 +11,7 @@ qc_conductivity(
   user = NULL,
   temp_low_limit_C = -2,
   temp_high_limit_C = 40,
+  temp_ice_threshold_C = 0.3,
   disturbance_threshold_uScm = 200,
   dry_threshold_uScm = 10,
   air_water_diff_threshold_C = 2
@@ -29,7 +30,7 @@ process. Only rows matching this station are retained.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
-\code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
 \item{user}{Character scalar. User name recorded in the QAQC log.
@@ -45,6 +46,9 @@ temperature. Values below this are set to \code{NA}. Default
 \item{temp_high_limit_C}{Numeric. Upper bound for acceptable water
 temperature. Values above this are set to \code{NA}. Default
 \code{40}.}
+
+\item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
+are flagged. Default \code{0.3}.}
 
 \item{disturbance_threshold_uScm}{Numeric. Absolute conductivity change
 between consecutive samples that triggers the spike flag. Default
@@ -63,10 +67,9 @@ The filtered data frame for \code{select_station}, sorted by
 \itemize{
 \item \strong{Adjusted columns:} \code{conduct_uScm_adj},
 \code{watertemp_C_adj}.
-\item \strong{Flag columns:} \code{flag_co_spike},
-\code{flag_co_temp_ice}, \code{flag_co_temp_low},
-\code{flag_co_temp_high}, \code{flag_co_temp_neg_near},
-\code{flag_co_dry}.
+\item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+\code{FLAG_ICE}, \code{OUTLIER_WT},
+\code{FLAG_DRY}, \code{FLAG_RANGE}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 of QAQC log rows summarising every rule that fired.
 }
@@ -81,18 +84,18 @@ and Boolean flag columns are added for review.
 \details{
 The following rules are applied:
 \describe{
-\item{\code{FLAG_CO_SPIKE}}{Consecutive conductivity change exceeding
+\item{\code{FLAG_DISTURBANCE}}{Consecutive conductivity change exceeding
 \code{disturbance_threshold_uScm}; flagged for review (no automatic
 removal).}
 \item{\code{FLAG_ICE}}{Water temperature < 0.1 degrees C; flagged
 for possible ice conditions.}
-\item{\code{NEGATIVE_WT}}{Water temperature between \code{-1} and 0
+\item{\code{OUTLIER_WT}}{Water temperature between \code{-1} and 0
 degrees C corrected to 0.}
-\item{\code{TEMP_RANGE}}{Water temperature outside
+\item{\code{FLAG_RANGE}}{Water temperature outside
 \code{temp_low_limit_C} to \code{temp_high_limit_C}; set to
 \code{NA}.}
-\item{\code{FLAG_CO_DRY}}{Conductivity below
-\code{dry_threshold_uScm}, optionally supported by air--water
+\item{\code{FLAG_DRY}}{Sliding 12-point window where conductivity <=
+\code{dry_threshold_uScm} and air--water
 temperature difference <=
 \code{air_water_diff_threshold_C}; flagged as probable dry sensor.}
 }

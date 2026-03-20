@@ -32,7 +32,7 @@ test_that("conductivity workflow runs end-to-end", {
   expect_s3_class(cond_qc, "data.frame")
   expect_equal(nrow(cond_qc), nrow(cond_data))
   expect_true(all(c("conduct_uScm_adj", "watertemp_C_adj") %in% names(cond_qc)))
-  expect_true(all(c("flag_co_spike", "flag_co_temp_ice", "flag_co_dry") %in% names(cond_qc)))
+  expect_true(all(c("FLAG_DISTURBANCE", "FLAG_ICE", "FLAG_DRY") %in% names(cond_qc)))
   expect_false(is.null(attr(cond_qc, "qaqc_log")))
 
   # Step 3: Drift correction

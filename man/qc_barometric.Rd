@@ -25,9 +25,10 @@ for multiple stations.}
 \item{select_station}{Character, station code to process
 (matches \code{site_station_code}).}
 
-\item{log_root}{Root folder where QA/QC logs are written by
-\code{\link[=qaqc_log_append]{qaqc_log_append()}}, typically the same root used elsewhere in the
-workflow (e.g. \code{"data/testing/processed"}).}
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+log files. When non-\code{NULL}, a log CSV is written via
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+mode), no file is written.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the

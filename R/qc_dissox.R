@@ -31,9 +31,11 @@
 #'   \code{\link{add_nearest_baro}}.
 #' @param select_station Character scalar. The \code{site_station_code} to
 #'   process. Only rows matching this station are retained.
+#'  @param temp_ice_threshold_C Water temperature (C) below which ice conditions
+#'   are flagged. Default \code{0.3}.
 #' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
 #'   log files. When non-\code{NULL}, a log CSV is written via
-#'   \code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+#'   \code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
 #'   mode), no file is written.
 #' @param user Character scalar. User name recorded in the QAQC log.
 #'   Defaults to \code{NULL}, which resolves to
@@ -64,6 +66,7 @@ qc_dissox <- function(input_data,
                         select_station,
                         do_high_limit_mgl = 30,
                         do_low_limit_mgl = 0,
+                        temp_ice_threshold_C = 0.3,
                         log_root = NULL,
                         user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -137,7 +140,7 @@ qc_dissox <- function(input_data,
       do_high          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_limit_mgl,
 
       # temperature flags (using adj as working col)
-      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0.3,
+      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_ice_threshold_C,
       temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj > -1,
       temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= -1
     )
@@ -249,7 +252,7 @@ qc_dissox <- function(input_data,
       flag        = output_data$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "FLAG_ICE",
-      action_note = "Possible ice conditions: DO water temp < 0.3 \u00b0C; flagged for review."
+      action_note = paste0("Possible ice conditions: DO water temp < ", temp_ice_threshold_C," \u00b0C; flagged for review.")
     ),
     # dry periods (12-point rule) - DO-specific
     list(
