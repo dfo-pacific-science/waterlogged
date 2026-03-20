@@ -11,6 +11,7 @@ qc_conductivity(
   user = NULL,
   temp_low_limit_C = -2,
   temp_high_limit_C = 40,
+  temp_ice_threshold_C = 0.3,
   disturbance_threshold_uScm = 200,
   dry_threshold_uScm = 10,
   air_water_diff_threshold_C = 2
@@ -46,6 +47,9 @@ temperature. Values below this are set to \code{NA}. Default
 temperature. Values above this are set to \code{NA}. Default
 \code{40}.}
 
+\item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
+are flagged. Default \code{0.3}.}
+
 \item{disturbance_threshold_uScm}{Numeric. Absolute conductivity change
 between consecutive samples that triggers the spike flag. Default
 \code{200}.}
@@ -63,8 +67,8 @@ The filtered data frame for \code{select_station}, sorted by
 \itemize{
 \item \strong{Adjusted columns:} \code{conduct_uScm_adj},
 \code{watertemp_C_adj}.
-\item \strong{Flag columns:} \code{flag_co_spike},
-\code{flag_co_temp_ice}, \code{flag_co_temp_low},
+\item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+\code{FLAG_ICE}, \code{flag_co_temp_low},
 \code{flag_co_temp_high}, \code{flag_co_temp_neg_near},
 \code{flag_co_dry}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
@@ -81,7 +85,7 @@ and Boolean flag columns are added for review.
 \details{
 The following rules are applied:
 \describe{
-\item{\code{FLAG_CO_SPIKE}}{Consecutive conductivity change exceeding
+\item{\code{FLAG_DISTURBANCE}}{Consecutive conductivity change exceeding
 \code{disturbance_threshold_uScm}; flagged for review (no automatic
 removal).}
 \item{\code{FLAG_ICE}}{Water temperature < 0.1 degrees C; flagged
