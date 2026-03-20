@@ -60,7 +60,9 @@ metadata_file  <- system.file("extdata/metadata/metadata.csv", package = "waterl
 baro_folder    <- system.file("extdata/barometric_pressure", package = "waterlogged")
 ```
 
-The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. To save bound files, specify the path to the desired output folder with the optional variable *path_to_output_folder*.
+The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
+
+To save bound files, specify the path to the desired output folder with the optional variable *path_to_output_folder*.
 
 ```{r bind-baro}
 
@@ -156,8 +158,7 @@ baro_qc <- adjust_logger_NA(
   timestamp_start  = "2024-05-19 19:00:00",
   timestamp_end    = "2024-05-20 10:00:00",
   manual_note      = "Sensor error causing flatline",
-  log_root = log_root_folder,
-  static=TRUE
+  log_root = log_root_folder
 )
 
 ```
