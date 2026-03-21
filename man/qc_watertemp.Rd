@@ -33,17 +33,19 @@ suspected. Default \code{19}.}
 temperature below which a dry sensor is suspected (when \code{airtemp_C}
 is present). Default \code{2}.}
 
-\item{log_root}{Root folder where QA/QC logs are written by
-\code{\link[=qaqc_log_maybe_append]{qaqc_log_maybe_append()}}. Pass \code{NULL} (default) to skip file writing.}
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+log files. When non-\code{NULL}, a log CSV is written via
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+mode), no file is written.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.}
 }
 \value{
 A data frame containing only rows for \code{select_station}, sorted
-by \code{timestamp}, with \code{watertemp_C_adj}, \code{flag_ice},
-\code{flag_wt_dry}, \code{edit_temp_lt_minus1}, and
-\code{edit_temp_neg_near} columns added.
+by \code{timestamp}, with \code{watertemp_C_adj}, \code{FLAG_ICE},
+\code{FLAG_DRY}, \code{OUTLIER_WT}, and
+\code{OUTLIER_WT} columns added.
 \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log rows.
 }
 \description{
@@ -56,13 +58,13 @@ boolean flag/edit columns.
 \details{
 The following rules are applied:
 \describe{
-\item{\code{edit_temp_lt_minus1}}{Water temperature < -1 C: set to
+\item{\code{OUTLIER_WT}}{Water temperature < -1 C: set to
 \code{NA} in \code{watertemp_C_adj}.}
-\item{\code{edit_temp_neg_near}}{Water temperature in [-1, 0) C: corrected
+\item{\code{OUTLIER_WT}}{Water temperature in [-1, 0) C: corrected
 to 0 in \code{watertemp_C_adj}.}
-\item{\code{flag_ice}}{Water temperature < \code{temp_ice_threshold_C}:
+\item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_threshold_C}:
 flagged for review; data not changed.}
-\item{\code{flag_wt_dry}}{Possible dry sensor: water temperature >
+\item{\code{FLAG_DRY}}{Possible dry sensor: water temperature >
 \code{temp_high_dry_C}; or, when \code{airtemp_C} is present, air-water
 temperature within \code{temp_air_water_diff_C} degrees C, or air warmer
 than water.}

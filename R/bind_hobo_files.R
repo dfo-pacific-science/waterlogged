@@ -75,7 +75,8 @@
 #' @export
 bind_hobo_files <- function(path_to_raw_folder = NULL,
                             path_to_output_folder = NULL,
-                            metadata_path = NULL, timestamp_timezone = "UTC",
+                            metadata_path = NULL,
+                            timestamp_timezone = "UTC",
                             file_paths = NULL, metadata = NULL) {
 
   # Dual input: file_paths OR path_to_raw_folder (mutually exclusive)
@@ -94,7 +95,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   }
 
   # QAQC and format metadata file (dual input)
-  metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata)
+  metadata <- QAQC_metadata(metadata_path = metadata_path, metadata = metadata, tz = timestamp_timezone)
 
   if (!is.null(file_paths)) {
     path_to_files <- file_paths
@@ -137,8 +138,16 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   metadat_link_needs_resolution <- length(unique(metadat_link$metric)) > 1
 
   # format timestamp using the timezone string extracted from the HOBO file header
-  tz_str <- normalize_tz(hobo_data_raw$timezone[1]) %||% "UTC"
-  hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = tz_str)
+  tz_str <- normalize_tz(hobo_data_raw$timezone[1]) %||% timestamp_timezone
+
+  # detect if csv is in hh:mm:ss or hh:mm (common if excel file was opened prior to import)
+  if(lengths(gregexpr(":", hobo_data_raw$timestamp[1])) == 2) {
+    hobo_data_raw$timestamp <- lubridate::mdy_hms(hobo_data_raw$timestamp, tz = timestamp_timezone)
+  }
+
+  if(lengths(gregexpr(":", hobo_data_raw$timestamp[1])) == 1) {
+    hobo_data_raw$timestamp <- lubridate::mdy_hm(hobo_data_raw$timestamp, tz = timestamp_timezone)
+  }
 
   if(any(is.na(hobo_data_raw$timestamp))) {
     missing_ts <- hobo_data_raw |>

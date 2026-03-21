@@ -14,18 +14,20 @@
 #'   Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged.
 #' @param temp_high_limit Upper bound (C) for plausible air temperature.
 #'   Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged.
-#' @param log_root Root folder where QA/QC logs are written by
-#'   [qaqc_log_maybe_append()]. Pass \code{NULL} (default) to skip file writing.
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log CSV is written via
+#'   \code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
 #' @param user Character username written into the QA/QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.
 #'
 #' @details
 #' If \code{airtemp_C_adj} does not exist it is created as a copy of
-#' \code{airtemp_C}. \code{edit_temp_range} is created if missing and set to
+#' \code{airtemp_C}. \code{OUTLIER_AT} is created if missing and set to
 #' \code{TRUE} where the rule applies.
 #'
 #' @return A data frame containing only rows for \code{select_station}, sorted
-#'   by \code{timestamp}, with \code{airtemp_C_adj} and \code{edit_temp_range}
+#'   by \code{timestamp}, with \code{airtemp_C_adj} and \code{OUTLIER_AT}
 #'   columns added. \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log
 #'   rows.
 #'
@@ -56,7 +58,7 @@ qc_airtemp <- function(input_data,
   if (!"airtemp_C_adj" %in% names(df)) df$airtemp_C_adj <- df$airtemp_C
 
   # Create edit flag if missing
-  if (!"edit_temp_range" %in% names(df)) df$edit_temp_range <- FALSE
+  if (!"OUTLIER_AT" %in% names(df)) df$OUTLIER_AT <- FALSE
 
   # ---- 2. Detection rule ----------------------------------------------------
   bad_temp <- !is.na(df$airtemp_C) &
@@ -66,7 +68,7 @@ qc_airtemp <- function(input_data,
   df <- df |>
     dplyr::mutate(
       airtemp_C_adj  = dplyr::if_else(bad_temp, NA_real_, airtemp_C_adj),
-      edit_temp_range = bad_temp
+      OUTLIER_AT = bad_temp
     )
 
   # ---- 4. Log entries -------------------------------------------------------

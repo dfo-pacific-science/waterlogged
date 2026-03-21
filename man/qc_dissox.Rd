@@ -4,7 +4,15 @@
 \alias{qc_dissox}
 \title{Automatic QAQC for dissolved oxygen logger data}
 \usage{
-qc_dissox(input_data, select_station, log_root = NULL, user = NULL)
+qc_dissox(
+  input_data,
+  select_station,
+  do_high_limit_mgl = 30,
+  do_low_limit_mgl = 0,
+  temp_ice_threshold_C = 0.3,
+  log_root = NULL,
+  user = NULL
+)
 }
 \arguments{
 \item{input_data}{A data frame containing dissolved oxygen observations.
@@ -15,11 +23,13 @@ the output of \code{\link{convert_do_mgl_percsat}} or
 \code{\link{add_nearest_baro}}.}
 
 \item{select_station}{Character scalar. The \code{site_station_code} to
-process. Only rows matching this station are retained.}
+process. Only rows matching this station are retained.
+@param temp_ice_threshold_C Water temperature (C) below which ice conditions
+are flagged. Default \code{0.3}.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
-\code{\link{qaqc_log_maybe_append}}. When \code{NULL} (default, Shiny
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
 \item{user}{Character scalar. User name recorded in the QAQC log.
@@ -34,10 +44,9 @@ The filtered data frame for \code{select_station}, sorted by
 \itemize{
 \item \strong{Adjusted columns:} \code{do_mgl_adj},
 \code{do_percsat_adj}, \code{watertemp_C_do_adj}.
-\item \strong{Flag columns:} \code{do_error}, \code{do_neg_between},
-\code{do_neg_lt_minus1}, \code{do_high}, \code{temp_flag_ice},
-\code{temp_neg_between}, \code{temp_neg_leq_minus1},
-\code{flag_do_dry}.
+\item \strong{Flag columns:} \code{ERROR_DO}, \code{OUTLIER_DO},
+\code{OUTLIER_WT}, \code{FLAG_RANGE}, \code{FLAG_ICE},
+\code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 of QAQC log rows summarising every rule that fired.
 }
@@ -52,18 +61,17 @@ and Boolean flag columns are added for review.
 \details{
 The following rules are applied in order:
 \describe{
-\item{\code{DO_ERROR}}{Logger error code (\code{-888.88}) in DO or
+\item{\code{ERROR_DO}}{Logger error code (\code{-888.88}) in DO or
 water temperature -- DO and percent sat set to \code{NA}.}
-\item{\code{NEGATIVE_DO}}{DO between 0 and \code{-1} mg/L corrected to
-0; DO less than \code{-1} mg/L removed (\code{NA}).}
-\item{\code{OUTLIER_DO}}{DO greater than 21 mg/L removed (\code{NA}).}
-\item{\code{NEGATIVE_TEMP}}{Water temperature between 0 and \code{-1}
+\item{\code{OUTLIER_DO}}{DO between 0 and \code{-1} mg/L corrected to
+0; DO less than \code{-1} mg/L or greater than 30 mg/L removed (\code{NA}).}
+\item{\code{OUTLIER_WT}}{Water temperature below \code{-1}
+degrees C removed (\code{NA}); between \code{-1} and 0
 degrees C corrected to 0.}
-\item{\code{LOGGER_ICE}}{Water temperature <= \code{-1}
-degrees C removed (\code{NA}).}
+\item{\code{FLAG_RANGE}}{Sliding 12-point window where DO mg/L is greater than the calibration range of 20 mg/L.}
 \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
 for possible ice conditions.}
-\item{\code{FLAG_DO_DRY}}{Sliding 12-point window where percent sat
+\item{\code{FLAG_DRY}}{Sliding 12-point window where percent sat
 >= 100 and air--water temperature difference <= 2
 degrees C, indicating a potentially dry sensor.}
 }

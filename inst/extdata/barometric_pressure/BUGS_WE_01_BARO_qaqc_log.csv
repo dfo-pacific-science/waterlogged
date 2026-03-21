@@ -1,0 +1,8 @@
+station,metric,field,action,code,action_note,manual_note,ts_start,ts_end,duration_hours,fun_name,run_at,user
+BUGS_WE_01,BARO,airpress_kPa_adj,PRESSURE_LOW,PRESSURE_LOW,Pressure below 85 kPa removed,AUTOMATIC QC,12/9/2023 1:00,12/9/2023 2:00,1,qc_barometric,3/19/2026 22:11,LOSCERBOD
+BUGS_WE_01,BARO,airpress_kPa_adj,TEMP_OUT_RANGE,TEMP_OUT_RANGE,"Temperature outside [-40, 50] C",AUTOMATIC QC,12/9/2023 1:00,12/9/2023 2:00,1,qc_barometric,3/19/2026 22:11,LOSCERBOD
+BUGS_WE_01,BARO,airpress_kPa_adj,TEMP_OUT_RANGE,TEMP_OUT_RANGE,"Temperature outside [-40, 50] C",AUTOMATIC QC,7/3/2024 14:00,7/3/2024 15:00,1,qc_barometric,3/19/2026 22:11,LOSCERBOD
+BUGS_WE_01,BARO,airpress_kPa_adj,SPIKE,SPIKE,Spike > 1.5 kPa detected,AUTOMATIC QC,12/9/2023 1:00,12/9/2023 3:00,2,qc_barometric,3/19/2026 22:11,LOSCERBOD
+BUGS_WE_01,BARO,airpress_kPa_adj,SPIKE,SPIKE,Spike > 1.5 kPa detected,AUTOMATIC QC,6/30/2024 13:00,6/30/2024 13:00,0,qc_barometric,3/19/2026 22:11,LOSCERBOD
+BUGS_WE_01,BARO,airpress_kPa_adj,SPIKE,SPIKE,Spike > 1.5 kPa detected,AUTOMATIC QC,6/30/2024 18:00,6/30/2024 18:00,0,qc_barometric,3/19/2026 22:11,LOSCERBOD
+BUGS_WE_01,BARO,airpress_kPa_adj,FLATLINE,FLATLINE,Flatline >= 6 identical readings,AUTOMATIC QC,5/19/2024 19:00,5/20/2024 10:00,15,qc_barometric,3/19/2026 22:11,LOSCERBOD

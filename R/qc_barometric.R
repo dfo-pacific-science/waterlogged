@@ -11,9 +11,10 @@
 #'   for multiple stations.
 #' @param select_station Character, station code to process
 #'   (matches `site_station_code`).
-#' @param log_root Root folder where QA/QC logs are written by
-#'   [qaqc_log_append()], typically the same root used elsewhere in the
-#'   workflow (e.g. `"data/testing/processed"`).
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log CSV is written via
+#'   \code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
 #' @param user Character username written into the QA/QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
 #'   local OS user).
@@ -24,19 +25,19 @@
 #'   `airtemp_C_adj` and flagged.
 #' @param temp_high_limit Upper bound (C) for plausible barometric temperatures.
 #' @param pressure_low_kpa Lower bound (kPa) for plausible barometric pressure.
-#'   Values below this are set to `NA` in `airpress_kPa_adj` and flagged.
+#'   Values below this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 51 kPa.
 #' @param pressure_high_kpa Upper bound (kPa) for plausible barometric pressure.
-#'   Values above this are set to `NA` in `airpress_kPa_adj` and flagged.
+#'   Values above this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 112 kPa.
 #' @param spike_threshold_kpa Threshold (kPa) for flagging sudden pressure
-#'   spikes between consecutive timesteps (absolute difference in kPa).
+#'   spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.
 #' @param flatline_n Integer; number of consecutive identical values required
-#'   to flag a potential flatline in the pressure series.
+#'   to flag a potential flatline in the pressure series. Default is 6.
 #'
 #' @details
 #' If `airpress_kPa_adj` or `airtemp_C_adj` do not exist, they are created as
 #' copies of the raw `airpress_kPa` / `airtemp_C` columns and then modified
-#' by the QA/QC rules. Edit flags (`edit_press_high`, `edit_press_low`,
-#' `edit_temp_range`, `edit_spike`, `edit_flatline`) are created if missing
+#' by the QA/QC rules. Edit flags (`OUTLIER_AP`,
+#' `OUTLIER_AT`, `FLAG_DISTURBANCE`, `FLAG_FLATLINE`) are created if missing
 #' and set to `TRUE` where each rule applies.
 #'
 #' For each rule that triggers, a corresponding QA/QC log entry is appended via
@@ -56,8 +57,8 @@ qc_barometric <- function(input_data,
                             user = NULL,
                             temp_low_limit  = -40,
                             temp_high_limit = 50,
-                            pressure_low_kpa  = 85,
-                            pressure_high_kpa = 105,
+                            pressure_low_kpa  = 51,
+                            pressure_high_kpa = 112,
                             spike_threshold_kpa = 1.5,   # sudden >1.5 kPa jump
                             flatline_n = 6               # 6 consecutive identical values
 ) {
@@ -83,8 +84,8 @@ qc_barometric <- function(input_data,
   if (!"airtemp_C_adj"   %in% names(df)) df$airtemp_C_adj   <- df$airtemp_C
 
   # Create edit flags if missing
-  flags <- c("edit_press_high","edit_press_low","edit_flatline",
-             "edit_spike","edit_temp_range")
+  flags <- c("OUTLIER_AP","FLAG_FLATLINE",
+             "FLAG_DISTURBANCE","OUTLIER_AT")
   for (f in flags) if (!f %in% names(df)) df[[f]] <- FALSE
 
 
@@ -120,17 +121,18 @@ qc_barometric <- function(input_data,
       # Remove obviously wrong values
       airpress_kPa_adj = dplyr::if_else(
         bad_press_low | bad_press_high, NA_real_, .data$airpress_kPa_adj
+        # bad_press, NA_real_, .data$airpress_kPa_adj
       ),
       airtemp_C_adj = dplyr::if_else(
         bad_temp, NA_real_, .data$airtemp_C_adj
       ),
 
       # Preserve any existing TRUE flags from prior calls
-      edit_press_high = dplyr::if_else(bad_press_high, TRUE, .data$edit_press_high),
-      edit_press_low  = dplyr::if_else(bad_press_low,  TRUE, .data$edit_press_low),
-      edit_temp_range = dplyr::if_else(bad_temp,        TRUE, .data$edit_temp_range),
-      edit_spike      = dplyr::if_else(is_spike,        TRUE, .data$edit_spike),
-      edit_flatline   = dplyr::if_else(is_flatline,     TRUE, .data$edit_flatline)
+      OUTLIER_AP = dplyr::if_else(bad_press_high, TRUE, .data$OUTLIER_AP),
+      OUTLIER_AP  = dplyr::if_else(bad_press_low,  TRUE, .data$OUTLIER_AP),
+      OUTLIER_AT = dplyr::if_else(bad_temp,        TRUE, .data$OUTLIER_AT),
+      FLAG_DISTURBANCE      = dplyr::if_else(is_spike,        TRUE, .data$FLAG_DISTURBANCE),
+      FLAG_FLATLINE   = dplyr::if_else(is_flatline,     TRUE, .data$FLAG_FLATLINE)
     )
 
 

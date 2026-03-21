@@ -4,7 +4,7 @@
 \alias{QAQC_metadata}
 \title{QA/QC for logger deployment metadata}
 \usage{
-QAQC_metadata(metadata_path = NULL, metadata = NULL)
+QAQC_metadata(metadata_path = NULL, metadata = NULL, tz = "UTC")
 }
 \arguments{
 \item{metadata_path}{Character scalar.

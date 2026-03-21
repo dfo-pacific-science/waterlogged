@@ -17,8 +17,8 @@ test_that("test waterlevel qaqc", {
   converted_data <- get_wl_converted_data()
 
   # --- Verify that QAQC flag columns do NOT exist before running QAQC ------
-  qa.columns <- c("flag_disturbance", "flag_ice", "neg_lt_minus1",
-                   "neg_between", "flag_wl_dry")
+  qa.columns <- c("FLAG_DISTURBANCE", "FLAG_ICE", "FLAG_DRY",
+                   "OUTLIER_WT")
   missing_cols <- setdiff(qa.columns, colnames(converted_data))
   expect_equal(missing_cols, qa.columns)
 

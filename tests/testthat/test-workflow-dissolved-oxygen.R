@@ -75,7 +75,7 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   expect_s3_class(do_qc, "data.frame")
   expect_equal(nrow(do_qc), nrow(do_data))
   expect_true(all(c("do_mgl_adj", "do_percsat_adj") %in% names(do_qc)))
-  expect_true(all(c("flag_do_dry", "temp_flag_ice") %in% names(do_qc)))
+  expect_true(all(c("FLAG_DRY", "FLAG_ICE") %in% names(do_qc)))
   expect_false(is.null(attr(do_qc, "qaqc_log")))
 
   # Step 6: Plot

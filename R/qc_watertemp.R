@@ -19,30 +19,32 @@
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
 #'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
 #'   is present). Default \code{2}.
-#' @param log_root Root folder where QA/QC logs are written by
-#'   [qaqc_log_maybe_append()]. Pass \code{NULL} (default) to skip file writing.
+#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#'   log files. When non-\code{NULL}, a log CSV is written via
+#'   \code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+#'   mode), no file is written.
 #' @param user Character username written into the QA/QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.
 #'
 #' @details
 #' The following rules are applied:
 #' \describe{
-#'   \item{\code{edit_temp_lt_minus1}}{Water temperature < -1 C: set to
+#'   \item{\code{OUTLIER_WT}}{Water temperature < -1 C: set to
 #'     \code{NA} in \code{watertemp_C_adj}.}
-#'   \item{\code{edit_temp_neg_near}}{Water temperature in [-1, 0) C: corrected
+#'   \item{\code{OUTLIER_WT}}{Water temperature in [-1, 0) C: corrected
 #'     to 0 in \code{watertemp_C_adj}.}
-#'   \item{\code{flag_ice}}{Water temperature < \code{temp_ice_threshold_C}:
+#'   \item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_threshold_C}:
 #'     flagged for review; data not changed.}
-#'   \item{\code{flag_wt_dry}}{Possible dry sensor: water temperature >
+#'   \item{\code{FLAG_DRY}}{Possible dry sensor: water temperature >
 #'     \code{temp_high_dry_C}; or, when \code{airtemp_C} is present, air-water
 #'     temperature within \code{temp_air_water_diff_C} degrees C, or air warmer
 #'     than water.}
 #' }
 #'
 #' @return A data frame containing only rows for \code{select_station}, sorted
-#'   by \code{timestamp}, with \code{watertemp_C_adj}, \code{flag_ice},
-#'   \code{flag_wt_dry}, \code{edit_temp_lt_minus1}, and
-#'   \code{edit_temp_neg_near} columns added.
+#'   by \code{timestamp}, with \code{watertemp_C_adj}, \code{FLAG_ICE},
+#'   \code{FLAG_DRY}, \code{OUTLIER_WT}, and
+#'   \code{OUTLIER_WT} columns added.
 #'   \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log rows.
 #'
 #' @export
@@ -84,7 +86,7 @@ qc_watertemp <- function(input_data,
   if (!"watertemp_C_adj" %in% names(df)) df$watertemp_C_adj <- df$watertemp_C
 
   # Create flag/edit cols if missing
-  new_flags <- c("flag_ice", "flag_wt_dry", "edit_temp_lt_minus1", "edit_temp_neg_near")
+  new_flags <- c("FLAG_ICE", "FLAG_DRY", "OUTLIER_WT")
   for (f in new_flags) if (!f %in% names(df)) df[[f]] <- FALSE
 
   # ---- 2. Detection rules ---------------------------------------------------
@@ -111,10 +113,10 @@ qc_watertemp <- function(input_data,
         neg_between   ~ 0,
         TRUE          ~ watertemp_C_adj
       ),
-      flag_ice            = flag_ice_vec,
-      edit_temp_lt_minus1 = neg_lt_minus1,
-      edit_temp_neg_near  = neg_between,
-      flag_wt_dry         = flag_wt_dry_vec
+      FLAG_ICE            = flag_ice_vec,
+      OUTLIER_WT = neg_lt_minus1,
+      OUTLIER_WT  = neg_between,
+      FLAG_DRY         = flag_wt_dry_vec
     )
 
   # ---- 4. Log entries -------------------------------------------------------
@@ -139,7 +141,7 @@ qc_watertemp <- function(input_data,
     list(
       flag        = flag_wt_dry_vec,
       field       = "watertemp_C_adj",
-      code        = "FLAG_WT_DRY",
+      code        = "FLAG_DRY",
       action_note = paste0("Possible dry sensor: water temperature > ",
                            temp_high_dry_C, "\u00b0C",
                            if (has_airtemp) paste0(", or air-water temperature within ",

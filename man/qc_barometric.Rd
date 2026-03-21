@@ -11,8 +11,8 @@ qc_barometric(
   user = NULL,
   temp_low_limit = -40,
   temp_high_limit = 50,
-  pressure_low_kpa = 85,
-  pressure_high_kpa = 105,
+  pressure_low_kpa = 51,
+  pressure_high_kpa = 112,
   spike_threshold_kpa = 1.5,
   flatline_n = 6
 )
@@ -25,9 +25,10 @@ for multiple stations.}
 \item{select_station}{Character, station code to process
 (matches \code{site_station_code}).}
 
-\item{log_root}{Root folder where QA/QC logs are written by
-\code{\link[=qaqc_log_append]{qaqc_log_append()}}, typically the same root used elsewhere in the
-workflow (e.g. \code{"data/testing/processed"}).}
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+log files. When non-\code{NULL}, a log CSV is written via
+\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+mode), no file is written.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
@@ -42,16 +43,16 @@ Values outside \verb{[temp_low_limit, temp_high_limit]} are set to \code{NA} in
 \item{temp_high_limit}{Upper bound (C) for plausible barometric temperatures.}
 
 \item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric pressure.
-Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged.}
+Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 51 kPa.}
 
 \item{pressure_high_kpa}{Upper bound (kPa) for plausible barometric pressure.
-Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged.}
+Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 112 kPa.}
 
 \item{spike_threshold_kpa}{Threshold (kPa) for flagging sudden pressure
-spikes between consecutive timesteps (absolute difference in kPa).}
+spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.}
 
 \item{flatline_n}{Integer; number of consecutive identical values required
-to flag a potential flatline in the pressure series.}
+to flag a potential flatline in the pressure series. Default is 6.}
 }
 \value{
 A data frame containing only rows for \code{select_station}, sorted by
@@ -68,8 +69,8 @@ flags.
 \details{
 If \code{airpress_kPa_adj} or \code{airtemp_C_adj} do not exist, they are created as
 copies of the raw \code{airpress_kPa} / \code{airtemp_C} columns and then modified
-by the QA/QC rules. Edit flags (\code{edit_press_high}, \code{edit_press_low},
-\code{edit_temp_range}, \code{edit_spike}, \code{edit_flatline}) are created if missing
+by the QA/QC rules. Edit flags (\code{OUTLIER_AP},
+\code{OUTLIER_AT}, \code{FLAG_DISTURBANCE}, \code{FLAG_FLATLINE}) are created if missing
 and set to \code{TRUE} where each rule applies.
 
 For each rule that triggers, a corresponding QA/QC log entry is appended via

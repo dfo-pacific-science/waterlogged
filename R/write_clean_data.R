@@ -194,10 +194,62 @@ write_clean_data <- function(
     intersect(cfg$optional, names(input_data))
   )
 
-  flag_cols <- grep("^flag_", names(input_data), value = TRUE)
-  edit_cols <- grep("^edit_", names(input_data), value = TRUE)
+#  flag_cols <- grep("^flag_", names(input_data), value = TRUE)
+#  edit_cols <- grep("^edit_", names(input_data), value = TRUE)
 
-  cols_to_keep <- unique(c(base_cols, flag_cols, edit_cols))
+  input_data$qc_code <- "REAL"
+
+  # internal helper function to determine if column is present in input data
+  has_col <- function(col) col %in% names(input_data)
+
+  for (i in seq_len(nrow(input_data))) {
+
+    if((has_col("OUTLIER_AP") && has_col("airpress_kPa_adj") &&
+         isTRUE(input_data$OUTLIER_AP[i]) && is.na(input_data$airpress_kPa_adj[i])) ||
+      (has_col("OUTLIER_AT") && has_col("airtemp_C_adj") &&
+         isTRUE(input_data$OUTLIER_AT[i]) && is.na(input_data$airtemp_C_adj[i])) ||
+      (has_col("OUTLIER_DO") && has_col("do_mgl_adj") &&
+         isTRUE(input_data$OUTLIER_DO[i]) && is.na(input_data$do_mgl_adj[i])) ||
+      (has_col("OUTLIER_WT") && has_col("watertemp_C_adj") &&
+         isTRUE(input_data$OUTLIER_WT[i]) && is.na(input_data$watertemp_C_adj[i])) ||
+      (has_col("OUTLIER_WT") && has_col("watertemp_C_do_adj") &&
+         isTRUE(input_data$OUTLIER_WT[i]) && is.na(input_data$watertemp_C_do_adj[i])) ||
+      (has_col("TEMP_RANGE") && isTRUE(input_data$TEMP_RANGE[i])) ||
+      (has_col("NEGATIVE_WT") && has_col("watertemp_C_adj") &&
+         isTRUE(input_data$NEGATIVE_WT[i]) && is.na(input_data$watertemp_C_adj[i])) ||
+      (has_col("FLAG_DISTURBANCE") && has_col("edit_na") &&
+         isTRUE(input_data$FLAG_DISTURBANCE[i]) && isTRUE(input_data$edit_na[i])) ||
+      (has_col("FLAG_FLATLINE") && has_col("edit_na") &&
+         isTRUE(input_data$FLAG_FLATLINE[i]) && isTRUE(input_data$edit_na[i]))){
+      input_data$qc_code[i] <- "REMOVED"
+    }
+
+    if(is.na(input_data$qc_code[i]) ||
+        (has_col("ERROR_DO") && isTRUE(input_data$ERROR_DO[i]))) {
+      input_data$qc_code[i] <- NA
+    }
+
+      if((has_col("NEGATIVE_WT") && has_col("watertemp_C_adj") &&
+         isTRUE(input_data$NEGATIVE_WT[i]) && input_data$watertemp_C_adj[i] == 0) ||
+      (has_col("OUTLIER_WT") && has_col("watertemp_C_do_adj") &&
+         isTRUE(input_data$OUTLIER_WT[i]) && input_data$watertemp_C_do_adj[i] == 0) ||
+      (has_col("OUTLIER_DO") && has_col("do_mgl_adj") &&
+         isTRUE(input_data$OUTLIER_DO[i]) && input_data$do_mgl_adj[i] == 0) ||
+      (has_col("OUTLIER_DO") && has_col("do_percsat_adj") &&
+         isTRUE(input_data$OUTLIER_DO[i]) && input_data$do_percsat_adj[i] == 0)){
+      input_data$qc_code[i] <- "CORRECTED"
+    }
+
+    if((has_col("FLAG_RANGE") && has_col("edit_na") &&
+       isTRUE(input_data$FLAG_RANGE[i]) && isTRUE(input_data$edit_na[i])) ||
+      (has_col("FLAG_DRY") && has_col("edit_na") &&
+       isTRUE(input_data$FLAG_DRY[i]) && isTRUE(input_data$edit_na[i]))) {
+      input_data$qc_code[i] <- "DRY"
+    }
+  }
+
+#  cols_to_keep <- unique(c(base_cols, flag_cols, edit_cols))
+  cols_to_keep <- unique(c(base_cols, "qc_code"))
 
   # ---- subset and add year ---------------------------------------------------
   output_data <- input_data[, cols_to_keep, drop = FALSE]
