@@ -115,3 +115,11 @@ No barometric data required.
 - **`resample_timestamps()`** — snap logger timestamps to a regular interval
 - **`get_logger_data()`** — retrieve processed data by stage, station, and
   logger type
+
+## Documentation & Tutorials
+
+- [waterlogged R package manual](inst/misc/waterlogged_manual.pdf)
+- [Tutorial: Barometric pressure](vignettes/barometric-pressure.pdf)
+- [Tutorial: Water level](vignettes/water-level.pdf)
+- [Tutorial: Dissolved oxygen](vignettes/dissolved-oxygen.pdf)
+- [Tutorial: Conductivity](vignettes/conductivity.pdf)
