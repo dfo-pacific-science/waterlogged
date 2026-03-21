@@ -126,7 +126,7 @@ print(baro_plot)
 #
 #   Raw column:     airpress_kPa      (original, never touched)
 #   Adjusted column: airpress_kPa_adj  (corrected copy — this is what we use)
-#   Flag column:     edit_press_high   (TRUE where pressure was too high)
+#   Flag columns:    OUTLIER_AP, OUTLIER_AT, FLAG_DISTURBANCE, FLAG_FLATLINE
 #
 # RETURNS: A single data frame with all baro stations, sorted by timestamp,
 #          with the new _adj and edit_ columns added.
@@ -148,11 +148,10 @@ baro_qc <- barometric_qaqc_all(
 # Check results: how many values were flagged?
 cat("Baro QAQC results:\n")
 cat("  Total rows:      ", nrow(baro_qc), "\n")
-cat("  Pressure high:   ", sum(baro_qc$edit_press_high, na.rm = TRUE), "flagged\n")
-cat("  Pressure low:    ", sum(baro_qc$edit_press_low, na.rm = TRUE), "flagged\n")
-cat("  Temp out of range:", sum(baro_qc$edit_temp_range, na.rm = TRUE), "flagged\n")
-cat("  Spikes:          ", sum(baro_qc$edit_spike, na.rm = TRUE), "flagged\n")
-cat("  Flatlines:       ", sum(baro_qc$edit_flatline, na.rm = TRUE), "flagged\n")
+cat("  Pressure outlier: ", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "flagged\n")
+cat("  Temp outlier:    ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "flagged\n")
+cat("  Spikes:          ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "flagged\n")
+cat("  Flatlines:       ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "flagged\n")
 
 # Compare raw vs adjusted to see the effect of QAQC
 cat("  Raw NAs in airpress_kPa:     ",
@@ -355,11 +354,10 @@ head(site_wl[, c("timestamp", "waterpress_kPa", "airpress_kPa",
 # RETURNS: A data frame (filtered to ALBR_ST_30 only) with new columns:
 #   waterlevel_m_adj   — adjusted water level (the "working" column)
 #   watertemp_C_adj    — adjusted water temperature
-#   flag_disturbance   — TRUE where a big step change was detected
-#   flag_ice           — TRUE where temp suggests ice
-#   flag_wl_dry        — TRUE where sensor may be out of water
-#   neg_lt_minus1      — TRUE where temp was < -1 C (removed in adj)
-#   neg_between        — TRUE where temp was -1 to 0 C (set to 0 in adj)
+#   FLAG_DISTURBANCE   — TRUE where a big step change was detected
+#   FLAG_ICE           — TRUE where temp suggests ice
+#   FLAG_DRY           — TRUE where sensor may be out of water
+#   OUTLIER_WT         — TRUE where temp was corrected (< -1 C removed, -1 to 0 set to 0)
 # -----------------------------------------------------------------------------
 
 ?qc_waterlevel
@@ -372,11 +370,10 @@ wl_qc <- qc_waterlevel(
 # Summarize what was flagged
 cat("QAQC results for ALBR_ST_30:\n")
 cat("  Total rows:        ", nrow(wl_qc), "\n")
-cat("  Ice flagged:       ", sum(wl_qc$flag_ice, na.rm = TRUE), "readings\n")
-cat("  Disturbance flagged:", sum(wl_qc$flag_disturbance, na.rm = TRUE), "readings\n")
-cat("  Dry flagged:       ", sum(wl_qc$flag_wl_dry, na.rm = TRUE), "readings\n")
-cat("  Temp < -1 C removed:", sum(wl_qc$neg_lt_minus1, na.rm = TRUE), "readings\n")
-cat("  Temp -1 to 0 C fixed:", sum(wl_qc$neg_between, na.rm = TRUE), "readings\n")
+cat("  Ice flagged:       ", sum(wl_qc$FLAG_ICE, na.rm = TRUE), "readings\n")
+cat("  Disturbance flagged:", sum(wl_qc$FLAG_DISTURBANCE, na.rm = TRUE), "readings\n")
+cat("  Dry flagged:       ", sum(wl_qc$FLAG_DRY, na.rm = TRUE), "readings\n")
+cat("  Temp outlier:      ", sum(wl_qc$OUTLIER_WT, na.rm = TRUE), "readings\n")
 
 # The QAQC log is stored as an attribute on the result.
 # It records every automated action taken.

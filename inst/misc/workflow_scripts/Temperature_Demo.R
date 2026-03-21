@@ -184,10 +184,9 @@ print(at_plot)
 #       - Sensor malfunction — impossible negative values
 #
 # DETECTION RULES:
-#   1. edit_temp_lt_minus1  — water temp < -1 C -> set to NA (impossible)
-#   2. edit_temp_neg_near   — water temp in [-1, 0) C -> corrected to 0 C
-#   3. flag_ice             — water temp < 0.3 C -> flagged (possible ice)
-#   4. flag_wt_dry          — water temp > 19 C -> flagged (possible dry)
+#   1. OUTLIER_WT           — water temp < -1 C -> set to NA; [-1, 0) -> set to 0
+#   2. FLAG_ICE             — water temp < 0.3 C -> flagged (possible ice)
+#   3. FLAG_DRY             — water temp > 19 C -> flagged (possible dry)
 #                             If airtemp_C is present: also flags when
 #                             air-water temp difference < 2 C or air > water
 #
@@ -211,10 +210,9 @@ wt_qc <- qc_watertemp(
 
 cat("\n--- Water Temperature QAQC: LEMI_ST_20 ---\n")
 cat("Total rows:          ", nrow(wt_qc), "\n")
-cat("Temp < -1 C (-> NA): ", sum(wt_qc$edit_temp_lt_minus1, na.rm = TRUE), "\n")
-cat("Temp -1 to 0 (-> 0): ", sum(wt_qc$edit_temp_neg_near, na.rm = TRUE), "\n")
-cat("Ice flagged:         ", sum(wt_qc$flag_ice, na.rm = TRUE), "\n")
-cat("Dry flagged:         ", sum(wt_qc$flag_wt_dry, na.rm = TRUE), "\n")
+cat("Temp outlier:        ", sum(wt_qc$OUTLIER_WT, na.rm = TRUE), "\n")
+cat("Ice flagged:         ", sum(wt_qc$FLAG_ICE, na.rm = TRUE), "\n")
+cat("Dry flagged:         ", sum(wt_qc$FLAG_DRY, na.rm = TRUE), "\n")
 cat("Adjusted NAs:        ", sum(is.na(wt_qc$watertemp_C_adj)), "\n")
 
 # Show the QAQC log
@@ -271,7 +269,7 @@ plot_qaqc_timeseries(
 #       are always "in air" by design.
 #
 # DETECTION RULE:
-#   edit_temp_range — temp outside [-40, 40] C -> set to NA
+#   OUTLIER_AT — temp outside [-40, 40] C -> set to NA
 #
 # NOTE: The column name for air temperature is airtemp_C (not watertemp_C).
 #       qc_airtemp() expects this column and creates airtemp_C_adj.
@@ -295,7 +293,7 @@ at_qc <- qc_airtemp(
 
 cat("\n--- Air Temperature QAQC: HAGG_ST_30 ---\n")
 cat("Total rows:        ", nrow(at_qc), "\n")
-cat("Out of range:      ", sum(at_qc$edit_temp_range, na.rm = TRUE), "\n")
+cat("Out of range:      ", sum(at_qc$OUTLIER_AT, na.rm = TRUE), "\n")
 cat("Adjusted NAs:      ", sum(is.na(at_qc$airtemp_C_adj)), "\n")
 
 # Show the QAQC log
@@ -486,15 +484,14 @@ cat(paste(" ", exported, collapse = "\n"), "\n")
 #   Water temperature:
 #     watertemp_C       = raw water temperature (never modified)
 #     watertemp_C_adj   = adjusted water temperature (QAQC applied)
-#     flag_ice          = possible ice (data NOT changed, review needed)
-#     flag_wt_dry       = possible dry sensor (data NOT changed)
-#     edit_temp_lt_minus1 = TRUE where temp < -1 C was set to NA
-#     edit_temp_neg_near  = TRUE where temp -1 to 0 C was set to 0
+#     FLAG_ICE          = possible ice (data NOT changed, review needed)
+#     FLAG_DRY          = possible dry sensor (data NOT changed)
+#     OUTLIER_WT        = TRUE where temp was corrected (< -1 C -> NA, -1 to 0 -> 0)
 #
 #   Air temperature:
 #     airtemp_C         = raw air temperature (never modified)
 #     airtemp_C_adj     = adjusted air temperature (QAQC applied)
-#     edit_temp_range   = TRUE where out-of-range values set to NA
+#     OUTLIER_AT        = TRUE where out-of-range values set to NA
 #
 # COMPARED TO OTHER PIPELINES:
 #   - No barometric pressure step (not needed for temperature)

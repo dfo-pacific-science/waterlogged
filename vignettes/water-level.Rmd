@@ -109,7 +109,7 @@ What it checks:
 - Sudden spikes (> 1.5 kPa jump between consecutive readings)
 - Flatlines (6 or more identical readings in a row)
 
-The function never modifies the raw data. Instead, it creates new `_adj` (adjusted) columns that start as copies of the raw values. Any values that fail a check are set to `NA` in the `_adj` column. Boolean `edit_*` columns record exactly what was changed.
+The function never modifies the raw data. Instead, it creates new `_adj` (adjusted) columns that start as copies of the raw values. Any values that fail a check are set to `NA` in the `_adj` column. Boolean flag columns (`OUTLIER_*`, `FLAG_*`) record exactly what was checked and changed.
 
 ```{r baro-qaqc}
 baro_qc <- barometric_qaqc_all(
@@ -125,11 +125,10 @@ baro_qc <- barometric_qaqc_all(
 
 cat("Baro QAQC results:\n")
 cat("  Total rows:      ", nrow(baro_qc), "\n")
-cat("  Pressure high:   ", sum(baro_qc$edit_press_high, na.rm = TRUE), "flagged\n")
-cat("  Pressure low:    ", sum(baro_qc$edit_press_low, na.rm = TRUE), "flagged\n")
-cat("  Temp out of range:", sum(baro_qc$edit_temp_range, na.rm = TRUE), "flagged\n")
-cat("  Spikes:          ", sum(baro_qc$edit_spike, na.rm = TRUE), "flagged\n")
-cat("  Flatlines:       ", sum(baro_qc$edit_flatline, na.rm = TRUE), "flagged\n")
+cat("  Pressure outliers:", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "flagged\n")
+cat("  Temp outliers:    ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "flagged\n")
+cat("  Disturbances:     ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "flagged\n")
+cat("  Flatlines:        ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "flagged\n")
 cat("  Raw NAs in airpress_kPa:     ",
     sum(is.na(baro_qc$airpress_kPa)), "\n")
 cat("  Adjusted NAs in airpress_kPa_adj:",
@@ -271,8 +270,8 @@ What it checks:
 
 **Important distinction — "flag" vs "edit":**
 
-- `flag_*` columns = "we noticed something, please review" — the data is NOT changed.
-- `edit_*` columns = "we changed the data" — the `_adj` value was modified (usually set to `NA`).
+- `FLAG_*` columns = "we noticed something, please review" — the data is NOT changed.
+- `OUTLIER_*` columns = "we changed the data" — the `_adj` value was modified (usually set to `NA`).
 
 ```{r wl-qaqc}
 wl_qc <- qc_waterlevel(
@@ -282,11 +281,10 @@ wl_qc <- qc_waterlevel(
 
 cat("QAQC results for ALBR_ST_30:\n")
 cat("  Total rows:        ", nrow(wl_qc), "\n")
-cat("  Ice flagged:       ", sum(wl_qc$flag_ice, na.rm = TRUE), "readings\n")
-cat("  Disturbance flagged:", sum(wl_qc$flag_disturbance, na.rm = TRUE), "readings\n")
-cat("  Dry flagged:       ", sum(wl_qc$flag_wl_dry, na.rm = TRUE), "readings\n")
-cat("  Temp < -1 C removed:", sum(wl_qc$neg_lt_minus1, na.rm = TRUE), "readings\n")
-cat("  Temp -1 to 0 C fixed:", sum(wl_qc$neg_between, na.rm = TRUE), "readings\n")
+cat("  Ice flagged:       ", sum(wl_qc$FLAG_ICE, na.rm = TRUE), "readings\n")
+cat("  Disturbance flagged:", sum(wl_qc$FLAG_DISTURBANCE, na.rm = TRUE), "readings\n")
+cat("  Dry flagged:       ", sum(wl_qc$FLAG_DRY, na.rm = TRUE), "readings\n")
+cat("  Temp outliers:     ", sum(wl_qc$OUTLIER_WT, na.rm = TRUE), "readings\n")
 ```
 
 The QAQC log is stored as an attribute on the result. It records every automated action taken.
@@ -430,7 +428,7 @@ What gets exported:
 - `waterlevel_m` (raw, unmodified)
 - `waterlevel_m_adj` (the final adjusted value — use this for analysis)
 - `watertemp_C`, `watertemp_C_adj` (raw and adjusted temperature)
-- All `flag_*` and `edit_*` columns (the audit trail)
+- All `FLAG_*`, `OUTLIER_*` columns (the audit trail)
 
 Output file naming: `<output_folder>/<year>/clean/<station>_WL_<start>_<end>_v1.0.csv`
 
@@ -461,7 +459,7 @@ write_clean_data(
 
 - `waterlevel_m` — the raw computed water level (never modified)
 - `waterlevel_m_adj` — the adjusted version (all corrections applied here)
-- `flag_*` — "something looks off, please review" (data unchanged)
-- `edit_*` — "we changed the data" (data was set to NA or corrected)
+- `FLAG_*` — "something looks off, please review" (data unchanged)
+- `OUTLIER_*` — "we changed the data" (data was set to NA or corrected)
 
 Always use `waterlevel_m_adj` for analysis. Compare it with `waterlevel_m` to see exactly what the QAQC process changed.

@@ -29,9 +29,16 @@ process. Only rows matching this station are retained.}
 \item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
 are flagged. Default \code{0.3}.}
 
+\item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
+suspected. Default \code{19}.}
+
+\item{wl_disturb_threshold_m}{Absolute step-change threshold (m) between
+consecutive water level readings above which a disturbance is flagged.
+Default \code{0.1}.}
+
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
-\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+\code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
 \item{user}{Character scalar. User name recorded in the QAQC log.

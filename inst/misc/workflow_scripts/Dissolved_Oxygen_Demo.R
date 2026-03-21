@@ -110,8 +110,8 @@ baro_qc <- barometric_qaqc_all(
 )
 
 cat("Baro QAQC complete:", nrow(baro_qc), "rows\n")
-cat("  Spikes flagged: ", sum(baro_qc$edit_spike, na.rm = TRUE), "\n")
-cat("  Flatlines:      ", sum(baro_qc$edit_flatline, na.rm = TRUE), "\n")
+cat("  Spikes flagged: ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
+cat("  Flatlines:      ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "\n")
 
 
 # =============================================================================
@@ -277,12 +277,12 @@ do_qc <- qc_dissox(
 # Summarize the flags
 cat("QAQC results for COOK_WE_40:\n")
 cat("  Total rows:       ", nrow(do_qc), "\n")
-cat("  Logger errors:    ", sum(do_qc$do_error, na.rm = TRUE), "\n")
-cat("  DO < -1 removed:  ", sum(do_qc$do_neg_lt_minus1, na.rm = TRUE), "\n")
-cat("  DO -1 to 0 fixed: ", sum(do_qc$do_neg_between, na.rm = TRUE), "\n")
-cat("  DO > 21 removed:  ", sum(do_qc$do_high, na.rm = TRUE), "\n")
-cat("  Ice flagged:      ", sum(do_qc$temp_flag_ice, na.rm = TRUE), "\n")
-cat("  Dry flagged:      ", sum(do_qc$flag_do_dry, na.rm = TRUE), "\n")
+cat("  Logger errors:    ", sum(do_qc$ERROR_DO, na.rm = TRUE), "\n")
+cat("  DO outliers:      ", sum(do_qc$OUTLIER_DO, na.rm = TRUE), "\n")
+cat("  Temp outliers:    ", sum(do_qc$OUTLIER_WT, na.rm = TRUE), "\n")
+cat("  Ice flagged:      ", sum(do_qc$FLAG_ICE, na.rm = TRUE), "\n")
+cat("  Dry flagged:      ", sum(do_qc$FLAG_DRY, na.rm = TRUE), "\n")
+cat("  Range flagged:    ", sum(do_qc$FLAG_RANGE, na.rm = TRUE), "\n")
 
 # Show the QAQC log
 qaqc_log <- attr(do_qc, "qaqc_log")

@@ -20,11 +20,6 @@ devtools::check(vignettes = FALSE) # Operating system test
 # Looking good as of March 10th
 
 
-
-
-
-
-
 # ===================================
 ## TO FORMALLY INSTALL PACKAGE
 # ===================================

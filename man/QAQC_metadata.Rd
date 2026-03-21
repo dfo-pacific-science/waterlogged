@@ -14,6 +14,10 @@ Path to a metadata CSV file.  Required when \code{metadata} is
 \item{metadata}{A data frame of deployment metadata (alternative to
 \code{metadata_path} for Shiny mode).  Exactly one of
 \code{metadata_path} or \code{metadata} must be supplied.}
+
+\item{tz}{Character scalar. Timezone used when parsing
+\code{timestamp_deploy} and \code{timestamp_remove}. Default
+\code{"UTC"}.}
 }
 \value{
 A cleaned data frame with:

@@ -148,12 +148,11 @@ print(cond_plot)
 #   watertemp_C_adj   — adjusted water temperature
 #
 # FLAG COLUMNS:
-#   flag_co_spike     — TRUE where a conductivity spike was detected
-#   flag_co_temp_ice  — TRUE where water temp < 0.1 C (possible ice)
-#   flag_co_temp_low  — TRUE where temp is below the low limit
-#   flag_co_temp_high — TRUE where temp is above the high limit
-#   flag_co_temp_neg_near — TRUE where temp was between -1 and 0 (set to 0)
-#   flag_co_dry       — TRUE where sensor appears to be out of water
+#   FLAG_DISTURBANCE  — TRUE where a conductivity spike was detected
+#   FLAG_ICE          — TRUE where water temp < 0.1 C (possible ice)
+#   FLAG_RANGE        — TRUE where temp is outside the range limits
+#   OUTLIER_WT        — TRUE where temp was between -1 and 0 (set to 0)
+#   FLAG_DRY          — TRUE where sensor appears to be out of water
 # -----------------------------------------------------------------------------
 
 ?qc_conductivity
@@ -171,12 +170,11 @@ cond_qc <- qc_conductivity(
 # Summarize flags
 cat("QAQC results for TUMT_WE_40:\n")
 cat("  Total rows:       ", nrow(cond_qc), "\n")
-cat("  Spikes:           ", sum(cond_qc$flag_co_spike, na.rm = TRUE), "\n")
-cat("  Ice flagged:      ", sum(cond_qc$flag_co_temp_ice, na.rm = TRUE), "\n")
-cat("  Temp too low:     ", sum(cond_qc$flag_co_temp_low, na.rm = TRUE), "\n")
-cat("  Temp too high:    ", sum(cond_qc$flag_co_temp_high, na.rm = TRUE), "\n")
-cat("  Near-zero temp:   ", sum(cond_qc$flag_co_temp_neg_near, na.rm = TRUE), "\n")
-cat("  Dry flagged:      ", sum(cond_qc$flag_co_dry, na.rm = TRUE), "\n")
+cat("  Spikes:           ", sum(cond_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
+cat("  Ice flagged:      ", sum(cond_qc$FLAG_ICE, na.rm = TRUE), "\n")
+cat("  Temp out of range:", sum(cond_qc$FLAG_RANGE, na.rm = TRUE), "\n")
+cat("  Temp outlier:     ", sum(cond_qc$OUTLIER_WT, na.rm = TRUE), "\n")
+cat("  Dry flagged:      ", sum(cond_qc$FLAG_DRY, na.rm = TRUE), "\n")
 
 # Show the QAQC log
 qaqc_log <- attr(cond_qc, "qaqc_log")

@@ -12,6 +12,9 @@
 #' @param metadata A data frame of deployment metadata (alternative to
 #'   \code{metadata_path} for Shiny mode).  Exactly one of
 #'   \code{metadata_path} or \code{metadata} must be supplied.
+#' @param tz Character scalar. Timezone used when parsing
+#'   \code{timestamp_deploy} and \code{timestamp_remove}. Default
+#'   \code{"UTC"}.
 #'
 #' @return A cleaned data frame with:
 #'   \itemize{

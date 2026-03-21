@@ -2,7 +2,7 @@
 title: "Barometric Pipeline"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Dissolved Oxygen Pipeline}
+  %\VignetteIndexEntry{Barometric Pipeline}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -58,6 +58,7 @@ Define paths to the test data.
 ```{r paths}
 metadata_file  <- system.file("extdata/metadata/metadata.csv", package = "waterlogged")
 baro_folder    <- system.file("extdata/barometric_pressure", package = "waterlogged")
+log_root_folder <- tempdir()
 ```
 
 The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
@@ -68,7 +69,7 @@ To save bound files, specify the path to the desired output folder with the opti
 
 baro_bound <- bind_hobo_files(
   path_to_raw_folder = baro_folder,
-  metadata      = metadata_file,
+  metadata_path      = metadata_file,
 )
 
 # to see the trimmed and re-bound baro dataset, save the first element of the list as a dataframe:
@@ -107,10 +108,10 @@ baro_qc <- qc_barometric(
 )
 
 cat("Baro QAQC complete:", nrow(baro_qc), "rows\n")
-cat("  Air Press. outliers removed: ", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "\n")
-cat("  Air Temp. outliers removed: ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "\n")
-cat("  Spikes flagged: ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
-cat("  Flatlines:      ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "\n")
+cat("  Air Press. outliers:     ", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "\n")
+cat("  Air Temp. outliers:      ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "\n")
+cat("  Disturbances:            ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
+cat("  Flatlines:               ", sum(baro_qc$FLAG_FLATLINE,   na.rm = TRUE), "\n")
 
 head(baro_qc, 3)
 
@@ -120,7 +121,7 @@ Note that data labeled as OUTLIER have been removed, while data labeled as FLAG 
 
 ```{r log}
 
-system.file("extdata/barometric_pressure/BUGS_WE_01_BARO_qaqc_log.csv", package = "waterlogged")
+system.file("extdata/qaqc_logs/BUGS_WE_01_BARO_qaqc_log.csv", package = "waterlogged")
 
 ```
 
@@ -184,7 +185,7 @@ What gets exported:
 - `site_station_code`, `timestamp` (identifiers)
 - `airpress_kPa`, `airpress_kPa_adj` (raw and adjusted air pressure in kPa)
 - `airtemp_C`, `airtemp_C_adj` (raw and adjusted air temperature)
-- All `flag_*` and `edit_*` columns (the full audit trail)
+- All `FLAG_*`, `OUTLIER_*` columns (the full audit trail)
 
 ```{r final-summary}
 cat("Final dataset:", nrow(baro_qc), "rows x", ncol(baro_qc), "columns\n\n")

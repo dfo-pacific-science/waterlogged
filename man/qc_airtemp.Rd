@@ -29,7 +29,7 @@ Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
-\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+\code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to

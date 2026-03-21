@@ -30,7 +30,7 @@ process. Only rows matching this station are retained.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
-\code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+\code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
 \item{user}{Character scalar. User name recorded in the QAQC log.

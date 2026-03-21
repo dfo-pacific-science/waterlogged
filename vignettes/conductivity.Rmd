@@ -131,7 +131,7 @@ What it checks:
 
 Adjusted columns created: `conduct_uScm_adj`, `watertemp_C_adj`.
 
-Flag columns: `flag_co_spike`, `flag_co_temp_ice`, `flag_co_temp_low`, `flag_co_temp_high`, `flag_co_temp_neg_near`, `flag_co_dry`.
+Flag columns: `FLAG_DISTURBANCE`, `FLAG_ICE`, `OUTLIER_WT`, `FLAG_RANGE`, `FLAG_DRY`.
 
 ```{r cond-qaqc}
 cond_qc <- qc_conductivity(
@@ -146,12 +146,11 @@ cond_qc <- qc_conductivity(
 
 cat("QAQC results for TUMT_WE_40:\n")
 cat("  Total rows:       ", nrow(cond_qc), "\n")
-cat("  Spikes:           ", sum(cond_qc$flag_co_spike, na.rm = TRUE), "\n")
-cat("  Ice flagged:      ", sum(cond_qc$flag_co_temp_ice, na.rm = TRUE), "\n")
-cat("  Temp too low:     ", sum(cond_qc$flag_co_temp_low, na.rm = TRUE), "\n")
-cat("  Temp too high:    ", sum(cond_qc$flag_co_temp_high, na.rm = TRUE), "\n")
-cat("  Near-zero temp:   ", sum(cond_qc$flag_co_temp_neg_near, na.rm = TRUE), "\n")
-cat("  Dry flagged:      ", sum(cond_qc$flag_co_dry, na.rm = TRUE), "\n")
+cat("  Disturbances:     ", sum(cond_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
+cat("  Ice flagged:      ", sum(cond_qc$FLAG_ICE, na.rm = TRUE), "\n")
+cat("  Temp outliers:    ", sum(cond_qc$OUTLIER_WT, na.rm = TRUE), "\n")
+cat("  Range flagged:    ", sum(cond_qc$FLAG_RANGE, na.rm = TRUE), "\n")
+cat("  Dry flagged:      ", sum(cond_qc$FLAG_DRY, na.rm = TRUE), "\n")
 ```
 
 ```{r cond-qaqc-log}
@@ -335,7 +334,7 @@ export_cols <- c("site_station_code", "timestamp",
                  "conduct_uScm", "conduct_uScm_adj",
                  "spc_uScm_adj",
                  "watertemp_C", "watertemp_C_adj",
-                 grep("^(flag_|edit_)", names(cond_qc), value = TRUE))
+                 grep("^(flag_|edit_|FLAG_|OUTLIER_|ERROR_)", names(cond_qc), value = TRUE))
 export_cols <- intersect(export_cols, names(cond_qc))
 
 write.csv(
@@ -365,7 +364,7 @@ write.csv(
 - `spc_uScm_adj` — specific conductance at 25 °C (temp-compensated)
 - `watertemp_C` — raw water temperature (never modified)
 - `watertemp_C_adj` — adjusted water temperature
-- `flag_co_*` — "something looks off — review" (data not changed)
+- `FLAG_*` — "something looks off — review" (data not changed)
 - `edit_cond_drift` — TRUE where drift correction was applied
 
 For analysis, use `spc_uScm_adj` — it's the fully corrected, temperature-compensated specific conductance. Compare with `conduct_uScm` to see what the processing changed.

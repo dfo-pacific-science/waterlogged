@@ -31,11 +31,16 @@
 #'   \code{\link{add_nearest_baro}}.
 #' @param select_station Character scalar. The \code{site_station_code} to
 #'   process. Only rows matching this station are retained.
-#'  @param temp_ice_threshold_C Water temperature (C) below which ice conditions
+#' @param do_high_limit_mgl Upper bound (mg/L) for plausible dissolved oxygen.
+#'   Values above this are set to \code{NA}. Default \code{30}.
+#' @param do_low_limit_mgl Lower bound (mg/L) for dissolved oxygen. Values
+#'   between \code{-1} and \code{0} are corrected to \code{0}; values below
+#'   \code{-1} are set to \code{NA}. Default \code{0}.
+#' @param temp_ice_threshold_C Water temperature (C) below which ice conditions
 #'   are flagged. Default \code{0.3}.
 #' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
 #'   log files. When non-\code{NULL}, a log CSV is written via
-#'   \code{\link{qaqc_log_maybe_append()}}. When \code{NULL} (default, Shiny
+#'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 #'   mode), no file is written.
 #' @param user Character scalar. User name recorded in the QAQC log.
 #'   Defaults to \code{NULL}, which resolves to
