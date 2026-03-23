@@ -1,0 +1,309 @@
+---
+title: "Air/Water Temperature Pipeline"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Air/Water Temperature Pipeline}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+
+
+## Setup
+
+This vignette assumes you have already installed `waterlogged` from the develop branch:
+
+```r
+install.packages("pak")
+pak::pkg_install("dfo-pacific-science/waterlogged@main")
+```
+
+```{r setup}
+library(waterlogged)
+```
+
+## Prepare Raw Data
+
+In most cases, there will be data for multiple loggers or downloads for a single station. These need to be bound together to create a single data file for each station. 
+
+Also, data needs to be trimmed to the install and removal dates in case loggers were activated prior to install, or if they were removed before downloading the data (which is typically the case). 
+
+To do this, you will need 2 things:
+
+1. Folder containing raw .csv files exported from HOBOware (*tidbit_folder*) 
+    - we recommend keeping csv files from different loggers separate in different folders, and organizing logger folders by year and processing-stage. ie. a file path to the raw air temperature data would be: "data/tidbit/2024/raw"
+2.  A .csv of metadata (*metadata_file*) containing:
+    - *sn* serial number of logger
+    - *site_station_code* A unique ID for the station where the logger was deployed
+    - *timestamp_deployed* timestamp of logger deployment
+    - *timestamp_removed* timestamp of logger removal
+    - *status* status of logger (logging, lost, removed)
+    
+
+Define paths to the test data.
+
+```{r paths}
+metadata_file  <- system.file("extdata/metadata/metadata.csv", package = "waterlogged")
+baro_folder    <- system.file("extdata/water_temperature/airtemp", package = "waterlogged")
+log_root_folder <- tempdir()
+```
+
+The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
+
+To save bound files, specify the path to the desired output folder with the optional variable *path_to_output_folder*.
+
+```{r at-baro}
+
+at_bound <- bind_hobo_files(
+  path_to_raw_folder = airtemp_folder,
+  metadata  = metadata_file,
+)
+
+# to see the trimmed and re-bound baro dataset, save the first element of the list as a dataframe:
+at_data <- at_bound[[1]]
+
+# to see summary plot
+at_bound[[2]]
+
+# summarize the trimmed and bound data
+cat("AT data:", nrow(at_data), "rows,",
+    length(unique(at_data$site_station_code)), "stations\n")
+
+```
+
+Now we have individual files for airtemp data at each station and year saved in their respective folders, and a trimmed dataset of all input at files saved in the environment as **at_data**.
+
+## Automated Quality Control Protocols
+
+Runs dataset through automated data outlier removal and flags, determined by user-modifiable thresholds. The default thresholds are as follows:
+
+-	temp_high_limit: Temperature readings above this value will be removed and data will be flagged as OUTLIER in flag_code column. Default is 50°C
+-	temp_low_limit: Temperature readings below this value will be removed and data will be flagged as OUTLIER in flag_code column. Default is -40°C.
+
+Let's say we know that seasonal air temperature at our site, FROG_WE_02, never exceeds the limits of -30C and +30C. We can alter the default limits to remove temperatures beyond this range as outliers. 
+
+The optional input variable *log_root* is the path to the desired folder where a CSV file of all QC flags and adjustments are stored, by logger station. 
+
+```{r at-qaqc}
+at_qc <- qc_airtemp(
+  input_data = at_data,
+  temp_high_limit = 30,
+  temp_low_limit = -30,
+  log_root = log_root_folder,
+  select_station = unique(at_data$site_station_code)[1]
+)
+
+cat("AT QAQC complete:", nrow(at_qc), "rows\n")
+cat("  Air Temp. outliers:      ", sum(at_qc$OUTLIER_AT, na.rm = TRUE), "\n")
+head(at_qc, 3)
+
+```
+
+Note that data labeled as OUTLIER have been removed (77 data points). The QC log produced will look like this:
+
+
+```{r log}
+
+system.file("extdata/qaqc_logs/FROG_WE_02_AT_qaqc_log.csv", package = "waterlogged")
+
+```
+
+
+### Visual Review
+
+Creates an interactive multi-panel plot for reviewing the data and either accepting or rejecting automated data flags. 
+
+How to read the plot:
+
+- Light traces = raw values (original, unmodified)
+- Dark traces = adjusted values (after auto QAQC)
+- Black symbols = flagged data (ice, dry, error)
+- Use the range slider at the bottom to zoom into specific periods
+- Hover over points for exact values and timestamps
+
+```{r visual-review, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  airtemp_data      = at_qc,
+  select_station = unique(at_data$site_station_code)[1],
+    static=TRUE
+)
+```
+
+The data can be inspected by clicking and dragging over a section of the graph. If we are happy with the adjusted values retained, we can end our QC here. 
+
+We can also remove data manually with the function *adjust_logger_NA*. Let's say that, during a site visit to SLUG_ST_02 at "2024-07-29 16:00:00", when removing the air temperature logger for inspection, the technician dropped the logger in the stream and could not retrieve it. The next day, the logger was found and re-installed at "2024-07-30 9:45:00". This "disturbance" event was recorded in field notes. Since the logger was recording water temperature, not air temperature, during that time period, those data should be removed. 
+
+If we zoom in on that section of the timeseries, we can see a small dip in temperature. This isn't flagged as an outlier, as it is within the defined temperature range. This disturbance event can be removed manually, as follows:
+
+
+```{r adjust-at, fig.height=10, fig.width=7}
+at_qc2 <- adjust_logger_NA(
+  input_data       = at_qc,
+  select_station   = unique(at_data$site_station_code)[1],
+  metric           = "airtemp",
+  reason_to_adjust = "disturbance",
+  timestamp_start  = "2024-07-29 16:00:00",
+  timestamp_end    = "2024-07-30 09:45:00",
+  manual_note      = "Logger dropped in stream - reinstalled next day",
+  log_root = log_root_folder
+)
+
+```
+
+## Final Review
+
+These changes can be reviewed by re-running the plot function. Zoom in on the disturbance time period to make sure the desired values were removed.  The adjusted traces should look reasonable with no obvious artifacts. Compare raw (light) vs adjusted (dark) to see exactly what changed.
+
+
+```{r visual-review2, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  airtemp_data      = at_qc2,
+  select_station = unique(at_data$site_station_code)[1],
+    static=TRUE
+)
+```
+
+
+Once all data are reviewed and accepted, we can now save and export our clean data. 
+
+## Export Clean Data (v1.0)
+
+Writes the final cleaned data to CSV files, one per station per year.
+
+What gets exported:
+
+- `site_station_code`, `timestamp` (identifiers)
+- `airtemp_C`, `airtemp_C_adj` (raw and adjusted air temperature)
+- All `FLAG_*`, `OUTLIER_*` columns (the full audit trail)
+
+```{r final-summary}
+cat("Final dataset:", nrow(at_qc), "rows x", ncol(at_qc), "columns\n\n")
+
+cat("\nSummary of raw AT (degrees C):\n")
+print(summary(at_qc$airtemp_C))
+
+cat("\nSummary of adjusted AT (degrees C):\n")
+print(summary(at_qc$airtemp_C_adj))
+```
+
+
+```{r export, eval=FALSE}
+write_clean_data(
+  input_data            = at_qc2,
+  path_to_output_folder = output,
+  metric                = "airtemp"
+)
+```
+
+
+## Re-run example for water temperature
+
+```{r wt-bound}
+
+wt_bound <- bind_hobo_files(
+  path_to_raw_folder = watertemp_folder,
+  metadata  = metadata_file,
+)
+
+# to see the trimmed and re-bound baro dataset, save the first element of the list as a dataframe:
+wt_data <- wt_bound[[1]]
+
+# to see summary plot
+wt_bound[[2]]
+
+# summarize the trimmed and bound data
+cat("WT data:", nrow(wt_data), "rows,",
+    length(unique(wt_data$site_station_code)), "stations\n")
+
+```
+
+
+```{r at-qaqc}
+wt_qc <- qc_watertemp(
+  input_data = wt_data,
+   log_root = log_root_folder,
+  select_station = unique(wt_data$site_station_code)[1]
+)
+
+cat("WT QAQC complete:", nrow(wt_qc), "rows\n")
+cat("  Water Temp. outliers:      ", sum(wt_qc$OUTLIER_WT, na.rm = TRUE), "\n")
+head(wt_qc, 3)
+
+```
+
+If you have two different logger types at the same station, you can plot both to help identify data errors.We can add the air temp data from previously to the water temp data for the station FROG_WE_02. 
+
+```{r visual-review3, fig.height=10, fig.width=7}
+plot_qaqc_timeseries( watertemp_data = wt_qc,
+  airtemp_data      = at_qc2,
+  select_station = unique(at_data$site_station_code)[1],
+    static=TRUE
+)
+```
+
+## Identifying periods of ice
+
+In the water temperature timeseries, we can see quite a few segments are idntified as outliers, and flagged as ice. When loggers become frozen in water, the sensor can become trapped in an air pocket, causing readings below zero. These periods should be removed, as the logger is not reading water, but rather the air trapped within the ice. 
+
+In temperate regions, winter water temperatures should be higher than air temperature. This can also help detect ice periods, if water temperature is the same as, or below air temperature during the winter. 
+
+The first FLAG_ICE occurrs on 2023-10-25 05:00:00, when water temp drops below 0. The air temp logger at that same time is reading ~-5C. While at some points, water temperature is above zero, it is still following air temperature closely, and at no point is air temperature sustained for a significant period of time (days) above zero to allow for melting of the iced logger. Evidence that the logger is encased in ice is further seen in the large drop in water temperature down to -11C in Jan 2024. To identify the end of the ice period, zoom in on the segment between Mar 2024 and May 2024. The FLAG_ICE segment ends on 2024-03-25 08:00:00. Air temperature is reaching up to 10C, and water temperature is remaining above zero, and shows less diurnal variation than air temperature. This indicates that the sensor is now reading water temperature, rather than air temperature. We will remove this whole section as a frozen period. Make a note of your rationale in the *manual_note* variable. 
+
+```{r adjust-wt, fig.height=10, fig.width=7}
+wt_qc2 <- adjust_logger_NA(
+  input_data       = wt_qc,
+  select_station   = unique(wt_data$site_station_code)[1],
+  metric           = "watertemp",
+  reason_to_adjust = "ice",
+  timestamp_start  = "2023-10-25 05:00:00",
+  timestamp_end    = "2024-03-25 08:00:00",
+  manual_note      = "Accept ice flags. Negative WT and AT sustained below zero",
+  log_root = log_root_folder
+)
+
+```
+
+Review the changes by re-plotting the adjusted data. You should see that the time period we specified previously as ice should be removed. 
+
+```{r visual-review4, fig.height=10, fig.width=7}
+plot_qaqc_timeseries( watertemp_data = wt_qc2,
+  airtemp_data      = at_qc2,
+  select_station = unique(at_data$site_station_code)[1],
+  static=TRUE
+)
+```
+
+Comparing the summaries of the raw to adjusted values, by removing the ice period, we now have a minimum water temperature of 0.5C, rather than -11C - much more reasonable. 
+
+```{r final-summary2}
+cat("Final dataset:", nrow(wt_qc2), "rows x", ncol(wt_qc2), "columns\n\n")
+
+cat("\nSummary of raw WT (degrees C):\n")
+print(summary(wt_qc2$watertemp_C))
+
+cat("\nSummary of adjusted WT (degrees C):\n")
+print(summary(wt_qc2$watertemp_C_adj))
+```
+
+The QC'd data can be exported as clean data to the desired output location. 
+
+```{r export2, eval=FALSE}
+write_clean_data(
+  input_data            = wt_qc2,
+  path_to_output_folder = output,
+  metric                = "watertemp"
+)
+```
