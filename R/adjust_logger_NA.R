@@ -209,12 +209,12 @@ adjust_logger_NA <- function(
   }
 
   # ---- Edit flag column ----
-#  edit_flag_map <- c(
-#    ice         = "edit_remove_ice",
-#    dry         = "edit_remove_dry",
-#    disturbance = "edit_remove_disturbance"
-#  )
-#  edit_flag_col <- unname(edit_flag_map[reason_to_adjust])
+  edit_flag_map <- c(
+    ice         = "edit_remove_ice",
+    dry         = "edit_remove_dry",
+    disturbance = "edit_remove_disturbance"
+  )
+  edit_flag_col <- unname(edit_flag_map[reason_to_adjust])
 
   # ===========================================================================
   # Subset to station and validate structure
@@ -273,14 +273,14 @@ adjust_logger_NA <- function(
   df$edit_na   <- FALSE
 
   # Ensure edit_* flag column exists and is logical
-#  if (!edit_flag_col %in% names(df)) {
-#    df[[edit_flag_col]] <- FALSE
-#  } else {
-#    if (!is.logical(df[[edit_flag_col]])) {
-#      df[[edit_flag_col]] <- as.logical(df[[edit_flag_col]])
-#    }
-#    df[[edit_flag_col]][is.na(df[[edit_flag_col]])] <- FALSE
-#  }
+  if (!edit_flag_col %in% names(df)) {
+    df[[edit_flag_col]] <- FALSE
+  } else {
+    if (!is.logical(df[[edit_flag_col]])) {
+      df[[edit_flag_col]] <- as.logical(df[[edit_flag_col]])
+    }
+    df[[edit_flag_col]][is.na(df[[edit_flag_col]])] <- FALSE
+  }
 
   # ===========================================================================
   # Determine which columns to set to NA
@@ -358,9 +358,9 @@ adjust_logger_NA <- function(
   # Update the edit_* flag column
   # ===========================================================================
 
-#  if (any(df$edit_na, na.rm = TRUE)) {
-#    df[[edit_flag_col]] <- df[[edit_flag_col]] | df$edit_na
-#  }
+  if (any(df$edit_na, na.rm = TRUE)) {
+    df[[edit_flag_col]] <- df[[edit_flag_col]] | df$edit_na
+  }
 
   # ===========================================================================
   # Build & append QA/QC log entry
@@ -415,8 +415,8 @@ adjust_logger_NA <- function(
   # ===========================================================================
 
   result <- df |>
-#    dplyr::select(-in_window, -edit_na)
-  dplyr::select(-in_window)
+    dplyr::select(-in_window, -edit_na)
   attr(result, "qaqc_log") <- log_row
   result
 }
+
