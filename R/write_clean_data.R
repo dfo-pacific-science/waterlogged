@@ -188,15 +188,13 @@ write_clean_data <- function(
     dir.create(path_to_output_folder, recursive = TRUE)
   }
 
-  # columns to keep: required + optional (if present) + any flag_/edit_ cols
+  # columns to keep: required + optional (if present) + qc_code
   base_cols <- c(
     cfg$required,
     intersect(cfg$optional, names(input_data))
   )
 
-#  flag_cols <- grep("^flag_", names(input_data), value = TRUE)
-#  edit_cols <- grep("^edit_", names(input_data), value = TRUE)
-
+  # recode flags and edit columns to a single code column
   input_data$qc_code <- "REAL"
 
   # internal helper function to determine if column is present in input data
@@ -217,10 +215,9 @@ write_clean_data <- function(
       (has_col("TEMP_RANGE") && isTRUE(input_data$TEMP_RANGE[i])) ||
       (has_col("NEGATIVE_WT") && has_col("watertemp_C_adj") &&
          isTRUE(input_data$NEGATIVE_WT[i]) && is.na(input_data$watertemp_C_adj[i])) ||
-      (has_col("FLAG_DISTURBANCE") && has_col("edit_na") &&
-         isTRUE(input_data$FLAG_DISTURBANCE[i]) && isTRUE(input_data$edit_na[i])) ||
-      (has_col("FLAG_FLATLINE") && has_col("edit_na") &&
-         isTRUE(input_data$FLAG_FLATLINE[i]) && isTRUE(input_data$edit_na[i]))){
+      (has_col("edit_remove_ice") && isTRUE(input_data$edit_remove_ice[i])) ||
+      (has_col("edit_remove_disturbance") && isTRUE(input_data$edit_remove_disturbance[i]))
+     ){
       input_data$qc_code[i] <- "REMOVED"
     }
 
@@ -236,14 +233,18 @@ write_clean_data <- function(
       (has_col("OUTLIER_DO") && has_col("do_mgl_adj") &&
          isTRUE(input_data$OUTLIER_DO[i]) && input_data$do_mgl_adj[i] == 0) ||
       (has_col("OUTLIER_DO") && has_col("do_percsat_adj") &&
-         isTRUE(input_data$OUTLIER_DO[i]) && input_data$do_percsat_adj[i] == 0)){
+         isTRUE(input_data$OUTLIER_DO[i]) && input_data$do_percsat_adj[i] == 0) ||
+      (has_col("edit_spike_flat") && isTRUE(input_data$edit_spike_flat[i])) ||
+      (has_col("edit_offset") && isTRUE(input_data$edit_offset[i])) ||
+      (has_col("edit_zero") && isTRUE(input_data$edit_zero[i])) ||
+      (has_col("edit_wl_drift") && isTRUE(input_data$edit_wl_drift[i])) ||
+      (has_col("edit_cond_drift") && isTRUE(input_data$edit_cond_drift[i])) ||
+      (has_col("edit_do_drift") && isTRUE(input_data$edit_do_drift[i]))
+      ){
       input_data$qc_code[i] <- "CORRECTED"
     }
 
-    if((has_col("FLAG_RANGE") && has_col("edit_na") &&
-       isTRUE(input_data$FLAG_RANGE[i]) && isTRUE(input_data$edit_na[i])) ||
-      (has_col("FLAG_DRY") && has_col("edit_na") &&
-       isTRUE(input_data$FLAG_DRY[i]) && isTRUE(input_data$edit_na[i]))) {
+    if((has_col("edit_remove_dry") && isTRUE(input_data$edit_remove_dry[i]))) {
       input_data$qc_code[i] <- "DRY"
     }
   }
