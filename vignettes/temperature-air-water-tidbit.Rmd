@@ -282,7 +282,7 @@ Review the changes by re-plotting the adjusted data. You should see that the tim
 plot_qaqc_timeseries( watertemp_data = wt_qc2,
   airtemp_data      = at_qc2,
   select_station = unique(at_data$site_station_code)[1],
-    static=TRUE
+  static=TRUE
 )
 ```
 
