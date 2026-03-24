@@ -603,7 +603,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     heights <- c(heights, 0.20)
 
     # 2) Air temperature QA/QC flags panel
-    at_flag_cols <- c("OUTLIER_AT")
+    at_flag_cols <- c("OUTLIER_AT","FLAG_RANGE")
     at_flags     <- build_flag_long(at_df, at_flag_cols)
 
     if (!is.null(at_flags)) {
@@ -686,7 +686,8 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
       "FLAG_ICE",
       "FLAG_DRY",
       "OUTLIER_WT",
-      "edit_temp_neg_near"
+      "edit_temp_neg_near",
+      "FLAG_RANGE"
     )
     wt_flags <- build_flag_long(wt_df, wt_flag_cols)
 
