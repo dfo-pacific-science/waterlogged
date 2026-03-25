@@ -20,7 +20,9 @@ knitr::opts_chunk$set(
 
 ## Introduction
 
+waterlogged is a data processing package for water data from continuous water data loggers. The goal of water-logged is to streamline the process from raw data to clean data, document quality control processing via logs, and do so without relying on proprietorial software.
 
+This tutorial will guide users through processing data from Onset HOBO barometric pressure loggers (U20).
 
 ## Setup
 
