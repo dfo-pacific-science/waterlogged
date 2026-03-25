@@ -125,7 +125,7 @@ qc_watertemp <- function(input_data,
       FLAG_ICE = flag_ice_vec,
       OUTLIER_WT = wt_high_limit,
       OUTLIER_WT = neg_lt_minus1,
-      OUTLIER_WT  = neg_between,
+      FLAG_RANGE  = neg_between,
       FLAG_DRY = flag_wt_dry_vec
     )
 

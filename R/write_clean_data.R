@@ -219,15 +219,13 @@ write_clean_data <- function(
       (has_col("edit_remove_disturbance") && isTRUE(input_data$edit_remove_disturbance[i]))
      ){
       input_data$qc_code[i] <- "REMOVED"
-    }
-
-    if(is.na(input_data$qc_code[i]) ||
+    }else if(is.na(input_data$qc_code[i]) ||
         (has_col("ERROR_DO") && isTRUE(input_data$ERROR_DO[i]))) {
       input_data$qc_code[i] <- NA
-    }
-
-      if((has_col("NEGATIVE_WT") && has_col("watertemp_C_adj") &&
-         isTRUE(input_data$NEGATIVE_WT[i]) && input_data$watertemp_C_adj[i] == 0) ||
+    }else if((has_col("NEGATIVE_WT") && has_col("watertemp_C_adj") &&
+          isTRUE(input_data$NEGATIVE_WT[i]) && input_data$watertemp_C_adj[i] == 0) ||
+         (has_col("FLAG_RANGE") && has_col("watertemp_C_adj") &&
+          isTRUE(input_data$FLAG_RANGE[i]) && input_data$watertemp_C_adj[i] == 0) ||
       (has_col("OUTLIER_WT") && has_col("watertemp_C_do_adj") &&
          isTRUE(input_data$OUTLIER_WT[i]) && input_data$watertemp_C_do_adj[i] == 0) ||
       (has_col("OUTLIER_DO") && has_col("do_mgl_adj") &&
