@@ -1,7 +1,7 @@
 #' Attach nearest barometric pressure data to logger time series
 #'
 #' Joins barometric pressure (\code{airpress_kPa}) and air temperature
-#' (\code{airtemp_C}) to water level, dissolved oxygen, or conductivity
+#' (\code{airtemp_C}) to waterlevel, dissolved oxygen, or conductivity
 #' time series. The function operates in two modes:
 #'
 #' \describe{
@@ -31,8 +31,8 @@
 #' @param baro_data_path Character scalar. Directory containing BARO CSV files
 #'   (searched recursively). Required when \code{baro_data} is \code{NULL}.
 #' @param metric Character. Which metrics require barometric compensation.
-#'   One of \code{"water level"}, \code{"DO"}, \code{"conductivity"},
-#'   \code{"both"} (water level + DO), or \code{"all"}. Passed to
+#'   One of \code{"waterlevel"}, \code{"DO"}, \code{"conductivity"},
+#'   \code{"both"} (waterlevel + DO), or \code{"all"}. Passed to
 #'   \code{\link{resolve_metrics_param}} for normalisation.
 #' @param max_km Numeric or \code{NULL}. Maximum search radius (km) for
 #'   barometric stations in auto mode. Default is \code{NULL} (no distance
@@ -104,7 +104,7 @@
 add_nearest_baro <- function(input_data,
                              path_to_output_folder = NULL,
                              baro_data_path = NULL,
-                             metric = c("water level", "DO", "conductivity", "both", "all"),
+                             metric = c("waterlevel", "DO", "conductivity", "both", "all"),
                              max_km = NULL,
                              max_stations = 5L,
                              baro_site_selection = "auto",
@@ -418,7 +418,7 @@ add_nearest_baro <- function(input_data,
 
       # ---- Attach metadata columns and join temperature ----
       wide_baro_df_site <- wide_baro_df_site |>
-           dplyr::left_join(baro_temp_df_site, by = "timestamp")
+        dplyr::left_join(baro_temp_df_site, by = "timestamp")
 
       # Warn if composite baro has gaps
       pct <- pct_missing(wide_baro_df_site$airpress_kPa)
