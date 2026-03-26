@@ -56,7 +56,6 @@ qc_watertemp <- function(input_data,
                            select_station,
                            temp_high_limit = 50,
                            temp_low_limit = -1,
-                           temp_zero_correction = -1,
                            temp_ice_threshold_C  = 0.3,
                            temp_high_dry_C       = 25,
                            temp_air_water_diff_C = 2,
@@ -104,7 +103,7 @@ qc_watertemp <- function(input_data,
 
   # ---- 2. Detection rules ---------------------------------------------------
   neg_lt_minus1 <- !is.na(df$watertemp_C) & df$watertemp_C < temp_low_limit
-  neg_between   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_zero_correction & df$watertemp_C < 0
+  neg_between   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_low_limit & df$watertemp_C < 0
   flag_ice_vec  <- !is.na(df$watertemp_C) & df$watertemp_C < temp_ice_threshold_C
   wt_high_limit   <- !is.na(df$watertemp_C) & df$watertemp_C > temp_high_limit
 
@@ -155,7 +154,7 @@ qc_watertemp <- function(input_data,
       flag        = neg_lt_minus1 | neg_between,
       field       = "watertemp_C_adj",
       code        = "NEGATIVE_WT",
-      action_note = paste0("Negative water temperature detected; removed (< ", temp_low_limit,"\u00b0C) or corrected to 0\u00b0C (", temp_zero_correction, " to 0\u00b0C).")
+      action_note = paste0("Negative water temperature detected; removed (< ", temp_low_limit,"\u00b0C) or corrected to 0\u00b0C (", temp_low_limit, " to 0\u00b0C).")
     ),
     list(
       flag        = wt_high_limit,
