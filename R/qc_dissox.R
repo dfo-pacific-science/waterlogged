@@ -71,7 +71,12 @@ qc_dissox <- function(input_data,
                         select_station,
                         do_high_limit_mgl = 30,
                         do_low_limit_mgl = 0,
+                        do_high_flag_mgl = 20,
+                        do_low_flag_mgl = 0,
+                        temp_high_limit = 50,
+                        temp_low_limit = -1,
                         temp_ice_threshold_C = 0.3,
+                        temp_air_water_diff_C = 2,
                         log_root = NULL,
                         user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -140,14 +145,18 @@ qc_dissox <- function(input_data,
 
       # DO flags (using adj as working column)
       ERROR_DO         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
-      do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= -1,
-      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < -1,
+      do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= do_low_limit_mgl,
+      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < do_low_limit_mgl,
       do_high          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_limit_mgl,
+      do_low_flag = !is.na(do_mgl_adj) & do_mgl_adj < do_low_flag_mgl,
+      do_high_flag          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_flag_mgl,
 
       # temperature flags (using adj as working col)
       FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_ice_threshold_C,
-      temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj > -1,
-      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= -1
+      temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit,
+      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_low_limit,
+      wt_high_limit   <- !is.na(watertemp_C_do_adj) & watertemp_C_do_adj > temp_high_limit
+
     )
 
   # ---- 4. Apply DO / temp adjustments (vectorised) ---------------------------
@@ -168,19 +177,21 @@ qc_dissox <- function(input_data,
       watertemp_C_do_adj = dplyr::case_when(
         temp_neg_leq_minus1 ~ NA_real_,
         temp_neg_between    ~ 0,
+        wt_high_limit ~ NA_real_,
         TRUE                ~ watertemp_C_do_adj
       ),
 
        # combine outlier flags
 
       OUTLIER_DO = do_high | do_neg_between | do_neg_lt_minus1,
-      OUTLIER_WT =  temp_neg_between | temp_neg_leq_minus1
-
+      OUTLIER_WT =  temp_neg_between | temp_neg_leq_minus1 | wt_high_limit,
+      FLAG_DRY = do_high_flag,
+      FLAG_RANGE = do_low_flag
        ) |>
     # drop only internal helpers we don't want in the output
     dplyr::select(
-      -do_neg_between, -do_neg_lt_minus1, -do_high,
-      -temp_neg_leq_minus1, -temp_neg_between
+      -do_neg_between, -do_neg_lt_minus1, -do_high, -do_high_flag, - do_low_flag,
+      -temp_neg_leq_minus1, -temp_neg_between, - wt_high_limit
     )
 
 
@@ -194,29 +205,13 @@ qc_dissox <- function(input_data,
       window_do   <- output_data$do_percsat_adj[j:(j + 11)]
 
       if (any(!is.na(window_diff)) && any(!is.na(window_do))) {
-        if (max(abs(window_diff), na.rm = TRUE) <= 2 &&
+        if (max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C &&
             min(window_do, na.rm = TRUE) >= 100) {
           output_data$FLAG_DRY[j:(j + 11)] <- TRUE
         }
       }
     }
   }
-
-
-  output_data$FLAG_RANGE <- FALSE
-
-  if (n >= 12) {
-    for (j in 1:(n - 11)) {
-      window_do   <- output_data$do_mgl_adj[j:(j + 11)]
-
-      if (any(!is.na(window_do))) {
-        if (min(window_do, na.rm = TRUE) >= 20) {
-          output_data$FLAG_RANGE[j:(j + 11)] <- TRUE
-        }
-      }
-    }
-  }
-
 
  # drop only internal helpers we don't want in the output
   output_data <- output_data |>
@@ -244,14 +239,14 @@ qc_dissox <- function(input_data,
       flag        = output_data$OUTLIER_DO %in% TRUE,
       field       = "do_mgl_adj",
       code        = "OUTLIER_DO",
-      action_note = paste0("DO greater than ", do_high_limit_mgl, " mg/L removed (DO and %sat set to NA). Negative DO corrected to 0 (-1 to 0 mg/L) or removed (< 1 mg/L)")
+      action_note = paste0("DO greater than ", do_high_limit_mgl, " mg/L removed (DO and %sat set to NA). DO < ", do_low_limit_mgl, " removed and DO values between ", do_low_limit_mgl, " and 0 corrected to 0.")
     ),
     # temperature-driven rules
     list(
       flag        = output_data$OUTLIER_WT %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "OUTLIER_WT",
-      action_note = "Negative water temperature detected; removed (< -1 C) or corrected to 0C (-1 to 0 C)."
+      action_note = paste0("WT greater than ", temp_high_limit, " removed. WT < ", temp_low_limit, " removed and WT values between ", temp_low_limit, " and 0 corrected to 0.")
     ),
     list(
       flag        = output_data$FLAG_ICE %in% TRUE,
@@ -266,12 +261,11 @@ qc_dissox <- function(input_data,
       code        = "FLAG_DRY",
       action_note = "Possible dry sensor: DO %sat >= 100 and air-water temps within 2 \u00b0C for >= 12 points."
     ),
-    # range flag (12-point rule) - DO-specific
     list(
       flag        = output_data$FLAG_RANGE %in% TRUE,
       field       = "do_mgl_adj",
       code        = "FLAG_RANGE",
-      action_note = "Sensor reading outside calibration range: DO between 20 and 30 mg/L for >= 12 points."
+      action_note = paste0("Possible sensor error: DO < ", do_low_flag_mgl," ; flagged for review" )
     )
   )
 
