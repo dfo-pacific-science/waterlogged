@@ -59,7 +59,7 @@ Define paths to the test data.
 
 ```{r paths}
 metadata_file  <- system.file("extdata/metadata/metadata.csv", package = "waterlogged")
-baro_folder    <- system.file("extdata/barometric_pressure", package = "waterlogged")
+baro_folder    <- system.file("extdata/barometric_pressure/raw", package = "waterlogged")
 log_root_folder <- tempdir()
 ```
 
@@ -209,7 +209,7 @@ print(summary(baro_qc$airtemp_C_adj))
 
 ```{r export, eval=FALSE}
 write_clean_data(
-  input_data            = baro_qc,
+  input_data            = baro_qc1,
   path_to_output_folder = output,
   metric                = "barometric"
 )
