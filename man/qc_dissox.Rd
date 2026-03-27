@@ -9,7 +9,12 @@ qc_dissox(
   select_station,
   do_high_limit_mgl = 30,
   do_low_limit_mgl = 0,
+  do_high_flag_mgl = 20,
+  do_low_flag_mgl = 0,
+  temp_high_limit = 50,
+  temp_low_limit = -1,
   temp_ice_threshold_C = 0.3,
+  temp_air_water_diff_C = 2,
   log_root = NULL,
   user = NULL
 )
@@ -32,8 +37,24 @@ Values above this are set to \code{NA}. Default \code{30}.}
 between \code{-1} and \code{0} are corrected to \code{0}; values below
 \code{-1} are set to \code{NA}. Default \code{0}.}
 
+\item{do_high_flag_mgl}{Upper bound (mg/L) for flag dry dissolved oxygen.
+Values above this are flagged as \code{FLAG_DRY}. Default \code{20}.}
+
+\item{do_low_flag_mgl}{Lower bound (mg/L) for flag range dissolved oxygen; values below
+\code{do_low_flag_mgl} and \code(0) are flagged as \code{FLAG_RANGE}. Default \code{0}.}
+
+\item{temp_high_limit}{Upper bound (C) for plausible water temperature.
+Values above this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
+
+\item{temp_low_limit}{Lower bound (C) for plausible water temperature. Default \code{-1}.
+Values below this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.}
+
 \item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
 are flagged. Default \code{0.3}.}
+
+\item{temp_air_water_diff_C}{Absolute difference (C) between water and air
+temperature below which a dry sensor is suspected (when \code{airtemp_C}
+is present). Default \code{2}.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via

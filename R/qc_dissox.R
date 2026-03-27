@@ -36,8 +36,19 @@
 #' @param do_low_limit_mgl Lower bound (mg/L) for dissolved oxygen. Values
 #'   between \code{-1} and \code{0} are corrected to \code{0}; values below
 #'   \code{-1} are set to \code{NA}. Default \code{0}.
+#' @param do_high_flag_mgl Upper bound (mg/L) for flag dry dissolved oxygen.
+#'   Values above this are flagged as \code{FLAG_DRY}. Default \code{20}.
+#' @param do_low_flag_mgl Lower bound (mg/L) for flag range dissolved oxygen; values below
+#'   \code{do_low_flag_mgl} and \code(0) are flagged as \code{FLAG_RANGE}. Default \code{0}.
 #' @param temp_ice_threshold_C Water temperature (C) below which ice conditions
 #'   are flagged. Default \code{0.3}.
+#' @param temp_air_water_diff_C Absolute difference (C) between water and air
+#'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
+#'   is present). Default \code{2}.
+#' @param temp_low_limit Lower bound (C) for plausible water temperature. Default \code{-1}.
+#'   Values below this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+#' @param temp_high_limit Upper bound (C) for plausible water temperature.
+#'   Values above this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
 #' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
 #'   log files. When non-\code{NULL}, a log CSV is written via
 #'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
@@ -146,16 +157,16 @@ qc_dissox <- function(input_data,
       # DO flags (using adj as working column)
       ERROR_DO         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
       do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= do_low_limit_mgl,
-      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < do_low_limit_mgl,
-      do_high          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_limit_mgl,
+      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj <= do_low_limit_mgl,
+      do_high          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_limit_mgl,
       do_low_flag = !is.na(do_mgl_adj) & do_mgl_adj < do_low_flag_mgl,
-      do_high_flag          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_flag_mgl,
+      do_high_flag          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_flag_mgl,
 
       # temperature flags (using adj as working col)
       FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_ice_threshold_C,
       temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit,
-      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_low_limit,
-      wt_high_limit   <- !is.na(watertemp_C_do_adj) & watertemp_C_do_adj > temp_high_limit
+      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_low_limit,
+      wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj >= temp_high_limit
 
     )
 
@@ -177,7 +188,7 @@ qc_dissox <- function(input_data,
       watertemp_C_do_adj = dplyr::case_when(
         temp_neg_leq_minus1 ~ NA_real_,
         temp_neg_between    ~ 0,
-        wt_high_limit ~ NA_real_,
+        wt_high_limit       ~ NA_real_,
         TRUE                ~ watertemp_C_do_adj
       ),
 

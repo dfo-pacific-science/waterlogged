@@ -46,7 +46,7 @@ and stores them in:
   <path_to_output_folder>/<year>/processed/
 }
 
-Input data must already be QA/QC'd and standardized to metric-based
+Input baro data must already be QA/QC'd and input do data must be standardized to metric-based
 column names:
 \itemize{
 \item \code{timestamp}        (POSIXct, UTC)
