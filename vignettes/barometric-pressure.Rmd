@@ -140,7 +140,8 @@ How to read the plot:
 ```{r visual-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   baro_data      = baro_qc,
-  select_station = unique(baro_data$site_station_code)[1]
+  select_station = unique(baro_data$site_station_code)[1],
+    static=TRUE
 )
 ```
 
