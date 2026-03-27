@@ -87,16 +87,10 @@ qc_watertemp <- function(input_data,
     df$timestamp <- lubridate::ymd_hms(df$timestamp, tz = "UTC")
   }
 
-  at_cols <- c("airtemp_C", "airtemp_C_adj")
-  has_airtemp <- any(at_cols %in% names(df))
+  has_airtemp <- "airtemp_C" %in% names(df)
 
   # Create adjusted column if missing
   if (!"watertemp_C_adj" %in% names(df)) df$watertemp_C_adj <- df$watertemp_C
-  # prioritize use of adj if present, rename to airtemp_C for simplicity
-  if (all(at_cols %in% names(df))) {
-    df<- subset(df, select=-c(airtemp_C))
-    df$airtemp_C <- df$airtemp_C_adj
-    }
 
   # Create flag/edit cols if missing
   new_flags <- c("FLAG_ICE", "FLAG_DRY", "OUTLIER_WT")
@@ -106,7 +100,18 @@ qc_watertemp <- function(input_data,
   neg_lt_minus1 <- !is.na(df$watertemp_C) & df$watertemp_C < temp_low_limit
   neg_between   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_zero_correction & df$watertemp_C < 0
   flag_ice_vec  <- !is.na(df$watertemp_C) & df$watertemp_C < temp_ice_threshold_C
+  wt_high_dry   <- !is.na(df$watertemp_C) & df$watertemp_C > temp_high_dry_C
   wt_high_limit   <- !is.na(df$watertemp_C) & df$watertemp_C > temp_high_limit
+
+  if (has_airtemp) {
+    wt_air_close  <- !is.na(df$watertemp_C) & !is.na(df$airtemp_C) &
+      abs(df$watertemp_C - df$airtemp_C) < temp_air_water_diff_C
+    wt_air_warmer <- !is.na(df$watertemp_C) & !is.na(df$airtemp_C) &
+      (df$airtemp_C - df$watertemp_C) > 0
+    flag_wt_dry_vec <- wt_high_dry | wt_air_close | wt_air_warmer
+  } else {
+    flag_wt_dry_vec <- wt_high_dry
+  }
 
   # ---- 3. Apply adjustments -------------------------------------------------
   df <- df |>
@@ -121,29 +126,8 @@ qc_watertemp <- function(input_data,
       OUTLIER_WT = wt_high_limit,
       OUTLIER_WT = neg_lt_minus1,
       FLAG_RANGE  = neg_between,
-      FLAG_DRY = wt_high_limit)
-
-  if(has_airtemp==TRUE){
-    df <- df |>
-      dplyr::mutate(
-    # temp difference for dryness test (using current temp adj)
-    air_watertemp_diff = airtemp_C - watertemp_C)
-  }
-
-  # ---- 12-point sustained air-water overlap ---------------------------------
-  n <- nrow(df)
-
-  if (n >= 12) {
-    for (j in 1:(n - 11)) {
-      window_diff <- df$air_watertemp_diff[j:(j + 11)]
-      if (any(!is.na(window_diff))) {
-        if (max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C) {
-          df$FLAG_DRY[j:(j + 11)] <- TRUE
-        }
-      }
-    }
-  }
-
+      FLAG_DRY = flag_wt_dry_vec
+    )
 
   # ---- 4. Log entries -------------------------------------------------------
   metric   <- "WT"
@@ -171,7 +155,7 @@ qc_watertemp <- function(input_data,
                            temp_ice_threshold_C, "\u00b0C; flagged for review.")
     ),
     list(
-      flag        = df$FLAG_DRY %in% TRUE,
+      flag        = flag_wt_dry_vec,
       field       = "watertemp_C_adj",
       code        = "FLAG_DRY",
       action_note = paste0("Possible dry sensor: water temperature > ",
