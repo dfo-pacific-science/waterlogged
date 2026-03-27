@@ -39,7 +39,7 @@
 #' @param do_high_flag_mgl Upper bound (mg/L) for flag dry dissolved oxygen.
 #'   Values above this are flagged as \code{FLAG_DRY}. Default \code{20}.
 #' @param do_low_flag_mgl Lower bound (mg/L) for flag range dissolved oxygen; values below
-#'   \code{do_low_flag_mgl} and \code(0) are flagged as \code{FLAG_RANGE}. Default \code{0}.
+#'   \code{do_low_flag_mgl} and \code{0} are flagged as \code{FLAG_RANGE}. Default \code{0}.
 #' @param temp_ice_threshold_C Water temperature (C) below which ice conditions
 #'   are flagged. Default \code{0.3}.
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
@@ -121,9 +121,9 @@ qc_dissox <- function(input_data,
     return(output_data)
   }
 
-  # Ensure timestamp is POSIXct
+  # parse timestamps
   if (!inherits(output_data$timestamp, "POSIXct")) {
-    output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
+    output_data$timestamp <- parse_dt(output_data$timestamp, "timestamp")
   }
 
   # ---- 2. Initialise internal temp fields + *_adj columns --------------------
@@ -163,7 +163,7 @@ qc_dissox <- function(input_data,
       do_high_flag          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_flag_mgl,
 
       # temperature flags (using adj as working col)
-      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_ice_threshold_C,
+      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_ice_threshold_C,
       temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit,
       temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_low_limit,
       wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj >= temp_high_limit

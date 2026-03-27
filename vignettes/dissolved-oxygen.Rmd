@@ -67,8 +67,8 @@ The HOBO U26 records two channels: DO concentration in mg/L and water temperatur
 
 ```{r bind-do}
 do_bound <- bind_hobo_files(
-  path_to_raw_folder = dissox_folder,
-  metadata_path      = metadata_file
+  path_to_raw_folder = do_folder,
+  metadata      = metadata_file
 )
 
 do_data <- do_bound[[1]]
@@ -102,11 +102,11 @@ do_with_baro <- add_nearest_baro(
   input_data          = do_data,
   baro_data_path      = baro_folder,
   metric              = "DO",
-  metadata_path       = metadata_file,
+  metadata       = metadata_file,
   path_to_output_folder = output
 )
 
-do_data <- do_with_baro[[1]]
+do_data2 <- do_with_baro[[1]]
 
 cat("After baro attach:", nrow(do_data2), "rows\n")
 cat("Baro station(s) used:",

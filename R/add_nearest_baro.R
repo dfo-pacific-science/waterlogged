@@ -135,9 +135,8 @@ add_nearest_baro <- function(input_data,
   # ===========================================================================
 
   if (!inherits(input_data$timestamp, "POSIXct")) {
-    input_data$timestamp <- lubridate::ymd_hms(input_data$timestamp, tz = "UTC")
+    input_data$timestamp <- parse_dt(input_data$timestamp, "timestamp")
   }
-
   # ===========================================================================
   # Resolve & normalize metrics
   # ===========================================================================
@@ -236,10 +235,11 @@ add_nearest_baro <- function(input_data,
     wide_baro_df <- baro_df |>
       dplyr::arrange(timestamp) |>
       dplyr::mutate(
-        baro_site_stn_code = baro_stn,
-        baro_qaqc_adj      = NA_character_,
-        baro_qaqc_note     = "manual barometric selection",
-        baro_qaqc_code     = "MANUAL_BARO"
+        baro_site_stn_code = baro_stn
+        #,
+        #baro_qaqc_adj      = NA_character_,
+        #baro_qaqc_note     = "manual barometric selection",
+        #baro_qaqc_code     = "MANUAL_BARO"
       )
 
     # ---- Left-join to input data ----
@@ -248,7 +248,8 @@ add_nearest_baro <- function(input_data,
         wide_baro_df |>
           dplyr::select(
             timestamp, airpress_kPa, airtemp_C,
-            baro_site_stn_code, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
+            baro_site_stn_code
+            #, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
           ),
         by = "timestamp"
       ) |>
@@ -421,11 +422,11 @@ add_nearest_baro <- function(input_data,
 
       # ---- Attach metadata columns and join temperature ----
       wide_baro_df_site <- wide_baro_df_site |>
-        dplyr::mutate(
-          baro_qaqc_adj  = NA_character_,
-          baro_qaqc_note = NA_character_,
-          baro_qaqc_code = NA_character_
-        ) |>
+     #   dplyr::mutate(
+    #      baro_qaqc_adj  = NA_character_,
+     #     baro_qaqc_note = NA_character_,
+      #    baro_qaqc_code = NA_character_
+       # ) |>
         dplyr::left_join(baro_temp_df_site, by = "timestamp")
 
       # Warn if composite baro has gaps
@@ -440,7 +441,8 @@ add_nearest_baro <- function(input_data,
           wide_baro_df_site |>
             dplyr::select(
               timestamp, airpress_kPa, airtemp_C,
-              baro_site_stn_code, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
+              baro_site_stn_code
+              #, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
             ),
           by = "timestamp"
         ) |>

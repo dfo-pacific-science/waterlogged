@@ -41,7 +41,7 @@ between \code{-1} and \code{0} are corrected to \code{0}; values below
 Values above this are flagged as \code{FLAG_DRY}. Default \code{20}.}
 
 \item{do_low_flag_mgl}{Lower bound (mg/L) for flag range dissolved oxygen; values below
-\code{do_low_flag_mgl} and \code(0) are flagged as \code{FLAG_RANGE}. Default \code{0}.}
+\code{do_low_flag_mgl} and \code{0} are flagged as \code{FLAG_RANGE}. Default \code{0}.}
 
 \item{temp_high_limit}{Upper bound (C) for plausible water temperature.
 Values above this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
