@@ -11,14 +11,14 @@
 #'
 #' Normalizes and validates the \code{metric} argument used in
 #' \code{add_nearest_baro()}, ensuring it is one of \code{"DO"},
-#' \code{"waterlevel"}, \code{"conductivity"}, \code{"both"}, or \code{"all"}.
+#' \code{"water level"}, \code{"conductivity"}, \code{"both"}, or \code{"all"}.
 #' Returns a list describing the normalized input and the set of metric keys
 #' that require barometric data.
 #'
 #' @param metrics A single character string specifying which metrics require
-#'   barometric data. Accepted values: \code{"DO"}, \code{"waterlevel"},
-#'   \code{"conductivity"}, \code{"both"} (waterlevel + DO), or \code{"all"}
-#'   (waterlevel + DO + conductivity).
+#'   barometric data. Accepted values: \code{"DO"}, \code{"water level"},
+#'   \code{"conductivity"}, \code{"both"} (water level + DO), or \code{"all"}
+#'   (water level + DO + conductivity).
 #'
 #' @return A list with components:
 #'   \itemize{
@@ -31,7 +31,7 @@
 #' @keywords internal
 resolve_metrics_param <- function(metrics) {
   if (length(metrics) != 1L) {
-    stop("`metrics` must be a single value ('DO', 'waterlevel', 'conductivity', 'both', or 'all'), ",
+    stop("`metrics` must be a single value ('DO', 'water level', 'conductivity', 'both', or 'all'), ",
          "not a vector of length ", length(metrics), ".",
          call. = FALSE)
   }
@@ -40,7 +40,7 @@ resolve_metrics_param <- function(metrics) {
 
   valid_inputs <- c("do", "waterlevel", "conductivity", "both", "all")
   if (!metrics_raw %in% valid_inputs) {
-    stop("`metrics` must be one of: 'DO', 'waterlevel', 'conductivity', 'both', or 'all'. You supplied: ",
+    stop("`metrics` must be one of: 'DO', 'water level', 'conductivity', 'both', or 'all'. You supplied: ",
          metrics, call. = FALSE)
   }
 
