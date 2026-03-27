@@ -235,6 +235,7 @@ qc_conductivity <- function(
       field       = "watertemp_C_adj",
       code        = "OUTLIER_WT",
       action_note = paste0("Water temperature between ", temp_low_limit_C, "and 0 \u00b0C corrected to 0 \u00b0C."
+      )
     ),
     # Out-of-range temps (low or high)
     list(
