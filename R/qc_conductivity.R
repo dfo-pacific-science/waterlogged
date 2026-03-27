@@ -21,7 +21,7 @@
 #'   \item{\code{FLAG_DRY}}{Sliding 12-point window where conductivity <=
 #'     \code{dry_threshold_uScm} and air--water
 #'     temperature difference <=
-#'     \code{air_water_diff_threshold_C}; flagged as probable dry sensor.}
+#'     \code{temp_air_water_diff_C}; flagged as probable dry sensor.}
 #' }
 #'
 #' @param input_data A data frame of conductivity logger observations.
@@ -54,7 +54,7 @@
 #'   \code{200}.
 #' @param dry_threshold_uScm Numeric. Conductivity below this value is
 #'   considered a probable dry sensor. Default \code{10}.
-#' @param air_water_diff_threshold_C Numeric. Maximum absolute air--water
+#' @param temp_air_water_diff_C Numeric. Maximum absolute air--water
 #'   temperature difference to support the dry-sensor inference (requires
 #'   \code{airtemp_C} column). Default \code{2}.
 #'
@@ -82,18 +82,15 @@ qc_conductivity <- function(
     select_station,
     log_root = NULL,
     user                       = NULL,
-    temp_low_limit_C           = -2,
-    temp_high_limit_C          = 40,
+    temp_low_limit_C           = -1,
+    temp_high_limit_C          = 50,
     temp_ice_threshold_C       = 0.3,
     disturbance_threshold_uScm = 200,
     dry_threshold_uScm         = 10,
-    air_water_diff_threshold_C = 2
+    temp_air_water_diff_C      = 2
 ) {
   if (is.null(user)) user <- Sys.info()[["user"]]
-  # ---------------------------------------------------------------------------
-  # Hard-coded small-temp rules:
-  #   * Slightly negative water temperatures between -1 and 0 deg C are set to 0 deg C.
-  # ---------------------------------------------------------------------------
+
 
   # ---- 1. Filter & basic checks ---------------------------------------------
   df <- input_data |>
@@ -115,7 +112,7 @@ qc_conductivity <- function(
 
   # Ensure timestamp is POSIXct
   if (!inherits(df$timestamp, "POSIXct")) {
-    df$timestamp <- lubridate::ymd_hms(df$timestamp, tz = "UTC")
+    df$timestamp <- parse_dt(df$timestamp, "timestamp")
   }
 
   # ---- 2. Create adjusted columns if missing --------------------------------
@@ -130,7 +127,7 @@ qc_conductivity <- function(
   # Temperature conditions
   temp_range <- df$watertemp_C_adj < temp_low_limit_C | df$watertemp_C_adj > temp_high_limit_C
   temp_ice   <- df$watertemp_C_adj < temp_ice_threshold_C
-  near_zero <-  df$watertemp_C_adj < 0 & df$watertemp_C_adj > -1
+  near_zero  <- df$watertemp_C_adj < 0 & df$watertemp_C_adj > temp_low_limit_C
 
 
   # Conductivity spike (use adj)
@@ -141,7 +138,9 @@ qc_conductivity <- function(
   very_low_cond <- df$conduct_uScm_adj < dry_threshold_uScm
 
   # Air-water support for dry inference (optional)
-  if ("airtemp_C" %in% names(df)) {
+  if ("airtemp_C_adj" %in% names(df)) {
+    df$air_watertemp_diff <- abs(df$airtemp_C_adj - df$watertemp_C_adj)
+  } else if ("airtemp_C" %in% names(df)) {
     df$air_watertemp_diff <- abs(df$airtemp_C - df$watertemp_C_adj)
   } else {
     df$air_watertemp_diff <- NA_real_
@@ -162,19 +161,36 @@ qc_conductivity <- function(
       FLAG_RANGE            = temp_range,
       OUTLIER_WT            = near_zero
     )
-  # ---- 5. 12-point dry flag (FLAG_DRY) using adj DO -----------------------
+  # ---- 5. 12-point dry flag (FLAG_DRY) using adj CO -----------------------
   n <- nrow(df)
   df$FLAG_DRY <- FALSE
 
-  if (n >= 12) {
-    for (j in 1:(n - 11)) {
-      window_diff <- df$air_watertemp_diff[j:(j + 11)]
-      window_co   <- df$conduct_uScm_adj[j:(j + 11)]
+  # Check if the dataset has air temp
+  has_air_temp <- any(!is.na(df$air_watertemp_diff))
 
-      if (any(!is.na(window_diff)) && any(!is.na(window_co))) {
-        if (max(abs(window_diff), na.rm = TRUE) <= air_water_diff_threshold_C &&
-            min(window_co, na.rm = TRUE) <= dry_threshold_uScm) {
-          df$FLAG_DRY[j:(j + 11)] <- TRUE
+  if (n >= 12) {
+    if (has_air_temp) {
+      # RULE 1: Air temp is present. Use both conductivity and air temp thresholds.
+      for (j in 1:(n - 11)) {
+        window_co   <- df$conduct_uScm_adj[j:(j + 11)]
+        window_diff <- df$air_watertemp_diff[j:(j + 11)]
+
+        if (any(!is.na(window_co)) && any(!is.na(window_diff))) {
+          if (min(window_co, na.rm = TRUE) <= dry_threshold_uScm &&
+              max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C) {
+            df$FLAG_DRY[j:(j + 11)] <- TRUE
+          }
+        }
+      }
+    } else {
+      # RULE 2: Air temp is absent. Use only the conductivity threshold.
+      for (j in 1:(n - 11)) {
+        window_co <- df$conduct_uScm_adj[j:(j + 11)]
+
+        if (any(!is.na(window_co))) {
+          if (min(window_co, na.rm = TRUE) <= dry_threshold_uScm) {
+            df$FLAG_DRY[j:(j + 11)] <- TRUE
+          }
         }
       }
     }
@@ -218,7 +234,7 @@ qc_conductivity <- function(
       flag        = df$OUTLIER_WT %in% TRUE,
       field       = "watertemp_C_adj",
       code        = "OUTLIER_WT",
-      action_note = "Water temperature between -1 and 0 \u00b0C corrected to 0 \u00b0C."
+      action_note = paste0("Water temperature between ", temp_low_limit_C, "and 0 \u00b0C corrected to 0 \u00b0C."
     ),
     # Out-of-range temps (low or high)
     list(
