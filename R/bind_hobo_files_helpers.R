@@ -86,28 +86,29 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL, tz = "UTC") {
     }
 
     # 4) Parse timestamps (expect mdy_hm; auto-UTC)
-    parse_dt <- function(x, col_name = "timestamp") {
-      if (inherits(x, "POSIXct")) return(x)
-      x_chr     <- as.character(x)
-      all_blank <- is.na(x_chr) | trimws(x_chr) %in% c("", "NA")
-      # All values are blank/NA — valid for still-deployed loggers (timestamp_remove)
-      if (all(all_blank)) {
-        return(as.POSIXct(rep(NA_character_, length(x_chr)), tz = tz))
-      }
-      p1 <- try(lubridate::mdy_hm(x_chr, tz = tz, quiet = TRUE), silent = TRUE)
-      if (!inherits(p1, "try-error") && !all(is.na(p1[!all_blank]))) return(p1)
-      p2 <- suppressWarnings(
-        lubridate::parse_date_time(
-          x_chr,
-          orders = c("mdy HM", "mdy HMS", "mdY HM", "mdY HMS", "ymd HM", "ymd HMS"),
-          tz = tz
-        )
-      )
-      if (all(is.na(p2[!all_blank]))) {
-        stop("Failed to parse '", col_name, "' column. Expected format like '4/30/2025 13:45' (", tz, ").")
-      }
-      p2
-    }
+    # Following is deprecated; refer to parse_dt in utils.R
+    # parse_dt <- function(x, col_name = "timestamp") {
+    #   if (inherits(x, "POSIXct")) return(x)
+    #   x_chr     <- as.character(x)
+    #   all_blank <- is.na(x_chr) | trimws(x_chr) %in% c("", "NA")
+    #   # All values are blank/NA — valid for still-deployed loggers (timestamp_remove)
+    #   if (all(all_blank)) {
+    #     return(as.POSIXct(rep(NA_character_, length(x_chr)), tz = tz))
+    #   }
+    #   p1 <- try(lubridate::mdy_hm(x_chr, tz = tz, quiet = TRUE), silent = TRUE)
+    #   if (!inherits(p1, "try-error") && !all(is.na(p1[!all_blank]))) return(p1)
+    #   p2 <- suppressWarnings(
+    #     lubridate::parse_date_time(
+    #       x_chr,
+    #       orders = c("mdy HM", "mdy HMS", "mdY HM", "mdY HMS", "ymd HM", "ymd HMS"),
+    #       tz = tz
+    #     )
+    #   )
+    #   if (all(is.na(p2[!all_blank]))) {
+    #     stop("Failed to parse '", col_name, "' column. Expected format like '4/30/2025 13:45' (", tz, ").")
+    #   }
+    #   p2
+    # }
     metadata$timestamp_deploy <- parse_dt(metadata$timestamp_deploy, "timestamp_deploy")
     metadata$timestamp_remove <- parse_dt(metadata$timestamp_remove, "timestamp_remove")
 
