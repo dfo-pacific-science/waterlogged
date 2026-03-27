@@ -241,19 +241,29 @@ The default thresholds for water temperature are as follows:
 - temp_zero_correction: Temperature readings between this value and 0°C will be corrected to 0°C and flagged as FLAG_RANGE. Default is -1°C.
 -	temp_ice_threshold_C: Temperature readings below this value will be flagged as FLAG_ICE. Default is 0.3°C.
 -	temp_high_dry_C: Temperature readings above this value will be flagged as FLAG_DRY. Default is 25°C.
--	temp_air_water_diff_C: Temperature readings of water temperature and air temperature that overlap by this amount for 12 consecutive readings will be flagged as FLAG_DRY. Default is a difference of 2°C. 
-                           
+-	temp_air_water_diff_C: Optional: Temperature readings of water temperature and air temperature that overlap by this amount for 12 consecutive readings will be flagged as FLAG_DRY. Default is a difference of 2°C. This requires an additional column, airtemp_C, to be present in the input data. If no airtemp_C column present, no flags will be created. 
+
+Since we have air temperature from the previous section, we can add it into the water temperature data to help identify dry periods. 
+
+```{r wt-at-join}
+at_qc3 <- at_qc2 |> dplyr::select(timestamp, airtemp_C)
+wt_data2 <- dplyr::left_join(wt_data, at_qc3, by = "timestamp")
+
+```
+
+Note: We want air and water temperature values within 1C of each other over 12 hours to be flagged, so we change the default value of 2 in the qc_watertemp function.                            
 
 ```{r wt-qaqc}
 wt_qc <- qc_watertemp(
-  input_data = wt_data,
+   input_data = wt_data2,
    log_root = log_root_folder,
-  select_station = unique(wt_data$site_station_code)[1]
+   temp_air_water_diff_C=1,
+   select_station = unique(wt_data$site_station_code)[1]
 )
 
 cat("WT QAQC complete:", nrow(wt_qc), "rows\n")
 cat("  Water Temp. outliers:      ", sum(wt_qc$OUTLIER_WT, na.rm = TRUE), "\n")
-cat("  Water Temp. FLAG_RANGE:      ", sum(wt_qc$FLAG_RANGE, na.rm = TRUE), "\n")
+cat("  Water Temp. corrected to 0:      ", sum(wt_qc$FLAG_RANGE, na.rm = TRUE), "\n")
 cat("  Water Temp. FLAG_ICE:      ", sum(wt_qc$FLAG_ICE, na.rm = TRUE), "\n")
 cat("  Water Temp. FLAG_DRY:      ", sum(wt_qc$FLAG_DRY, na.rm = TRUE), "\n")
 
@@ -265,8 +275,7 @@ If you have two different logger types at the same station, you can plot both to
 
 ```{r visual-review3, fig.height=10, fig.width=7}
 plot_qaqc_timeseries( watertemp_data = wt_qc,
-  airtemp_data      = at_qc2,
-  select_station = unique(at_data$site_station_code)[1], 
+  select_station = unique(at_data$site_station_code)[1],
   static = TRUE
 )
 ```
@@ -304,29 +313,59 @@ Review the changes by re-plotting the adjusted data. You should see that the tim
 
 ```{r visual-review4, fig.height=10, fig.width=7}
 plot_qaqc_timeseries( watertemp_data = wt_qc2,
-  airtemp_data      = at_qc2,
   select_station = unique(at_data$site_station_code)[1],
   static=TRUE
 )
 ```
 
-Comparing the summaries of the raw to adjusted values, by removing the ice period, we now have a minimum water temperature of 0C, rather than -11C, which is a much more reasonable range for water temperature. 
+## Identifying dry periods
+
+watertemp_qc provides automatic flags for likely dry periods using default or user-defined limits. These flags should be inspected before removing data outliers.
+
+In the plotly figure, we can see a FLAG_DRY that coincides with a large spike in water temperature in July. Zoom in on this time period in the water temperature figure to inspect it. The diurnal range of water temperature overlaps completely with the diurnal range of air temperature, and this is sustained for a long period of time: 2024-07-07 11:00:00 to 2024-07-25 13:00:00. This is clearly a period of time where the logger was dry and water temperature data should be removed. 
+
+![Example of using qc_watertemp flags to identify dry periods in water temperature. Hovering the cursor over the last FLAG_DRY marker gives the timestamp we will use for adjust_logger_NA(timestamp_end = "2024-07-25 13:00:00").](qc_watertemp_dry_example.png)
+
+The other periods of dry flags do not show the same magnitude and duration of overlap and can be ignored. 
+
+```{r adjust-wt, fig.height=10, fig.width=7}
+wt_qc3 <- adjust_logger_NA(
+  input_data       = wt_qc2,
+  select_station   = unique(wt_data$site_station_code)[1],
+  metric           = "watertemp",
+  reason_to_adjust = "dry",
+  timestamp_start  = " 2024-07-07 11:00:00", 
+  timestamp_end    = "2024-07-25 13:00:00", 
+  manual_note      = "Accept dry flags. Range of diurnal water temperature overlaps with air temperature for multiple days, indicates dry sensor.",
+  log_root = log_root_folder
+)
+
+```
+
+```{r visual-review5, fig.height=10, fig.width=7}
+plot_qaqc_timeseries( watertemp_data = wt_qc3,
+  select_station = unique(at_data$site_station_code)[1],
+  static=TRUE
+)
+```
+
+Compare the summaries of the raw to adjusted values after removing the ice and dry periods. We now have a minimum water temperature of 0C, rather than -11C, and a maximum water temperature of 18C, rather than 36C, which is a much more reasonable range for water temperature. 
 
 ```{r final-summary2}
-cat("Final dataset:", nrow(wt_qc2), "rows x", ncol(wt_qc2), "columns\n\n")
+cat("Final dataset:", nrow(wt_qc3), "rows x", ncol(wt_qc3), "columns\n\n")
 
 cat("\nSummary of raw WT (degrees C):\n")
-print(summary(wt_qc2$watertemp_C))
+print(summary(wt_qc3$watertemp_C))
 
 cat("\nSummary of adjusted WT (degrees C):\n")
-print(summary(wt_qc2$watertemp_C_adj))
+print(summary(wt_qc3$watertemp_C_adj))
 ```
 
 The QC'd data can be exported as clean data to the desired output location. 
 
 ```{r export2, eval=FALSE}
 write_clean_data(
-  input_data            = wt_qc2,
+  input_data            = wt_qc3,
   path_to_output_folder = output,
   metric                = "watertemp"
 )
