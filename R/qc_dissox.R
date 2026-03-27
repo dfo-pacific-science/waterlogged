@@ -81,7 +81,7 @@
 qc_dissox <- function(input_data,
                         select_station,
                         do_high_limit_mgl = 30,
-                        do_low_limit_mgl = 0,
+                        do_low_limit_mgl = -1,
                         do_high_flag_mgl = 20,
                         do_low_flag_mgl = 0,
                         temp_high_limit = 50,
@@ -157,7 +157,7 @@ qc_dissox <- function(input_data,
       # DO flags (using adj as working column)
       ERROR_DO         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
       do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= do_low_limit_mgl,
-      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj <= do_low_limit_mgl,
+      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < do_low_limit_mgl,
       do_high          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_limit_mgl,
       do_low_flag = !is.na(do_mgl_adj) & do_mgl_adj < do_low_flag_mgl,
       do_high_flag          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_flag_mgl,
@@ -165,7 +165,7 @@ qc_dissox <- function(input_data,
       # temperature flags (using adj as working col)
       FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_ice_threshold_C,
       temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit,
-      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_low_limit,
+      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_low_limit,
       wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj >= temp_high_limit
 
     )

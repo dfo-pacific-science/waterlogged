@@ -8,7 +8,7 @@ qc_dissox(
   input_data,
   select_station,
   do_high_limit_mgl = 30,
-  do_low_limit_mgl = 0,
+  do_low_limit_mgl = -1,
   do_high_flag_mgl = 20,
   do_low_flag_mgl = 0,
   temp_high_limit = 50,

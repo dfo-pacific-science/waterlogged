@@ -106,7 +106,7 @@ do_with_baro <- add_nearest_baro(
   path_to_output_folder = output
 )
 
-do_data2 <- do_with_baro[[1]]
+do_data <- do_with_baro[[1]]
 
 cat("After baro attach:", nrow(do_data2), "rows\n")
 cat("Baro station(s) used:",
