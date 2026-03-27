@@ -7,8 +7,10 @@
 qc_watertemp(
   input_data,
   select_station,
+  temp_high_limit = 50,
+  temp_low_limit = -1,
   temp_ice_threshold_C = 0.3,
-  temp_high_dry_C = 19,
+  temp_high_dry_C = 25,
   temp_air_water_diff_C = 2,
   log_root = NULL,
   user = NULL
@@ -23,11 +25,17 @@ air-water comparison dry checks are also applied.}
 \item{select_station}{Character, station code to process
 (matches \code{site_station_code}).}
 
+\item{temp_high_limit}{Upper bound (C) for plausible water temperature.
+Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
+
+\item{temp_low_limit}{Lower bound (C) for plausible water temperature. Default \code{-1}.
+Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}; values between this and 0 are corrected to 0, and flagged as \code{TRUE} in \code{FLAG_RANGE}.}
+
 \item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
 are flagged. Default \code{0.3}.}
 
 \item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
-suspected. Default \code{19}.}
+suspected. Default \code{25}.}
 
 \item{temp_air_water_diff_C}{Absolute difference (C) between water and air
 temperature below which a dry sensor is suspected (when \code{airtemp_C}
@@ -58,7 +66,7 @@ boolean flag/edit columns.
 \details{
 The following rules are applied:
 \describe{
-\item{\code{OUTLIER_WT}}{Water temperature < -1 C: set to
+\item{\code{OUTLIER_WT}}{Water temperature < temp_low_limit C | water temperature > temp_high_limit: set to
 \code{NA} in \code{watertemp_C_adj}.}
 \item{\code{OUTLIER_WT}}{Water temperature in [-1, 0) C: corrected
 to 0 in \code{watertemp_C_adj}.}

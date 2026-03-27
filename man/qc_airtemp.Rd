@@ -7,8 +7,10 @@
 qc_airtemp(
   input_data,
   select_station,
-  temp_low_limit = -40,
-  temp_high_limit = 40,
+  temp_low_flag = -20,
+  temp_high_flag = 50,
+  temp_low_limit = -Inf,
+  temp_high_limit = +Inf,
   log_root = NULL,
   user = NULL
 )
@@ -21,11 +23,17 @@ containing at least \code{timestamp}, \code{site_station_code}, and
 \item{select_station}{Character, station code to process
 (matches \code{site_station_code}).}
 
+\item{temp_low_flag}{Lower bound (C) for acceptable air temperature.
+Values below this are flagged as \code{TRUE} in \code{FLAG_RANGE}.}
+
+\item{temp_high_flag}{Upper bound (C) for acceptable air temperature.
+Values above this are flagged as \code{TRUE} in \code{FLAG_RANGE}.}
+
 \item{temp_low_limit}{Lower bound (C) for plausible air temperature.
-Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
+Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.}
 
 \item{temp_high_limit}{Upper bound (C) for plausible air temperature.
-Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged.}
+Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
@@ -37,7 +45,7 @@ mode), no file is written.}
 }
 \value{
 A data frame containing only rows for \code{select_station}, sorted
-by \code{timestamp}, with \code{airtemp_C_adj} and \code{OUTLIER_AT}
+by \code{timestamp}, with \code{airtemp_C_adj}, \code{OUTLIER_AT} and \code{FLAG_RANGE}
 columns added. \code{attr(result, "qaqc_log")} holds a tibble of QA/QC log
 rows.
 }
@@ -49,6 +57,6 @@ with adjusted columns and a boolean edit flag.
 }
 \details{
 If \code{airtemp_C_adj} does not exist it is created as a copy of
-\code{airtemp_C}. \code{OUTLIER_AT} is created if missing and set to
+\code{airtemp_C}.\code{OUTLIER_AT} and \code{FLAG_RANGE} is created if missing and set to
 \code{TRUE} where the rule applies.
 }

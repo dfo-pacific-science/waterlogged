@@ -12,10 +12,14 @@
 #'   air-water comparison dry checks are also applied.
 #' @param select_station Character, station code to process
 #'   (matches \code{site_station_code}).
+#' @param temp_low_limit Lower bound (C) for plausible water temperature. Default \code{-1}.
+#'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}; values between this and 0 are corrected to 0, and flagged as \code{TRUE} in \code{FLAG_RANGE}.
+#' @param temp_high_limit Upper bound (C) for plausible water temperature.
+#'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
 #' @param temp_ice_threshold_C Water temperature (C) below which ice conditions
 #'   are flagged. Default \code{0.3}.
 #' @param temp_high_dry_C Water temperature (C) above which a dry sensor is
-#'   suspected. Default \code{19}.
+#'   suspected. Default \code{25}.
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
 #'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
 #'   is present). Default \code{2}.
@@ -29,7 +33,7 @@
 #' @details
 #' The following rules are applied:
 #' \describe{
-#'   \item{\code{OUTLIER_WT}}{Water temperature < -1 C: set to
+#'   \item{\code{OUTLIER_WT}}{Water temperature < temp_low_limit C | water temperature > temp_high_limit: set to
 #'     \code{NA} in \code{watertemp_C_adj}.}
 #'   \item{\code{OUTLIER_WT}}{Water temperature in [-1, 0) C: corrected
 #'     to 0 in \code{watertemp_C_adj}.}
@@ -50,8 +54,10 @@
 #' @export
 qc_watertemp <- function(input_data,
                            select_station,
+                           temp_high_limit = 50,
+                           temp_low_limit = -1,
                            temp_ice_threshold_C  = 0.3,
-                           temp_high_dry_C       = 19,
+                           temp_high_dry_C       = 25,
                            temp_air_water_diff_C = 2,
                            log_root = NULL,
                            user     = NULL) {
@@ -86,38 +92,61 @@ qc_watertemp <- function(input_data,
   if (!"watertemp_C_adj" %in% names(df)) df$watertemp_C_adj <- df$watertemp_C
 
   # Create flag/edit cols if missing
-  new_flags <- c("FLAG_ICE", "FLAG_DRY", "OUTLIER_WT")
+  new_flags <- c("FLAG_ICE", "FLAG_DRY", "OUTLIER_WT", "FLAG_RANGE")
   for (f in new_flags) if (!f %in% names(df)) df[[f]] <- FALSE
 
   # ---- 2. Detection rules ---------------------------------------------------
-  neg_lt_minus1 <- !is.na(df$watertemp_C) & df$watertemp_C < -1
-  neg_between   <- !is.na(df$watertemp_C) & df$watertemp_C >= -1 & df$watertemp_C < 0
-  flag_ice_vec  <- !is.na(df$watertemp_C) & df$watertemp_C < temp_ice_threshold_C
-  wt_high_dry   <- !is.na(df$watertemp_C) & df$watertemp_C > temp_high_dry_C
-
-  if (has_airtemp) {
-    wt_air_close  <- !is.na(df$watertemp_C) & !is.na(df$airtemp_C) &
-      abs(df$watertemp_C - df$airtemp_C) < temp_air_water_diff_C
-    wt_air_warmer <- !is.na(df$watertemp_C) & !is.na(df$airtemp_C) &
-      (df$airtemp_C - df$watertemp_C) > 0
-    flag_wt_dry_vec <- wt_high_dry | wt_air_close | wt_air_warmer
-  } else {
-    flag_wt_dry_vec <- wt_high_dry
-  }
+  neg_lt_minus1 <- !is.na(df$watertemp_C) & df$watertemp_C <= temp_low_limit
+  neg_between   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_low_limit & df$watertemp_C < 0
+  flag_ice_vec  <- !is.na(df$watertemp_C) & df$watertemp_C <= temp_ice_threshold_C
+  wt_high_dry   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_high_dry_C
+  wt_high_limit   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_high_limit
 
   # ---- 3. Apply adjustments -------------------------------------------------
   df <- df |>
     dplyr::mutate(
       watertemp_C_adj = dplyr::case_when(
+        wt_high_limit ~ NA_real_,
         neg_lt_minus1 ~ NA_real_,
         neg_between   ~ 0,
         TRUE          ~ watertemp_C_adj
       ),
-      FLAG_ICE            = flag_ice_vec,
-      OUTLIER_WT = neg_lt_minus1,
-      OUTLIER_WT  = neg_between,
-      FLAG_DRY         = flag_wt_dry_vec
+      FLAG_ICE = flag_ice_vec,
+      OUTLIER_WT = wt_high_limit | neg_lt_minus1,
+      FLAG_RANGE =  neg_between,
+      FLAG_DRY = wt_high_dry
     )
+
+
+   # ---- 12-point dry flag (FLAG_DRY) using adj DO -----------------------
+
+  if (has_airtemp) {
+    df <- df |>
+      dplyr::mutate(
+        # temp difference for dryness test (using current temp adj)
+        air_watertemp_diff = airtemp_C - watertemp_C_adj)
+
+    n <- nrow(df)
+
+    if (n >= 12) {
+      for (j in 1:(n - 11)) {
+        window_diff <- df$air_watertemp_diff[j:(j + 11)]
+        if (any(!is.na(window_diff))) {
+          if (max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C) {
+            df$FLAG_DRY[j:(j + 11)] <- TRUE
+          }
+        }
+      }
+    }
+
+    # drop only internal helpers we don't want in the output
+    df <- df |>
+      dplyr::select(
+        -air_watertemp_diff
+      )
+
+  }
+
 
   # ---- 4. Log entries -------------------------------------------------------
   metric   <- "WT"
@@ -126,10 +155,22 @@ qc_watertemp <- function(input_data,
 
   rules <- list(
     list(
-      flag        = neg_lt_minus1 | neg_between,
+      flag        = neg_lt_minus1,
       field       = "watertemp_C_adj",
-      code        = "NEGATIVE_WT",
-      action_note = "Negative water temperature detected; removed (< -1\u00b0C) or corrected to 0\u00b0C (-1 to 0\u00b0C)."
+      code        = "OUTLIER_WT",
+      action_note = paste0("Negative water temperature detected; removed (< ", temp_low_limit,"\u00b0C) ")
+    ),
+    list(
+      flag        = neg_between,
+      field       = "watertemp_C_adj",
+      code        = "FLAG_RANGE",
+      action_note = paste0("Negative water temperature detected; corrected to 0\u00b0C (", temp_low_limit, " to 0\u00b0C).")
+    ),
+    list(
+      flag        = wt_high_limit,
+      field       = "watertemp_C_adj",
+      code        = "OUTLIER_WT",
+      action_note = paste0("Water temperature exceeds ", wt_high_limit, "; removed. ")
     ),
     list(
       flag        = flag_ice_vec,
@@ -139,7 +180,7 @@ qc_watertemp <- function(input_data,
                            temp_ice_threshold_C, "\u00b0C; flagged for review.")
     ),
     list(
-      flag        = flag_wt_dry_vec,
+      flag        = wt_high_dry,
       field       = "watertemp_C_adj",
       code        = "FLAG_DRY",
       action_note = paste0("Possible dry sensor: water temperature > ",

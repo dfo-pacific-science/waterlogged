@@ -59,62 +59,15 @@ do_folder      <- system.file("extdata/dissolved_oxygen/DO", package = "waterlog
 reference_file <- system.file("extdata/dissolved_oxygen/field_references.csv", package = "waterlogged")
 ```
 
-## Bind and QAQC Barometric Data
-
-Reads all barometric logger CSVs, combines them, and runs quality checks (out-of-range, spikes, flatlines).
-
-We need clean barometric data to convert DO from mg/L to %sat. If the baro data has errors, they'll contaminate the %sat values. This is the same process used in the water level pipeline — baro data is the foundation for both.
-
-We can skip this step if we already have clean, compiled and QA'd barometric data. In that case, just load the compiled baro CSV and pass it to the DO processing steps.
-
-```{r bind-baro}
-baro_bound <- bind_hobo_files(
-  path_to_raw_folder = baro_folder,
-  metadata_path      = metadata_file
-)
-
-baro_data <- baro_bound[[1]]
-
-cat("Baro data:", nrow(baro_data), "rows,",
-    length(unique(baro_data$site_station_code)), "stations\n")
-```
-
-```{r baro-qaqc}
-baro_qc <- barometric_qaqc_all(
-  baro_data         = baro_data,
-  metadata_path     = metadata_file,
-  pressure_low_kpa  = 85,
-  pressure_high_kpa = 105,
-  temp_low_limit    = -40,
-  temp_high_limit   = 50,
-  spike_threshold_kpa = 1.5,
-  flatline_n        = 6
-)
-
-cat("Baro QAQC complete:", nrow(baro_qc), "rows\n")
-cat("  Disturbances:   ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
-cat("  Flatlines:      ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "\n")
-
-head(baro_qc, 3)
-
-```
-
 ## Bind Raw Dissolved Oxygen Logger Files (v0.1)
 
 Reads the raw HOBO U26 DO logger CSV and links it to the metadata.
 
 The HOBO U26 records two channels: DO concentration in mg/L and water temperature in °C. This step parses them into standard column names: `do_mgl` and `watertemp_C`.
 
-About the COOK_WE_40 data:
-
-- Logger: HOBO U26 (SN 21473863)
-- Deployed: April 14 to October 21, 2025
-- Location: COOK wetland, station WE_40
-- One download file covering the full deployment
-
 ```{r bind-do}
 do_bound <- bind_hobo_files(
-  path_to_raw_folder = do_folder,
+  path_to_raw_folder = dissox_folder,
   metadata_path      = metadata_file
 )
 
@@ -147,21 +100,21 @@ You can select the baro station in two ways: `"auto"` (calculates distance and p
 ```{r attach-baro}
 do_with_baro <- add_nearest_baro(
   input_data          = do_data,
-  baro_data           = baro_qc,
+  baro_data_path      = baro_folder,
   metric              = "DO",
-  baro_site_selection = "DARL_ST_30",
-  metadata_path       = metadata_file
+  metadata_path       = metadata_file,
+  path_to_output_folder = output
 )
 
 do_data <- do_with_baro[[1]]
 
-cat("After baro attach:", nrow(do_data), "rows\n")
+cat("After baro attach:", nrow(do_data2), "rows\n")
 cat("Baro station(s) used:",
-    paste(unique(na.omit(do_data$baro_site_stn_code)), collapse = ", "), "\n")
+    paste(unique(na.omit(do_data2$baro_site_stn_code)), collapse = ", "), "\n")
 
-baro_na <- sum(is.na(do_data$airpress_kPa))
-cat("Missing baro data:", baro_na, "of", nrow(do_data), "rows",
-    paste0("(", round(baro_na / nrow(do_data) * 100, 1), "%)"), "\n")
+baro_na <- sum(is.na(do_data2$airpress_kPa))
+cat("Missing baro data:", baro_na, "of", nrow(do_data2), "rows",
+    paste0("(", round(baro_na / nrow(do_data2) * 100, 1), "%)"), "\n")
 ```
 
 ## Convert DO mg/L to Percent Saturation (v0.3)
@@ -203,10 +156,11 @@ The same flag vs edit pattern applies: `FLAG_*` = "please review" (data unchange
 ```{r do-qaqc}
 do_qc <- qc_dissox(
   input_data     = do_data,
-  select_station = "COOK_WE_40"
+  select_station = unique(do_data$site_station_code)[1],
+  log_root = log_root_folder
 )
 
-cat("QAQC results for COOK_WE_40:\n")
+cat("QAQC results:\n")
 cat("  Total rows:       ", nrow(do_qc), "\n")
 cat("  Logger errors:    ", sum(do_qc$ERROR_DO, na.rm = TRUE), "\n")
 cat("  DO outliers:      ", sum(do_qc$OUTLIER_DO, na.rm = TRUE), "\n")
@@ -226,7 +180,16 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 
 ## Visual Review
 
-Creates an interactive multi-panel plot for reviewing the DO data. Before applying drift correction or manual adjustments, you need to see the data.
+Lets look at the data to see what QC flags were made by qc_dissox. Plotly is used as an interactive plotting feature to allow the user to overlay water data from multiple loggers ie. compare water temperature from dissolved oxygen logger to air temperature from barometric logger at the same site) and zoom in on time periods of interest; this helps to identify data where a logger has gone dry, frozen or been disturbed.
+
+
+```{r visual-review, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  do_data        = do_qc,
+  select_station = unique(do_qc$site_station_code)[1],
+  static=TRUE
+)
+```
 
 How to read the plot:
 
@@ -236,64 +199,11 @@ How to read the plot:
 - Use the range slider at the bottom to zoom into specific periods
 - Hover over points for exact values
 
-```{r visual-review, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
-  do_data        = do_qc,
-  baro_data      = baro_qc,
-  select_station = "COOK_WE_40",
-  static         = TRUE
-)
-```
+You can zoom in on sections of the plot by clicking and dragging with your mouse. You can see data point values by hovering your mouse over the data point on the graph. You can also toggle data sources on and off by clicking on the data type in the legend.
 
-## Drift Correction
+Many datapoints were flagged - a section from April to May was flagged for ICE and DRY, and some periods in May, July and August were flagged as DRY and OUTLIER. There is also a stretch in Sept that was flagged as DRY. Using your mouse, you can zoom in on the plotly graph to see the flagged sections more clearly.
 
-Adjusts the logged DO data to match field reference measurements, correcting for gradual sensor drift between site visits.
-
-DO sensors slowly lose accuracy over their deployment. The sensing membrane gets fouled (coated with biofilm, sediment, etc.), causing readings to drift away from true values. During field visits, a handheld reference instrument (e.g., a calibrated YSI) provides a "truth" measurement. Drift correction uses these reference points to straighten out the logged data.
-
-The reference file contains discrete field measurements with an `event_type` for each:
-
-- **"calibration"** — the sensor was recalibrated during this visit. The function corrects data before the calibration and trusts data after it.
-- **"check"** — the reference was measured but the sensor was NOT touched. Used to quantify drift at that point in time.
-- **"ignore"** — skip this measurement.
-
-Drift correction methods:
-
-- **"ratio"** (default): Multiplicative correction. Better for sensors where drift is proportional (typical for DO sensors).
-- **"offset"**: Additive correction. Better when drift is a constant shift.
-
-```{r drift-preview}
-ref_data <- read.csv(reference_file)
-ref_data[ref_data$metric == "do", ]
-```
-
-```{r drift-correction}
-do_qc <- wq_drift_correction(
-  input_data     = do_qc,
-  ref_data_path  = reference_file,
-  select_station = "COOK_WE_40",
-  metric         = "do",
-  method         = "ratio",
-  max_ref_gap_h  = 1
-)
-
-if ("edit_do_drift" %in% names(do_qc)) {
-  drift_count <- sum(do_qc$edit_do_drift, na.rm = TRUE)
-  cat("Rows corrected by drift:", drift_count, "of", nrow(do_qc), "\n")
-} else {
-  cat("No drift correction column found — check reference data alignment.\n")
-}
-```
-
-```{r drift-log}
-drift_log <- attr(do_qc, "qaqc_log")
-if (!is.null(drift_log) && nrow(drift_log) > 0) {
-  cat("Drift correction log:\n")
-  print(drift_log)
-}
-```
-
-## Manual Adjustments (Examples)
+## Manual Adjustments
 
 This section demonstrates how to manually remove bad data. In a real project, you would apply these only after reviewing the plot and identifying specific problem periods.
 
@@ -305,73 +215,76 @@ For DO data, the three reasons for removal are:
 
 Each function returns a new data frame. Always assign the result back to your working variable so corrections accumulate.
 
-### Remove a dry period
+Look for sections in the graph where:
 
-```{r manual-dry, eval=FALSE}
-do_qc <- adjust_logger_NA(
-  input_data       = do_qc,
-  select_station   = "COOK_WE_40",
-  metric           = "dissolvedoxygen",
-  reason_to_adjust = "dry",
-  timestamp_start  = "2025-08-01 00:00:00",
-  timestamp_end    = "2025-08-15 00:00:00",
-  manual_note      = "Sensor exposed during low-flow period"
-)
-```
+- water temperature variation overlaps completely with air temperature variation. This suggests that the DO logger is dry.
+- When air temperature is > 0C, and DO jumps up to >100% air sat. suddenly. This indicates the DO logger may be dry.
+- When air temperature is < 0C, and DO jumps up to >100% air sat. suddenly. This indicates the DO logger is encased in ice and is reading air trapped in ice rather than water.
+
+### A note on hypoxia and hyperoxia in wetlands
+
+This is real data from a temperate wetland. Depending on your focal system, hypoxia may be rare (like in fast flowing rivers) or it could be quite common. In temperate wetlands during high summer temperatures, hypoxia is quite common and can cause DO to drop to 0 for extended periods of time. In addition, DO can spike from high oxygen production via algae and plant photosynthesis to over 100% DO. Note the OUTLIER_DO flags in August, which show an example of hypoxia. Based on field data, we know these values to be true and we will keep them in. When checking data flags, always consult field notes or field measurements to help in identifying whether data is truly erroneous. 
 
 ### Remove an ice period
+
+From the beginning of the dataset to ~“2024-05-06 21:00:00” DO shows large swings each day. This coincides with the dissolved oxygen logger water temp overlapping competely with air temperature. This is clearly a time when the DO logger was frozen in ice. We should remove this section of DO data.
+
+The function adjust_logger_NA takes the inputs of your station data (input_data), the timestamp for the start of the dry period (timestamp_start) and the timestamp for the end of the dry period (timestamp_end). The timestamps must be formatted correctly in the same timezone as your dataset (Note: by default we force the UTC timezone so that R doesnt automatically correct for daylight saving since our loggers don’t correct for daylight savings - they just stay in Pacific Standard Time all year round). You need to tell the function why you are removing the data (ie. reason_to_adjust = “ice” )
 
 ```{r manual-ice, eval=FALSE}
 do_qc <- adjust_logger_NA(
   input_data       = do_qc,
-  select_station   = "COOK_WE_40",
+  select_station   = "FROG_WE_01",
   metric           = "dissolvedoxygen",
   reason_to_adjust = "ice",
-  timestamp_start  = "2025-01-01 00:00:00",
-  timestamp_end    = "2025-03-15 00:00:00",
-  manual_note      = "Ice confirmed from water temperature data"
+  timestamp_start  = "2024-04-10 13:00:00",
+  timestamp_end    = "2024-05-06 21:00:00",
+  manual_note      = "Ice confirmed from water and air temperature data",
+  log_root = log_root_folder
 )
 ```
 
-### Remove a disturbance (keep temperature)
+Re-run plot_qaqc_timeseries to view the changes made. do_adj and watertemp_adj values should be removed for the selected time period. 
 
-Sometimes you want to remove DO readings but keep the temperature data (e.g., during a brief maintenance event where the temp sensor was fine).
+```{r visual-review2, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  do_data        = do_qc,
+  select_station = unique(do_qc$site_station_code)[1],
+  static = TRUE
+)
+```
 
-```{r manual-disturbance, eval=FALSE}
+
+### Remove a dry period
+
+Next, lets look at the other dry flags. Zooming in on the one in July, there isnt a break in the DO or temperature fluctuation pattern. There is overlap of water and air temperature for a period, but they return to distinct patterns shortly after. We can ignore this flag. 
+
+Look at the stretch of dry flags in Sept; there is a clear stretch of time where DO rose to >10 mg/L amd stayed high, while water temperature swings in alignment with air temperature - these are all clues that the logger is indeed dry. We can remove this dry period with the same function as above, but with the reason_to_adjust set to “dry”, and a manual_note of "inferred from air and water temperature". Include a path to the folder where youd like your log files to be written for log_root. 
+
+```{r manual-dry, eval=FALSE}
 do_qc <- adjust_logger_NA(
   input_data       = do_qc,
-  select_station   = "COOK_WE_40",
+  select_station   = "FROG_WE_01",
   metric           = "dissolvedoxygen",
-  reason_to_adjust = "disturbance",
-  timestamp_start  = "2025-06-01 12:00:00",
-  timestamp_end    = "2025-06-01 14:00:00",
-  keep_temp        = TRUE,
-  manual_note      = "Brief logger maintenance — DO affected, temp OK"
+  reason_to_adjust = "dry",
+  timestamp_start  = "2024-09-09 06:00:00",
+  timestamp_end    = "2024-09-25 21:00:00",
+  manual_note      = "inferred from air and water temperature",
+  log_root = log_root_folder
 )
 ```
 
-After any manual adjustments, always re-plot to verify:
+Again, re-run plot_qaqc_timeseries to see your changes. 
 
-```{r manual-replot, eval=FALSE}
+
+```{r visual-review3, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
   do_data        = do_qc,
-  baro_data      = baro_qc,
-  select_station = "COOK_WE_40"
+  select_station = unique(do_qc$site_station_code)[1],
+  static = TRUE
 )
 ```
 
-## Final Review
-
-Re-plot the data after all corrections to verify the final result. The adjusted traces should look reasonable with no obvious artifacts. Compare raw (light) vs adjusted (dark) to see exactly what changed.
-
-```{r final-review, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
-  do_data        = do_qc,
-  baro_data      = baro_qc,
-  select_station = "COOK_WE_40",
-  static         = TRUE
-)
-```
 
 ## Export Clean Data (v1.0)
 
@@ -383,22 +296,26 @@ What gets exported:
 - `do_mgl`, `do_mgl_adj` (raw and adjusted DO in mg/L)
 - `do_percsat`, `do_percsat_adj` (raw and adjusted DO in %sat)
 - `watertemp_C`, `watertemp_C_do_adj` (raw and adjusted water temperature)
-- All `FLAG_*`, `OUTLIER_*`, `ERROR_*` columns (the full audit trail)
+- a `qc_code` column showing if data is "REAL", "CORRECTED", "REMOVED" or NA
 
 ```{r final-summary}
 cat("Final dataset:", nrow(do_qc), "rows x", ncol(do_qc), "columns\n\n")
 
-cat("Summary of adjusted DO (%sat):\n")
-print(summary(do_qc$do_percsat_adj))
+cat("Summary of unadjusted DO (mgl):\n")
+print(summary(do_qc$do_mgl))
 
-cat("\nSummary of adjusted DO (mg/L):\n")
+cat("\nSummary of adjusted DO (mgl):\n")
 print(summary(do_qc$do_mgl_adj))
 ```
+
+The adjusted range of DO is much more reasonable than the unadjusted values. 
+
+When you're happy with your data cleaning, you can export the clean data. 
 
 ```{r export, eval=FALSE}
 write_clean_data(
   input_data            = do_qc,
-  path_to_output_folder = "output",
+  path_to_output_folder = output,
   metric                = "dissolvedoxygen"
 )
 ```
