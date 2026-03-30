@@ -1,18 +1,20 @@
 # =============================================================================
-# TUTORIAL: Full Conductivity Pipeline — TUMT_WE_40
+# TUTORIAL: Full Conductivity Pipeline
 # =============================================================================
 #
 # This script walks through the complete conductivity processing pipeline
-# using the `waterlogged` R package. We use real test data from the
-# TUMT_WE_40 wetland station as our example.
+# using the `waterlogged` R package. We use dummy data files from 3
+# sites/loggers to simulate how the package processes data from multiple
+# stations simultaneously. We will then focus on simulated data from the
+# BUGS_WE_01 site to demonstrate the full QC pipeline.
 #
 # WHAT THIS SCRIPT DOES (in plain English):
-#   1. Reads raw conductivity logger files and links them to metadata
+#   1. Reads raw conductivity logger files (from multiple stations) and links
+#      them to deployment metadata
 #   2. Runs automatic quality checks (spikes, ice, dry sensor)
-#   3. Corrects sensor drift using field reference measurements
-#   4. Converts electrical conductivity to specific conductance (SPC)
-#   5. Shows how to manually remove bad data
-#   6. Exports the final clean dataset
+#   3. Converts electrical conductivity to specific conductance (SPC)
+#   4. Shows how to manually remove bad data
+#   5. Exports the final clean dataset
 #
 # WHAT IS CONDUCTIVITY?
 #   Electrical conductivity (EC) measures how well water conducts
@@ -28,14 +30,19 @@
 #   (25 deg C). This normalized value is called "specific conductance"
 #   (SPC) and is the standard for reporting.
 #
-# NO BAROMETRIC DATA NEEDED:
-#   Unlike water level and DO, conductivity does not require atmospheric
-#   pressure correction. This makes the pipeline shorter.
+# DATA USED:
+#   From metadata/:
+#     - metadata.csv          — logger deployment records
 #
-# DATA USED (all in conductivity/input_data/):
-#   - metadata.csv          — logger deployment records
-#   - COND/                 — 1 conductivity CSV from TUMT_WE_40 (SN 21245027)
-#   - field_references.csv  — discrete field measurements for drift correction
+#   From conductivity/:
+#     - raw/                  — 3 raw conductivity CSVs:
+#                                 cond-1.csv: BUGS_WE_01 (SN 82345678)
+#                                 cond-2.csv: BIRD_WE_01 (SN 89502162)
+#                                 cond-3.csv: FISH_ST_01 (SN 88741256)
+#     - baro/                 — 2 clean barometric data files:
+#                                 BUGS_WE_01_BARO_2024_v1.0.csv
+#                                 BUGS_WE_01_BARO_2025_v1.0.csv
+#                                 (optional files used for augmenting automated QC)
 #
 # =============================================================================
 
@@ -45,24 +52,25 @@
 # -----------------------------------------------------------------------------
 
 # Load the waterlogged package.
-# You must install from the develop branch:
+# You must install from the main branch:
 #   install.packages("pak")
-#   pak::pkg_install("dfo-pacific-science/waterlogged@develop")
+#   pak::pkg_install("dfo-pacific-science/waterlogged@main")
 
 library(waterlogged)
 
 # Set the path to the input data folder.
 # system.file() locates the installed package's extdata directory.
 data_dir <- system.file("extdata", "conductivity", package = "waterlogged")
+meta_dir <- system.file("extdata", "metadata", package = "waterlogged")
 
-metadata_file   <- file.path(data_dir, "metadata.csv")
-cond_folder     <- file.path(data_dir, "COND")
-reference_file  <- file.path(data_dir, "field_references.csv")
+metadata_file   <- file.path(meta_dir, "metadata.csv")
+cond_folder     <- file.path(data_dir, "raw")
+# reference_file  <- file.path(data_dir, "field_references.csv")
 
 stopifnot(
   "Metadata file not found"         = file.exists(metadata_file),
-  "COND folder not found"           = dir.exists(cond_folder),
-  "Field references file not found" = file.exists(reference_file)
+  "COND folder not found"           = dir.exists(cond_folder)
+  # "Field references file not found" = file.exists(reference_file)
 )
 
 cat("Setup complete. All input files found.\n")
@@ -72,7 +80,7 @@ cat("Setup complete. All input files found.\n")
 # STEP 1: Bind Raw Conductivity Logger Files (v0.1)
 # =============================================================================
 #
-# WHAT: Reads the raw HOBO U24 conductivity logger CSV and links it to
+# WHAT: Reads the raw HOBO U24 conductivity logger CSVs and links them to
 #       the deployment metadata.
 #
 # WHY:  The HOBO U24 records two (or three) channels:
@@ -83,11 +91,14 @@ cat("Setup complete. All input files found.\n")
 #       When both Low and Full Range are present, the function selects
 #       the appropriate one and records the source in conduct_source.
 #
-# ABOUT THE TUMT_WE_40 DATA:
-#   - Logger: HOBO U24 (SN 21245027)
-#   - Deployed: April 17 to May 28, 2025 (~6 weeks)
-#   - Location: TUMT wetland, station WE_40
-#   - One download file covering the full deployment
+# ABOUT THE MULTI-STATION DATA:
+#   This script processes data from three separate HOBO U24 loggers at once:
+#     - BUGS_WE_01 (cond-1.csv, SN 82345678): April 2024 to April 2025 (~1 year)
+#     - BIRD_WE_01 (cond-2.csv, SN 89502162): April 2024 to August 2024 (~4 months)
+#     - FISH_ST_01 (cond-3.csv, SN 88741256): October 2023 to October 2024 (~1 year)
+#
+#   Our primary focus for exploring the QC outputs will be BUGS_WE_01,
+#   which has a continuous deployment record in a wetland environment.
 # -----------------------------------------------------------------------------
 
 cond_bound <- bind_hobo_files(
@@ -137,11 +148,13 @@ print(cond_plot)
 # WHAT IT CHECKS:
 #   1. Spikes     — sudden large jumps in conductivity between consecutive
 #                   readings (> disturbance_threshold_uScm, default 200)
-#   2. Ice        — water temperature below 0.1 deg C (sensor may be frozen)
-#   3. Temp range — temperature outside plausible limits (-2 to 40 deg C)
-#   4. Dry sensor — very low conductivity (< dry_threshold_uScm, default 10)
-#                   or air-water temp difference < 2 deg C (sensor in air)
-#   5. Near-zero temp — water temp between -1 and 0 deg C (corrected to 0)
+#   2. Ice        — water temperature in the near-freezing/slush zone
+#                   (>= -1 and < 0.3 deg C)
+#   3. Temp range — temperature outside plausible limits (< -1 or > 40 deg C);
+#                   these extreme values are converted to NA.
+#   4. Dry sensor — very low conductivity (<= dry_threshold_uScm, default 10)
+#                   and air-water temp difference <= 2 deg C (if air temp is
+#                   available) for a rolling 12-hour window.
 #
 # ADJUSTED COLUMNS CREATED:
 #   conduct_uScm_adj  — adjusted conductivity (working column)
@@ -149,9 +162,8 @@ print(cond_plot)
 #
 # FLAG COLUMNS:
 #   FLAG_DISTURBANCE  — TRUE where a conductivity spike was detected
-#   FLAG_ICE          — TRUE where water temp < 0.1 C (possible ice)
-#   FLAG_RANGE        — TRUE where temp is outside the range limits
-#   OUTLIER_WT        — TRUE where temp was between -1 and 0 (set to 0)
+#   FLAG_ICE          — TRUE where water temp indicates possible ice/slush
+#   OUTLIER_WT        — TRUE where temp was out of bounds (set to NA)
 #   FLAG_DRY          — TRUE where sensor appears to be out of water
 # -----------------------------------------------------------------------------
 
@@ -159,20 +171,20 @@ print(cond_plot)
 
 cond_qc <- qc_conductivity(
   input_data                 = cond_data,
-  select_station             = "TUMT_WE_40",
+  select_station             = "BUGS_WE_01",
   temp_low_limit_C           = -2,
   temp_high_limit_C          = 40,
+  temp_ice_flag_C            = 0.3,
   disturbance_threshold_uScm = 200,
   dry_threshold_uScm         = 10,
-  air_water_diff_threshold_C = 2
+  temp_air_water_diff_C      = 2
 )
 
 # Summarize flags
-cat("QAQC results for TUMT_WE_40:\n")
+cat("QAQC results for BUGS_WE_01:\n")
 cat("  Total rows:       ", nrow(cond_qc), "\n")
 cat("  Spikes:           ", sum(cond_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
 cat("  Ice flagged:      ", sum(cond_qc$FLAG_ICE, na.rm = TRUE), "\n")
-cat("  Temp out of range:", sum(cond_qc$FLAG_RANGE, na.rm = TRUE), "\n")
 cat("  Temp outlier:     ", sum(cond_qc$OUTLIER_WT, na.rm = TRUE), "\n")
 cat("  Dry flagged:      ", sum(cond_qc$FLAG_DRY, na.rm = TRUE), "\n")
 
@@ -184,6 +196,35 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 }
 
 
+# You can improve dry event detection (distinguishing from ice events)
+# by adding continuous air temperature data, such as from a TidbiT or
+# barometric logger
+
+baro_folder     <- file.path(data_dir, "baro")
+
+cond_with_baro <- add_nearest_baro(
+  input_data = cond_data,
+  baro_data_path = baro_folder,
+  metric = "conductivity",
+  baro_site_selection = "auto",
+  metadata_path = metadata_file
+)
+
+cond_airtemp <- cond_with_baro[[1]]
+
+cond_qc_at <- qc_conductivity(
+  input_data                 = cond_airtemp,
+  select_station             = "BUGS_WE_01",
+  temp_low_limit_C           = -2,
+  temp_high_limit_C          = 40,
+  temp_ice_flag_C            = 0.3,
+  disturbance_threshold_uScm = 200,
+  dry_threshold_uScm         = 10,
+  temp_air_water_diff_C      = 2
+)
+
+cat("  Dry flagged:      ", sum(cond_qc_at$FLAG_DRY, na.rm = TRUE), "\n")
+
 # =============================================================================
 # STEP 3: Visual Review
 # =============================================================================
@@ -193,7 +234,7 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 # HOW TO READ THE PLOT:
 #   - Light traces  = raw values (original, unmodified)
 #   - Dark traces   = adjusted values (after QAQC)
-#   - Colored dots  = flag locations
+#   - Black shapes  = flag locations
 #   - Use the range slider to zoom into specific time periods
 # -----------------------------------------------------------------------------
 
@@ -201,86 +242,22 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 
 plot_qaqc_timeseries(
   cond_data      = cond_qc,
-  select_station = "TUMT_WE_40"
+  select_station = "BUGS_WE_01"
+)
+
+# Notice the difference in FLAG_DRY when qc is run on data containing air temp
+plot_qaqc_timeseries(
+  cond_data      = cond_qc_at,
+  select_station = "BUGS_WE_01"
 )
 
 # cat("Review the plot. Look for:\n")
 # cat("  - Sudden jumps (disturbance, debris on sensor)\n")
 # cat("  - Flat low readings (sensor out of water)\n")
-# cat("  - Gradual drift from biofouling\n")
 
 
 # =============================================================================
-# STEP 4: Drift Correction
-# =============================================================================
-#
-# WHAT: Adjusts the logged conductivity to match field reference
-#       measurements, correcting for sensor drift between site visits.
-#
-# WHY:  Conductivity sensors can drift due to biofouling (algae/biofilm
-#       coating the electrodes), mineral deposits, or calibration drift.
-#       Field measurements taken with a calibrated handheld meter give
-#       us "truth" values to correct against.
-#
-# OUR TUMT_WE_40 REFERENCE DATA:
-#   - 4/21/2025: check (26 uS/cm) — initial check, no sensor touching
-#   - 5/7/2025:  calibration (25 uS/cm) — sensor cleaned and recalibrated
-#   - 5/16/2025: calibration (28 uS/cm) — second recalibration
-#   - 5/26/2025: check (27 uS/cm) — final check visit
-#
-# HOW DRIFT CORRECTION WORKS:
-#   Between each pair of reference events, the function calculates how
-#   far the logger drifted from truth and applies a linear correction:
-#
-#   "ratio" method (default):
-#     correction_factor = reference_value / logger_value
-#     Interpolated linearly from 1.0 at segment start to the ratio at
-#     the reference timestamp. Good when drift is proportional.
-#
-#   "offset" method:
-#     correction_offset = reference_value - logger_value
-#     Interpolated linearly from 0 at segment start. Good when drift
-#     is a constant shift.
-#
-# COLUMN MODIFIED: conduct_uScm_adj
-# NEW FLAG:        edit_cond_drift (TRUE where correction was applied)
-# -----------------------------------------------------------------------------
-
-
-# Preview the reference data for this station
-ref_data <- read.csv(reference_file)
-cat("Field reference measurements for TUMT_WE_40:\n")
-print(ref_data[ref_data$metric == "cond", ])
-
-?wq_drift_correction
-
-cond_qc <- wq_drift_correction(
-  input_data     = cond_qc,
-  ref_data_path  = reference_file,
-  select_station = "TUMT_WE_40",
-  metric         = "cond",
-  method         = "ratio",        # multiplicative correction
-  max_ref_gap_h  = 1               # match logger to reference within 1 hour
-)
-
-# Check drift correction results
-if ("edit_cond_drift" %in% names(cond_qc)) {
-  drift_count <- sum(cond_qc$edit_cond_drift, na.rm = TRUE)
-  cat("Rows corrected by drift:", drift_count, "of", nrow(cond_qc), "\n")
-} else {
-  cat("No drift correction column found — check reference data alignment.\n")
-}
-
-# Show the drift correction log
-drift_log <- attr(cond_qc, "qaqc_log")
-if (!is.null(drift_log) && nrow(drift_log) > 0) {
-  cat("\nDrift correction log:\n")
-  print(drift_log)
-}
-
-
-# =============================================================================
-# STEP 5: Temperature Compensation (Specific Conductance)
+# STEP 4: Temperature Compensation (Specific Conductance)
 # =============================================================================
 #
 # WHAT: Converts electrical conductivity (EC) to specific conductance (SPC)
@@ -297,7 +274,7 @@ if (!is.null(drift_log) && nrow(drift_log) > 0) {
 #         - Compare readings between sites at different temperatures
 #         - Detect real water chemistry changes vs temperature changes
 #
-# THE MATH (ISO 27888):
+# THE MATH (EN 27888):
 #   Uses a 5th-order polynomial to model the temperature dependence
 #   of conductivity. The function calculates what the conductivity
 #   WOULD be if the water were at exactly 25 deg C.
@@ -305,33 +282,31 @@ if (!is.null(drift_log) && nrow(drift_log) > 0) {
 # INPUTS:  conduct_uScm_adj and watertemp_C_adj
 # OUTPUT:  spc_uScm_adj (specific conductance in uS/cm at 25 deg C)
 #
-# IMPORTANT: Run this AFTER drift correction, so the temperature
-#            compensation uses the drift-corrected conductivity values.
 # -----------------------------------------------------------------------------
 
 ?conductivity_temp_compensation
 
 
-cond_qc <- conductivity_temp_compensation(cond_qc)
+cond_qc_spc <- conductivity_temp_compensation(cond_qc_at)
 
 cat("Temperature compensation complete.\n")
 cat("Raw conductivity range:   ",
-    round(min(cond_qc$conduct_uScm_adj, na.rm = TRUE), 1), "to",
-    round(max(cond_qc$conduct_uScm_adj, na.rm = TRUE), 1), "uS/cm\n")
+    round(min(cond_qc_spc$conduct_uScm_adj, na.rm = TRUE), 1), "to",
+    round(max(cond_qc_spc$conduct_uScm_adj, na.rm = TRUE), 1), "uS/cm\n")
 cat("Specific conductance range:",
-    round(min(cond_qc$spc_uScm_adj, na.rm = TRUE), 1), "to",
-    round(max(cond_qc$spc_uScm_adj, na.rm = TRUE), 1), "uS/cm @ 25C\n")
+    round(min(cond_qc_spc$spc_uScm_adj, na.rm = TRUE), 1), "to",
+    round(max(cond_qc_spc$spc_uScm_adj, na.rm = TRUE), 1), "uS/cm @ 25C\n")
 
 # Preview: compare EC vs SPC at different temperatures
 cat("\nSample comparison (EC vs SPC at varying temperatures):\n")
-sample_rows <- cond_qc[as.integer(seq(1, nrow(cond_qc), length.out = 6)),
+sample_rows <- cond_qc_spc[as.integer(seq(1, nrow(cond_qc), length.out = 6)),
                         c("timestamp", "watertemp_C_adj",
                           "conduct_uScm_adj", "spc_uScm_adj")]
 print(sample_rows)
 
 
 # =============================================================================
-# STEP 6: Manual Adjustments (Examples)
+# STEP 5: Manual Adjustments (Examples)
 # =============================================================================
 #
 # This section demonstrates how to manually remove bad data. Apply these
@@ -353,57 +328,69 @@ print(sample_rows)
 # -----------------------------------------------------------------------------
 
 
-# ---- 6a. Remove a dry period ----
-
+# ---- 5a. Remove a dry period ----
 
 ?adjust_logger_NA
 
-# cond_qc <- adjust_logger_NA(
-#   input_data       = cond_qc,
-#   select_station   = "TUMT_WE_40",
-#   metric           = "conductivity",
-#   reason_to_adjust = "dry",
-#   timestamp_start  = "2025-05-20 00:00:00",
-#   timestamp_end    = "2025-05-22 00:00:00",
-#   manual_note      = "Sensor exposed during low water"
-# )
+cond_qc_adj <- adjust_logger_NA(
+  input_data       = cond_qc_spc,
+  select_station   = "BUGS_WE_01",
+  metric           = "conductivity",
+  reason_to_adjust = "dry",
+  timestamp_start  = "2024-08-07 14:00:00",
+  timestamp_end    = "2024-09-12 12:00:00",
+  manual_note      = "Sensor exposed during low water"
+)
 
 
-# ---- 6b. Remove a disturbance ----
+# ---- 5b. Remove an ice period ----
 
-# cond_qc <- adjust_logger_NA(
-#   input_data       = cond_qc,
-#   select_station   = "TUMT_WE_40",
-#   metric           = "conductivity",
-#   reason_to_adjust = "disturbance",
-#   timestamp_start  = "2025-05-10 12:00:00",
-#   timestamp_end    = "2025-05-10 14:00:00",
-#   manual_note      = "Debris caught on sensor during storm"
-# )
+cond_qc_adj <- adjust_logger_NA(
+  input_data       = cond_qc_adj,
+  select_station   = "BUGS_WE_01",
+  metric           = "conductivity",
+  reason_to_adjust = "ice",
+  timestamp_start  = "2025-01-17 02:00:00",
+  timestamp_end    = "2025-02-18 11:00:00",
+  manual_note      = "Sensor encased in ice"
+)
+
+
+# ---- 5c. Remove a disturbance ----
+
+cond_qc_adj <- adjust_logger_NA(
+  input_data       = cond_qc_adj,
+  select_station   = "BUGS_WE_01",
+  metric           = "conductivity",
+  reason_to_adjust = "disturbance",
+  timestamp_start  = "2024-05-31 03:50:00",
+  timestamp_end    = "2024-05-31 04:10:00",
+  manual_note      = "Remove sensor spike"
+)
 
 
 # ---- After adjustments, re-plot to verify ----
 
 # plot_qaqc_timeseries(
-#   cond_data      = cond_qc,
-#   select_station = "TUMT_WE_40"
+#   cond_data      = cond_qc_adj,
+#   select_station = "BUGS_WE_01"
 # )
 
 
 # =============================================================================
-# STEP 7: Final Review
+# STEP 6: Final Review
 # =============================================================================
 
 
 plot_qaqc_timeseries(
-  cond_data      = cond_qc,
-  select_station = "TUMT_WE_40"
+  cond_data      = cond_qc_adj,
+  select_station = "BUGS_WE_01"
 )
 
 
 
 # =============================================================================
-# STEP 8: Export Clean Data
+# STEP 7: Export Clean Data
 # =============================================================================
 #
 # WHAT: Writes the final processed data to a v1.0 CSV file, one file per
@@ -413,14 +400,14 @@ plot_qaqc_timeseries(
 #   Required: conduct_uScm (raw, never modified)
 #   Optional (if present): conduct_uScm_adj, spc_uScm_adj,
 #                          watertemp_C, watertemp_C_adj
-#   Auto-included: any flag_* and edit_* columns
+#   Auto-included: qc_code column
 # -----------------------------------------------------------------------------
 
 # Set this to your desired output folder. We use tempdir() for the demo.
 output_folder <- file.path(tempdir(), "conductivity_output")
 
 write_clean_data(
-  input_data            = cond_qc,
+  input_data            = cond_qc_adj,
   path_to_output_folder = output_folder,
   metric                = "conductivity"
 )
@@ -435,11 +422,10 @@ cat("Clean data written to:", output_folder, "\n")
 #   Step 1:  bind_hobo_files() on COND    -> cond_data  (raw conductivity)
 #   Step 2:  qc_conductivity()          -> cond_qc    (auto QAQC'd)
 #   Step 3:  plot_qaqc_timeseries()       -> (visual review)
-#   Step 4:  wq_drift_correction()        -> cond_qc    (drift corrected)
-#   Step 5:  conductivity_temp_compensation() -> cond_qc (adds SPC)
-#   Step 6:  Manual adjustments           -> cond_qc    (updated)
-#   Step 7:  plot_qaqc_timeseries()       -> (final review)
-#   Step 8:  write_clean_data()            -> CSV file (v1.0)
+#   Step 4:  conductivity_temp_compensation() -> cond_qc (adds SPC)
+#   Step 5:  Manual adjustments           -> cond_qc    (updated)
+#   Step 6:  plot_qaqc_timeseries()       -> (final review)
+#   Step 7:  write_clean_data()            -> CSV file (v1.0)
 #
 # KEY COLUMNS:
 #   conduct_uScm      = raw electrical conductivity (never modified)
@@ -447,8 +433,12 @@ cat("Clean data written to:", output_folder, "\n")
 #   spc_uScm_adj      = specific conductance at 25 C (temp-compensated)
 #   watertemp_C       = raw water temperature (never modified)
 #   watertemp_C_adj   = adjusted water temperature
-#   flag_co_*         = "something looks off — review" (data not changed)
-#   edit_cond_drift   = TRUE where drift correction was applied
+#   qc_code           = Data quality status indicator:
+#                         "REAL"      - Verified and accurate
+#                         "REMOVED"   - Removed via automatic or manual QC
+#                         "NA"        - Data produced a logger error code
+#                         "CORRECTED" - Manually adjusted (shifted, not removed)
+#                         "DRY"       - Manually removed due to a dry event
 #
 # For analysis, use spc_uScm_adj — it's the fully corrected, temperature-
 # compensated specific conductance. Compare with conduct_uScm to see
