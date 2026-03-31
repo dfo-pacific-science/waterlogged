@@ -20,10 +20,10 @@
 #'   local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
 #'   (e.g. \code{session$user}).
-#' @param temp_low_limit Lower bound (C) for plausible barometric temperatures.
-#'   Values outside `[temp_low_limit, temp_high_limit]` are set to `NA` in
+#' @param temp_low_limit_C Lower bound (C) for plausible barometric temperatures.
+#'   Values outside `[temp_low_limit_C, temp_high_limit_C]` are set to `NA` in
 #'   `airtemp_C_adj` and flagged.
-#' @param temp_high_limit Upper bound (C) for plausible barometric temperatures.
+#' @param temp_high_limit_C Upper bound (C) for plausible barometric temperatures.
 #' @param pressure_low_kpa Lower bound (kPa) for plausible barometric pressure.
 #'   Values below this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 51 kPa.
 #' @param pressure_high_kpa Upper bound (kPa) for plausible barometric pressure.
@@ -55,8 +55,8 @@ qc_barometric <- function(input_data,
                             select_station,
                             log_root = NULL,
                             user = NULL,
-                            temp_low_limit  = -40,
-                            temp_high_limit = 50,
+                            temp_low_limit_C  = -40,
+                            temp_high_limit_C = 50,
                             pressure_low_kpa  = 51,
                             pressure_high_kpa = 112,
                             spike_threshold_kpa = 1.5,   # sudden >1.5 kPa jump
@@ -94,7 +94,7 @@ qc_barometric <- function(input_data,
   temp  <- df$airtemp_C
 
   # Temperature outside realistic range (NA-safe: NA → FALSE)
-  bad_temp <- !is.na(temp) & (temp < temp_low_limit | temp > temp_high_limit)
+  bad_temp <- !is.na(temp) & (temp < temp_low_limit_C | temp > temp_high_limit_C)
 
   # Pressure outside expected terrestrial range (NA-safe)
   bad_press_low  <- !is.na(press) & press < pressure_low_kpa
@@ -146,7 +146,7 @@ qc_barometric <- function(input_data,
     list(name="PRESSURE_LOW", idx=which(bad_press_low),
          note=paste0("Pressure below ", pressure_low_kpa, " kPa removed")),
     list(name="TEMP_OUT_RANGE", idx=which(bad_temp),
-         note=paste0("Temperature outside [", temp_low_limit,", ", temp_high_limit, "] C")),
+         note=paste0("Temperature outside [", temp_low_limit_C,", ", temp_high_limit_C, "] C")),
     list(name="SPIKE", idx=which(is_spike),
          note=paste0("Spike > ", spike_threshold_kpa, " kPa detected")),
     list(name="FLATLINE", idx=which(is_flatline),
