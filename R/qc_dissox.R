@@ -34,20 +34,20 @@
 #' @param do_high_limit_mgl Upper bound (mg/L) for plausible dissolved oxygen.
 #'   Values above this are set to \code{NA}. Default \code{30}.
 #' @param do_low_limit_mgl Lower bound (mg/L) for dissolved oxygen. Values
-#'   between \code{-1} and \code{0} are corrected to \code{0}; values below
-#'   \code{-1} are set to \code{NA}. Default \code{0}.
+#'   between \code{do_low_limit_mgl} and \code{0} are corrected to \code{0}; values below
+#'   \code{do_low_limit_mgl} are set to \code{NA}. Default \code{-1}. Must be less than or equal to zero.
 #' @param do_high_flag_mgl Upper bound (mg/L) for flag dry dissolved oxygen.
 #'   Values above this are flagged as \code{FLAG_DRY}. Default \code{20}.
 #' @param do_low_flag_mgl Lower bound (mg/L) for flag range dissolved oxygen; values below
-#'   \code{do_low_flag_mgl} and \code(0) are flagged as \code{FLAG_RANGE}. Default \code{0}.
-#' @param temp_ice_threshold_C Water temperature (C) below which ice conditions
-#'   are flagged. Default \code{0.3}.
+#'   \code{do_low_flag_mgl} and \code{0} are flagged as \code{FLAG_RANGE}. Default \code{0}. Must be greater than or equal to 0.
+#' @param temp_ice_flag_C Water temperature (C) below which ice conditions
+#'   are flagged. Default \code{0.3}. Must be greater than or equal to 0.
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
 #'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
 #'   is present). Default \code{2}.
-#' @param temp_low_limit Lower bound (C) for plausible water temperature. Default \code{-1}.
+#' @param temp_low_limit_C Lower bound (C) for plausible water temperature. Default \code{-1}. Must be less than or equal to zero.
 #'   Values below this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
-#' @param temp_high_limit Upper bound (C) for plausible water temperature.
+#' @param temp_high_limit_C Upper bound (C) for plausible water temperature.
 #'   Values above this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
 #' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
 #'   log files. When non-\code{NULL}, a log CSV is written via
@@ -81,18 +81,18 @@
 qc_dissox <- function(input_data,
                         select_station,
                         do_high_limit_mgl = 30,
-                        do_low_limit_mgl = 0,
+                        do_low_limit_mgl = -1,
                         do_high_flag_mgl = 20,
                         do_low_flag_mgl = 0,
-                        temp_high_limit = 50,
-                        temp_low_limit = -1,
-                        temp_ice_threshold_C = 0.3,
+                        temp_high_limit_C = 50,
+                        temp_low_limit_C = -1,
+                        temp_ice_flag_C = 0.3,
                         temp_air_water_diff_C = 2,
                         log_root = NULL,
                         user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
 
-  # ---- 0. Required columns ----
+  # ---- 0. Validate inputs ---------------------------------------------------
   required_cols <- c(
     "site_station_code",
     "timestamp",
@@ -111,6 +111,35 @@ qc_dissox <- function(input_data,
     )
   }
 
+  if (temp_low_limit_C > 0) {
+    stop(
+      "qc_dissox(): temp_low_limit_C must be <= 0. "
+    )
+  }
+  if (temp_ice_flag_C <= 0) {
+    stop(
+      "qc_dissox(): temp_ice_flag_C must be >= 0. Ice flagging only applies to near-freezing liquid water. "
+    )
+  }
+  if (temp_ice_flag_C <= temp_low_limit_C) {
+    stop(
+      paste("qc_dissox(): flagging threshold for ice, (temp_ice_flag_C:", temp_ice_flag_C,
+      ") must be greater than temperature outlier limit (temp_low_limit_C:", temp_low_limit_C, "). ")
+    )
+  }
+
+  if (do_low_limit_mgl > 0) {
+    stop(
+      "qc_dissox(): do_low_limit_mgl must be <= 0. "
+    )
+  }
+  if (do_low_flag_mgl < 0) {
+    stop(
+      "qc_dissox(): do_low_flag_mgl must be >= 0. Cannot accept a negative concentration of DO. "
+    )
+  }
+
+
   # ---- 1. Filter to station & sort ----
   output_data <- input_data |>
     dplyr::filter(.data$site_station_code == !!select_station) |>
@@ -121,9 +150,9 @@ qc_dissox <- function(input_data,
     return(output_data)
   }
 
-  # Ensure timestamp is POSIXct
+  # parse timestamps
   if (!inherits(output_data$timestamp, "POSIXct")) {
-    output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
+    output_data$timestamp <- parse_dt(output_data$timestamp, "timestamp")
   }
 
   # ---- 2. Initialise internal temp fields + *_adj columns --------------------
@@ -157,16 +186,16 @@ qc_dissox <- function(input_data,
       # DO flags (using adj as working column)
       ERROR_DO         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
       do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= do_low_limit_mgl,
-      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj <= do_low_limit_mgl,
-      do_high          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_limit_mgl,
-      do_low_flag = !is.na(do_mgl_adj) & do_mgl_adj < do_low_flag_mgl,
+      do_neg_lt_minus1 = !is.na(do_mgl_adj) & do_mgl_adj < do_low_limit_mgl,
+      do_high          = !is.na(do_mgl_adj) & do_mgl_adj > do_high_limit_mgl,
+      do_low_flag = !is.na(do_mgl_adj) & do_mgl_adj <= do_low_flag_mgl,
       do_high_flag          = !is.na(do_mgl_adj) & do_mgl_adj >= do_high_flag_mgl,
 
       # temperature flags (using adj as working col)
-      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_ice_threshold_C,
-      temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit,
-      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_low_limit,
-      wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj >= temp_high_limit
+      FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_ice_flag_C,
+      #temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit_C,
+      temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_low_limit_C,
+      wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj > temp_high_limit_C
 
     )
 
@@ -186,25 +215,21 @@ qc_dissox <- function(input_data,
       ),
       # DO temp adjustments
       watertemp_C_do_adj = dplyr::case_when(
-        temp_neg_leq_minus1 ~ NA_real_,
-        temp_neg_between    ~ 0,
-        wt_high_limit       ~ NA_real_,
+        temp_neg_leq_minus1 | wt_high_limit ~ NA_real_,
+       # temp_neg_between    ~ 0,
         TRUE                ~ watertemp_C_do_adj
       ),
 
        # combine outlier flags
 
-      OUTLIER_DO = do_high | do_neg_between | do_neg_lt_minus1,
-      OUTLIER_WT =  temp_neg_between | temp_neg_leq_minus1 | wt_high_limit,
+      OUTLIER_DO = do_high | do_neg_lt_minus1 | do_neg_between,
+      OUTLIER_WT =  temp_neg_leq_minus1 | wt_high_limit, #temp_neg_between |
       FLAG_DRY = do_high_flag,
       FLAG_RANGE = do_low_flag
        ) |>
     # drop only internal helpers we don't want in the output
-    dplyr::select(
-      -do_neg_between, -do_neg_lt_minus1, -do_high, -do_high_flag, - do_low_flag,
-      -temp_neg_leq_minus1, -temp_neg_between, - wt_high_limit
-    )
-
+    dplyr::select(-dplyr::any_of(c("do_neg_between", "do_neg_lt_minus1", "do_high", "do_high_flag", "do_low_flag",
+                                   "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit")))
 
   # ---- 5. 12-point dry flag (FLAG_DRY) using adj DO -----------------------
   n <- nrow(output_data)
@@ -250,20 +275,20 @@ qc_dissox <- function(input_data,
       flag        = output_data$OUTLIER_DO %in% TRUE,
       field       = "do_mgl_adj",
       code        = "OUTLIER_DO",
-      action_note = paste0("DO greater than ", do_high_limit_mgl, " mg/L removed (DO and %sat set to NA). DO < ", do_low_limit_mgl, " removed and DO values between ", do_low_limit_mgl, " and 0 corrected to 0.")
+      action_note = paste0("DO greater than ", do_high_limit_mgl, " mg/L removed (DO and %sat set to NA). DO < ", do_low_limit_mgl, " removed. DO values between ",do_low_limit_mgl, " and 0 corrected to 0 mgL." )
     ),
     # temperature-driven rules
     list(
       flag        = output_data$OUTLIER_WT %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "OUTLIER_WT",
-      action_note = paste0("WT greater than ", temp_high_limit, " removed. WT < ", temp_low_limit, " removed and WT values between ", temp_low_limit, " and 0 corrected to 0.")
+      action_note = paste0("WT greater than ", temp_high_limit_C, " removed. WT < ", temp_low_limit_C, " removed.")
     ),
     list(
       flag        = output_data$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "FLAG_ICE",
-      action_note = paste0("Possible ice conditions: DO water temp < ", temp_ice_threshold_C," \u00b0C; flagged for review.")
+      action_note = paste0("Possible ice conditions: DO water temp < ", temp_ice_flag_C," \u00b0C; flagged for review.")
     ),
     # dry periods (12-point rule) - DO-specific
     list(

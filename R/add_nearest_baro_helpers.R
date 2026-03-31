@@ -248,6 +248,9 @@ read_baro_station <- function(baro_stn, baro_data = NULL, baro_data_path = NULL)
   }
 
   # ---- Coerce timestamp to POSIXct ----
+  if (!inherits(file$timestamp, "POSIXct")) {
+    file$timestamp <- parse_dt(file$timestamp, "timestamp")
+  }
   # if (!inherits(file$timestamp, "POSIXct")) {
   #   file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
   # }
