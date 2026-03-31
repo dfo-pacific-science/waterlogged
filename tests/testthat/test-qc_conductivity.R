@@ -11,7 +11,7 @@ test_that("multiplication works", {
   sites_compiled = cond_bound[[1]]
 
   #check qa flags doesnt exist before
-  qa.columns = c("FLAG_DISTURBANCE","FLAG_ICE","FLAG_RANGE","OUTLIER_WT","FLAG_DRY")
+  qa.columns = c("FLAG_DISTURBANCE","FLAG_ICE","OUTLIER_WT","OUTLIER_CO","FLAG_DRY")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
 

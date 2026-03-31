@@ -13,6 +13,10 @@
 #'     removal).}
 #'   \item{\code{FLAG_ICE}}{Water temperature >= \code{temp_low_limit_C} and
 #'     < \code{temp_ice_flag_C} degrees C; flagged for possible ice conditions.}
+#'   \item{\code{OUTLIER_CO}}{Conductivity outside
+#'     \code{cond_low_limit_uScm} to \code{cond_high_limit_uScm}; corresponding
+#'     values in \code{conduct_uScm_adj} and \code{spc_uScm_adj} are set to
+#'     \code{NA}.}
 #'   \item{\code{OUTLIER_WT}}{Water temperature outside
 #'     \code{temp_low_limit_C} to \code{temp_high_limit_C}; corresponding
 #'     values in \code{watertemp_C_adj} and \code{spc_uScm_adj} are set to
@@ -41,13 +45,16 @@
 #'   In Shiny apps, pass the logged-in user explicitly
 #'   (e.g. \code{session$user}).
 #' @param temp_high_limit_C Numeric. Upper bound for acceptable water
-#'   temperature. Values above this are set to \code{NA}. Default
-#'   \code{40}.
+#'   temperature. Values above this are set to \code{NA}. Default \code{40}.
 #' @param temp_low_limit_C Numeric. Lower bound for acceptable water
 #'   temperature. Values below this are set to
-#'   \code{NA}. Values between \code{temp_low_limit_C} and
-#'   \code{temp_ice_flag_C} are snapped to 0 \code{°C}. Default
-#'   \code{-2}.
+#'   \code{NA}. Default \code{-2}.
+#' @param cond_high_limit_uScm Numeric. Upper bound for acceptable conductivity.
+#'   Values above this are set to \code{NA}. Adjust this value depending on
+#'   logger specifications. Default \code{2500}.
+#' @param cond_low_limit_uScm Numeric. Lower bound for acceptable conductivity.
+#'   Values below this are set to \code{NA}. Adjust this value depending on
+#'   logger specifications. Default \code{0}.
 #' @param temp_ice_flag_C Upper bound of water temperature (\code{°C}) for
 #'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 #'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
@@ -67,7 +74,7 @@
 #'     \item \strong{Adjusted columns:} \code{conduct_uScm_adj},
 #'       \code{watertemp_C_adj}.
 #'     \item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
-#'       \code{FLAG_ICE}, \code{OUTLIER_WT},
+#'       \code{FLAG_ICE}, \code{OUTLIER_WT}, \code{OUTLIER_CO},
 #'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 #'       of QAQC log rows summarising every rule that fired.
@@ -83,8 +90,10 @@
 qc_conductivity <- function(
     input_data,
     select_station,
-    log_root = NULL,
+    log_root                   = NULL,
     user                       = NULL,
+    cond_low_limit_uScm        = 0,
+    cond_high_limit_uScm       = 2500,
     temp_low_limit_C           = -2,
     temp_high_limit_C          = 50,
     temp_ice_flag_C            = 0.3,
@@ -145,6 +154,9 @@ qc_conductivity <- function(
   }
 
   # ---- 3. Detection helpers (use adj as working values) ---------------------
+  # Conductivity range
+  cond_range <- df$conduct_uScm_adj < cond_low_limit_uScm | df$conduct_uScm_adj > cond_high_limit_uScm
+
   # Temperature conditions
   temp_range <- df$watertemp_C_adj < temp_low_limit_C | df$watertemp_C_adj > temp_high_limit_C
   temp_ice   <- df$watertemp_C_adj >= temp_low_limit_C & df$watertemp_C_adj < temp_ice_flag_C
@@ -171,13 +183,24 @@ qc_conductivity <- function(
     dplyr::mutate(
       dplyr::across(
         dplyr::any_of(c("watertemp_C_adj", "spc_uScm_adj")),
-        ~ dplyr::if_else(temp_range, NA_real_, .x)
+        ~ dplyr::case_when(
+          temp_range ~ NA_real_,
+          .default = .x
+        )
+      ),
+      dplyr::across(
+        dplyr::any_of(c("conduct_uScm_adj", "spc_uScm_adj")),
+        ~ dplyr::case_when(
+          cond_range ~ NA_real_,
+          .default = .x
+        )
       ),
 
       # Keep key flags for plotting / diagnostics
       FLAG_DISTURBANCE      = spike,
       FLAG_ICE              = temp_ice,
       OUTLIER_WT            = temp_range,
+      OUTLIER_CO            = cond_range
     )
 
   # ---- 5. 12-point dry flag (FLAG_DRY) using adj CO -----------------------
@@ -256,6 +279,16 @@ qc_conductivity <- function(
       action_note = paste0(
         "Water temperature outside acceptable range (",
         temp_low_limit_C, " to ", temp_high_limit_C, " \u00b0C): removed."
+      )
+    ),
+    # Out-of-range conductivity (low or high)
+    list(
+      flag        = (df$OUTLIER_CO) %in% TRUE,
+      field       = "conduct_uScm_adj",
+      code        = "OUTLIER_CO",
+      action_note = paste0(
+        "Conductivity outside acceptable range (",
+        cond_low_limit_uScm, " to ", cond_high_limit_uScm, " \u00b5S/cm): removed."
       )
     ),
     # Dry conditions - COND-specific

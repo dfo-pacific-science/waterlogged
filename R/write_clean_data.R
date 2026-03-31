@@ -208,6 +208,8 @@ write_clean_data <- function(
          isTRUE(input_data$OUTLIER_AT[i]) && is.na(input_data$airtemp_C_adj[i])) ||
       (has_col("OUTLIER_DO") && has_col("do_mgl_adj") &&
          isTRUE(input_data$OUTLIER_DO[i]) && is.na(input_data$do_mgl_adj[i])) ||
+      (has_col("OUTLIER_CO") && has_col("conduct_uScm_adj") &&
+       isTRUE(input_data$OUTLIER_CO[i]) && is.na(input_data$conduct_uScm_adj[i])) ||
       (has_col("OUTLIER_WT") && has_col("watertemp_C_adj") &&
          isTRUE(input_data$OUTLIER_WT[i]) && is.na(input_data$watertemp_C_adj[i])) ||
       (has_col("OUTLIER_WT") && has_col("watertemp_C_do_adj") &&
