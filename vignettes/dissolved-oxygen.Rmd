@@ -53,10 +53,9 @@ library(waterlogged)
 Define paths to the test data shipped with the package.
 
 ```{r paths}
-metadata_file  <- system.file("extdata/dissolved_oxygen/metadata.csv", package = "waterlogged")
-baro_folder    <- system.file("extdata/dissolved_oxygen/baro", package = "waterlogged")
-do_folder      <- system.file("extdata/dissolved_oxygen/DO", package = "waterlogged")
-reference_file <- system.file("extdata/dissolved_oxygen/field_references.csv", package = "waterlogged")
+metadata_file  <- system.file("extdata/metadata/metadata.csv", package = "waterlogged")
+baro_folder    <- system.file("extdata/barometric_pressure/clean", package = "waterlogged")
+do_folder      <- system.file("extdata/dissolved_oxygen/DO/raw", package = "waterlogged")
 ```
 
 ## Bind Raw Dissolved Oxygen Logger Files (v0.1)
@@ -68,7 +67,7 @@ The HOBO U26 records two channels: DO concentration in mg/L and water temperatur
 ```{r bind-do}
 do_bound <- bind_hobo_files(
   path_to_raw_folder = do_folder,
-  metadata      = metadata_file
+  metadata_path      = metadata_file
 )
 
 do_data <- do_bound[[1]]
@@ -102,8 +101,7 @@ do_with_baro <- add_nearest_baro(
   input_data          = do_data,
   baro_data_path      = baro_folder,
   metric              = "DO",
-  metadata       = metadata_file,
-  path_to_output_folder = output
+  metadata_path       = metadata_file
 )
 
 do_data <- do_with_baro[[1]]
@@ -154,11 +152,12 @@ Adjusted columns created: `do_mgl_adj`, `do_percsat_adj`, `watertemp_C_do_adj`.
 
 The same flag vs edit pattern applies: `FLAG_*` = "please review" (data unchanged), `OUTLIER_*` / `ERROR_*` = "we changed the data".
 
+You can specify where you would like the QC log (records all auto and manual QC changes to data) by specifying the file path in  `log_root`.
+
 ```{r do-qaqc}
 do_qc <- qc_dissox(
   input_data     = do_data,
-  select_station = unique(do_data$site_station_code)[1],
-  log_root = log_root_folder
+  select_station = unique(do_data$site_station_code)[1]
 )
 
 cat("QAQC results:\n")
@@ -311,7 +310,7 @@ print(summary(do_qc$do_mgl_adj))
 
 The adjusted range of DO is much more reasonable than the unadjusted values. 
 
-When you're happy with your data cleaning, you can export the clean data. 
+When you're happy with your data cleaning, you can export the clean data. You must specify where you'd like the clean file to be saved under `path_to_output_folder`
 
 ```{r export, eval=FALSE}
 write_clean_data(
@@ -325,16 +324,14 @@ write_clean_data(
 
 | Step | Function | Result |
 |------|----------|--------|
-| 1 | `barometric_qaqc_all()` | `baro_qc` (cleaned baro) |
-| 2 | `bind_hobo_files()` on DO | `do_data` (raw DO) |
-| 3 | `add_nearest_baro()` | `do_data` (DO + baro attached) |
-| 4 | `convert_do_mgl_percsat()` | `do_data` (adds %sat) |
-| 5 | `qc_dissox()` | `do_qc` (auto QAQC'd) |
-| 6 | `plot_qaqc_timeseries()` | (visual review) |
-| 7 | `wq_drift_correction()` | `do_qc` (drift corrected) |
-| 8 | Manual adjustments | `do_qc` (updated) |
-| 9 | `plot_qaqc_timeseries()` | (final review) |
-| 10 | `write_clean_data()` | CSV files on disk |
+| 1 | `bind_hobo_files()` on DO | `do_data` (raw DO) |
+| 2 | `add_nearest_baro()` | `do_data` (DO + baro attached) |
+| 3 | `convert_do_mgl_percsat()` | `do_data` (adds %sat) |
+| 4 | `qc_dissox()` | `do_qc` (auto QAQC'd) |
+| 5 | `plot_qaqc_timeseries()` | (visual review) |
+| 6 | Manual adjustments | `do_qc` (updated) |
+| 7 | `plot_qaqc_timeseries()` | (final review) |
+| 8 | `write_clean_data()` | CSV files on disk |
 
 **Key columns:**
 
@@ -346,6 +343,5 @@ write_clean_data(
 - `watertemp_C_do_adj` — adjusted water temperature
 - `FLAG_*` — "something looks off — review" (data not changed)
 - `OUTLIER_*` / `ERROR_*` — "data was changed" (set to NA or corrected)
-- `edit_do_drift` — TRUE where drift correction was applied
 
 Use `do_percsat_adj` for analysis — it incorporates all corrections including sensor drift.
