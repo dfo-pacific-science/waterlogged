@@ -505,6 +505,12 @@ add_nearest_baro <- function(input_data,
 
           out_name <- sprintf("%s_%s_%s_%s_v0.2.csv", site_i, metric_header, start_str, end_str)
           out_path <- file.path(proc_dir, out_name)
+          # ===========================================================================
+          # Drop internal working columns
+          # ===========================================================================
+
+          site_year <-  site_year |>
+            dplyr::select(-dplyr::any_of("metric_norm"))
 
           utils::write.csv(site_year, out_path, row.names = FALSE)
           message(sprintf("Data (v0.2) from %s (%s) written to %s", site_i, metric_header, out_path))
@@ -513,12 +519,6 @@ add_nearest_baro <- function(input_data,
     }
   }
 
-  # ===========================================================================
-  # Drop internal working columns
-  # ===========================================================================
-
-  df_with_baro <- df_with_baro |>
-    dplyr::select(-dplyr::any_of("metric_norm"))
 
   # ===========================================================================
   # QC plot
