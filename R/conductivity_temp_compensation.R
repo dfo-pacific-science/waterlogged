@@ -169,6 +169,12 @@ conductivity_temp_compensation <- function(input_data) {
     tempcomp(temp_vals) * cond_vals
   )
 
+  # Round spc_uScm_adj to match input conductivity decimal places
+  cond_chars <- as.character(stats::na.omit(cond_vals))
+  dec_matches <- grep("\\.", cond_chars, value = TRUE)
+  dec_places <- max(c(0, nchar(sub(".*\\.", "", dec_matches))))
+  out$spc_uScm_adj <- round(out$spc_uScm_adj, digits = dec_places)
+
   # Warn if many temps are missing
   pct_missing_temp <- mean(is.na(temp_vals)) * 100
   if (pct_missing_temp > 5) {
