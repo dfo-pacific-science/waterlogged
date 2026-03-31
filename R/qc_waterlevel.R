@@ -64,7 +64,6 @@
 #'   \code{\link{convert_waterlevel_kPa_m}} (upstream WL conversion)
 #'
 #' @export
-
 qc_waterlevel <- function(input_data,
                             select_station,
                             temp_ice_threshold_C  = 0.3,
