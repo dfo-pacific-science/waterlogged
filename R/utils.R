@@ -152,3 +152,77 @@ find_na_runs <- function(df, value_col = "airpress_kPa", add_step = TRUE) {
   ) |>
     dplyr::mutate(duration = (gap_end - gap_start) + add_dt)
 }
+
+
+#' Parse Date-Time Vectors to UTC POSIXct
+#'
+#' Converts various date-time string formats into standard \code{POSIXct} objects
+#' in the UTC timezone. It incorporates progressive parsing to handle existing
+#' \code{POSIXct} objects, completely blank vectors, and multiple date-time
+#' formatting orders.
+#'
+#' @param x A vector (typically character) containing date-time information to be parsed.
+#' @param col_name A character string representing the name of the input column.
+#'   Used to generate informative error messages upon parsing failure. Defaults to \code{"timestamp"}.
+#'
+#' @details
+#' The function executes parsing in the following sequence:
+#' \enumerate{
+#'   \item Returns the input immediately if it already inherits from \code{"POSIXct"}.
+#'   \item Checks for vectors comprised entirely of \code{NA} or blank strings,
+#'         returning a vector of \code{NA} \code{POSIXct} values if true.
+#'   \item Attempts an initial parse using \code{\link[lubridate]{mdy_hm}}.
+#'   \item Falls back to \code{\link[lubridate]{parse_date_time}} using a predefined
+#'         set of common orders (\code{"mdy HM", "mdy HMS", "mdY HM", "mdY HMS",
+#'         "ymd HM", "ymd HMS"}).
+#' }
+#' If all parsing attempts fail for non-blank values, the function terminates.
+#'
+#' @return A vector of class \code{POSIXct} in the \code{"UTC"} timezone.
+#'
+#' @importFrom lubridate mdy_hm parse_date_time
+#'
+#' @examples
+#' \dontrun{
+#' # Parse standard character representations
+#' parse_dt(c("4/30/2025 13:45", "04/30/2025 13:45:00"))
+#'
+#' # Handle vectors with mixed blanks/NAs
+#' parse_dt(c("4/30/2025 13:45", "", "NA"))
+#'
+#' # Handle entirely blank vectors safely
+#' parse_dt(c(NA, "", "  "))
+#'
+#' # Triggers custom error on complete failure
+#' parse_dt(c("invalid_date"), col_name = "start_time")
+#' }
+#'
+#' @export
+parse_dt <- function(x, col_name = "timestamp") {
+  if (inherits(x, "POSIXct")) return(x)
+
+  x_chr     <- as.character(x)
+  all_blank <- is.na(x_chr) | trimws(x_chr) %in% c("", "NA")
+
+  # All values are blank/NA — valid for still-deployed loggers (timestamp_remove)
+  if (all(all_blank)) {
+    return(as.POSIXct(rep(NA_character_, length(x_chr)), tz = "UTC"))
+  }
+
+  p1 <- try(lubridate::mdy_hm(x_chr, tz = "UTC", quiet = TRUE), silent = TRUE)
+  if (!inherits(p1, "try-error") && !all(is.na(p1[!all_blank]))) return(p1)
+
+  p2 <- suppressWarnings(
+    lubridate::parse_date_time(
+      x_chr,
+      orders = c("mdy HM", "mdy HMS", "mdY HM", "mdY HMS", "ymd HM", "ymd HMS"),
+      tz = "UTC"
+    )
+  )
+
+  if (all(is.na(p2[!all_blank]))) {
+    stop("Failed to parse '", col_name, "' column. Expected format like '4/30/2025 13:45'.")
+  }
+
+  p2
+}

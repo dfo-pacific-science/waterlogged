@@ -251,6 +251,10 @@ read_baro_station <- function(baro_stn, baro_data = NULL, baro_data_path = NULL)
   if (!inherits(file$timestamp, "POSIXct")) {
     file$timestamp <- parse_dt(file$timestamp, "timestamp")
   }
+  # if (!inherits(file$timestamp, "POSIXct")) {
+  #   file$timestamp <- lubridate::ymd_hms(file$timestamp, tz = "UTC")
+  # }
+  file$timestamp <- parse_dt(file$timestamp, "timestamp")
 
   # ---- Select preferred columns (_adj over raw) ----
   press_col <- if ("airpress_kPa_adj" %in% names(file)) "airpress_kPa_adj" else "airpress_kPa"
