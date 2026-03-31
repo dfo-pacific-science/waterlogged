@@ -107,14 +107,15 @@ do_with_baro <- add_nearest_baro(
 )
 
 do_data <- do_with_baro[[1]]
+do_with_baro[[2]]
 
-cat("After baro attach:", nrow(do_data2), "rows\n")
+cat("After baro attach:", nrow(do_data), "rows\n")
 cat("Baro station(s) used:",
-    paste(unique(na.omit(do_data2$baro_site_stn_code)), collapse = ", "), "\n")
+    paste(unique(na.omit(do_data$baro_site_stn_code)), collapse = ", "), "\n")
 
-baro_na <- sum(is.na(do_data2$airpress_kPa))
-cat("Missing baro data:", baro_na, "of", nrow(do_data2), "rows",
-    paste0("(", round(baro_na / nrow(do_data2) * 100, 1), "%)"), "\n")
+baro_na <- sum(is.na(do_data$airpress_kPa))
+cat("Missing baro data:", baro_na, "of", nrow(do_data), "rows",
+    paste0("(", round(baro_na / nrow(do_data) * 100, 1), "%)"), "\n")
 ```
 
 ## Convert DO mg/L to Percent Saturation (v0.3)
@@ -187,7 +188,7 @@ Lets look at the data to see what QC flags were made by qc_dissox. Plotly is use
 plot_qaqc_timeseries(
   do_data        = do_qc,
   select_station = unique(do_qc$site_station_code)[1],
-  static=TRUE
+  static = TRUE
 )
 ```
 
