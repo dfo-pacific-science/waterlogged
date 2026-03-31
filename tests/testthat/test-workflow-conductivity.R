@@ -1,6 +1,6 @@
 test_that("conductivity workflow runs end-to-end", {
 
-  metadata_file  <- system.file("extdata/conductivity/metadata.csv", package = "waterlogged")
+  metadata_file  <- system.file("extdata/conductivity/metadata.old.csv", package = "waterlogged")
   cond_folder    <- system.file("extdata/conductivity/COND", package = "waterlogged")
   reference_file <- system.file("extdata/conductivity/field_references.csv", package = "waterlogged")
 
@@ -26,7 +26,7 @@ test_that("conductivity workflow runs end-to-end", {
     temp_high_limit_C          = 40,
     disturbance_threshold_uScm = 200,
     dry_threshold_uScm         = 10,
-    air_water_diff_threshold_C = 2
+    temp_air_water_diff_C      = 2
   )
 
   expect_s3_class(cond_qc, "data.frame")
