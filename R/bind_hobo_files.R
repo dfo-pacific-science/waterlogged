@@ -262,7 +262,12 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   sites_compiled <- sites_compiled |>
     dplyr::select(-dplyr::matches("Coupler|Connected|Stopped|End of File|Logged", ignore.case = TRUE))
 
-
+  #####
+  # NEED TO ADD CODE FOR TIDBIT QAQC STILL, ALSO WHAT HAPPENS IF USER HAS MORE THAN 1 LOGGER TYPE?
+  # U20s and TidbiTs can be used for different metrics (U20 can be barometricpressure or waterlevel,
+  # TidbiT can be air or water temperature, Pendant can be temp/light/event)
+  # perhaps separate by model and metric?
+  #####
 
   logger_type <- unique(metadat_link$model)
   if (length(logger_type) != 1) {
@@ -413,6 +418,11 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
 
     logger_header <- "COND"
 
+    # Standardise metadata so "data1" = cond, "data2" = temp for ALL cond files
+    sites_compiled$data1_type <- "conductivity"
+    sites_compiled$data1_unit <- "\u00b5S/cm"
+    sites_compiled$data2_type <- "Temp"
+    sites_compiled$data2_unit <- "\u00b0C"
 
     # Drop the raw Low Range / Full Range / Temp columns now that unified
     # conduct_uScm, conduct_source, and watertemp_C columns exist
@@ -433,13 +443,7 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   # Remove HOBO event columns we don't need
   sites_compiled <- sites_compiled |>
     dplyr::select(
-      -dplyr::matches("Coupler Detached|Coupler Attached|Stopped|End Of File|Bad Battery|Good Battery")
-    )
-
-  # Remove extra columns we don't need
-  sites_compiled <- sites_compiled |>
-    dplyr::select(
-      -dplyr::any_of(c("file_name", "data1_type", "data1_unit", "data2_type", "data2_unit", "timezone"))
+      -dplyr::matches("Coupler Detached|Coupler Attached|Stopped|End Of File")
     )
 
   #### EXPORT CSV BY LOGGER TYPE LOCATION AND YEAR
