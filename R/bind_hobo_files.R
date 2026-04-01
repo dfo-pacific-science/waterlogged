@@ -258,7 +258,9 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   # order by site and timestamp
   sites_compiled<- sites_compiled[order(sites_compiled$site_station_code, sites_compiled$timestamp), ]
 
-
+  # drop HOBOware event columns
+  sites_compiled <- sites_compiled |>
+    dplyr::select(-dplyr::matches("Coupler|Connected|Stopped|End of File|Logged", ignore.case = TRUE))
 
   #####
   # NEED TO ADD CODE FOR TIDBIT QAQC STILL, ALSO WHAT HAPPENS IF USER HAS MORE THAN 1 LOGGER TYPE?
