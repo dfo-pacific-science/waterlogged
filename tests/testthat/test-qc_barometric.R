@@ -22,7 +22,7 @@ test_that("test barometric qaqc", {
   barometric_complete_QAQC = qc_barometric(sites_compiled,
                                        log_root = path_to_output_folder,
                                        select_station = "DARL_ST_30",
-                                       temp_high_limit=39)
+                                       temp_high_limit_C=39)
 
   #check outputs
   expect_s3_class(barometric_complete_QAQC, "data.frame")

@@ -9,8 +9,8 @@ qc_barometric(
   select_station,
   log_root = NULL,
   user = NULL,
-  temp_low_limit = -40,
-  temp_high_limit = 50,
+  temp_low_limit_C = -40,
+  temp_high_limit_C = 50,
   pressure_low_kpa = 51,
   pressure_high_kpa = 112,
   spike_threshold_kpa = 1.5,
@@ -36,11 +36,11 @@ local OS user).
 In Shiny apps, pass the logged-in user explicitly
 (e.g. \code{session$user}).}
 
-\item{temp_low_limit}{Lower bound (C) for plausible barometric temperatures.
-Values outside \verb{[temp_low_limit, temp_high_limit]} are set to \code{NA} in
+\item{temp_low_limit_C}{Lower bound (C) for plausible barometric temperatures.
+Values outside \verb{[temp_low_limit_C, temp_high_limit_C]} are set to \code{NA} in
 \code{airtemp_C_adj} and flagged.}
 
-\item{temp_high_limit}{Upper bound (C) for plausible barometric temperatures.}
+\item{temp_high_limit_C}{Upper bound (C) for plausible barometric temperatures.}
 
 \item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric pressure.
 Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 51 kPa.}

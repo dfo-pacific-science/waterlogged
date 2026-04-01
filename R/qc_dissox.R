@@ -10,17 +10,20 @@
 #' \describe{
 #'   \item{\code{ERROR_DO}}{Logger error code (\code{-888.88}) in DO or
 #'     water temperature -- DO and percent sat set to \code{NA}.}
-#'   \item{\code{OUTLIER_DO}}{DO between 0 and \code{-1} mg/L corrected to
-#'     0; DO less than \code{-1} mg/L or greater than 30 mg/L removed (\code{NA}).}
-#'   \item{\code{OUTLIER_WT}}{Water temperature below \code{-1}
-#'     degrees C removed (\code{NA}); between \code{-1} and 0
-#'     degrees C corrected to 0.}
-#'   \item{\code{FLAG_RANGE}}{Sliding 12-point window where DO mg/L is greater than the calibration range of 20 mg/L.}
-#'   \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
+#'   \item{\code{OUTLIER_DO}}{DO between 0 and \code{do_low_limit_mgl} mg/L corrected to
+#'     0; DO less than \code{do_low_limit_mgl} mg/L or greater than \code{do_high_limit_mgl} mg/L removed (\code{NA}).}
+#'   \item{\code{OUTLIER_WT}}{Water temperature below \code{temp_low_limit_C}
+#'     degrees C removed (\code{NA})}
+#'   \item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_flag_C} degrees C flagged
 #'     for possible ice conditions.}
+#'   \item{\code{FLAG_Range}}{DO < \code{do_low_flag_mgl} degrees C flagged
+#'     for possible sensor error, if low DO is not expected}
 #'   \item{\code{FLAG_DRY}}{Sliding 12-point window where percent sat
-#'     >= 100 and air--water temperature difference <= 2
+#'     >= 100 and air--water temperature difference <= \code{temp_air_water_diff_C}
 #'     degrees C, indicating a potentially dry sensor.}
+#'   \item{\code{FLAG_DRY}}{DO > \code{do_high_flag_mgl} degrees C flagged
+#'     for possible dry sensor}
+#'
 #' }
 #'
 #' @param input_data A data frame containing dissolved oxygen observations.
@@ -116,7 +119,7 @@ qc_dissox <- function(input_data,
       "qc_dissox(): temp_low_limit_C must be <= 0. "
     )
   }
-  if (temp_ice_flag_C <= 0) {
+  if (temp_ice_flag_C < 0) {
     stop(
       "qc_dissox(): temp_ice_flag_C must be >= 0. Ice flagging only applies to near-freezing liquid water. "
     )
