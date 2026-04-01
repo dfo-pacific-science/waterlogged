@@ -215,7 +215,7 @@ test_that("Test multiple date formats", {
     metadata_path = metadata_path
   )
 
-  timestamp_wrong_format_compiled = timestamp_wrong_format_bound[[1]]
+  timestamp_wrong_format_compiled = timestamp_wrong_format_bound[[1]] |> dplyr::select(-file_name) #remove file name since it wont be identical between the two files
 
   path_to_raw_folder = test_path("fixtures/test_multiple_date_formats/correct_format")
 
@@ -225,7 +225,7 @@ test_that("Test multiple date formats", {
     metadata_path = metadata_path
   )
 
-  timestamp_correct_format_compiled = timestamp_correct_format_bound[[1]]
+  timestamp_correct_format_compiled = timestamp_correct_format_bound[[1]] |> dplyr::select(-file_name) #remove file name since it wont be identical between the two files
 
   expect_equal(timestamp_wrong_format_compiled,
                timestamp_correct_format_compiled)
