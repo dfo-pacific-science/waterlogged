@@ -24,15 +24,15 @@ test_that("conductivity workflow runs end-to-end", {
     select_station             = "TUMT_WE_40",
     temp_low_limit_C           = -2,
     temp_high_limit_C          = 40,
-    disturbance_threshold_uScm = 200,
-    dry_threshold_uScm         = 10,
+    spike_flag_uScm = 200,
+    dry_flag_uScm         = 10,
     temp_air_water_diff_C      = 2
   )
 
   expect_s3_class(cond_qc, "data.frame")
   expect_equal(nrow(cond_qc), nrow(cond_data))
   expect_true(all(c("conduct_uScm_adj", "watertemp_C_adj") %in% names(cond_qc)))
-  expect_true(all(c("FLAG_DISTURBANCE", "FLAG_ICE", "FLAG_DRY") %in% names(cond_qc)))
+  expect_true(all(c("FLAG_SPIKE", "FLAG_ICE", "FLAG_DRY") %in% names(cond_qc)))
   expect_false(is.null(attr(cond_qc, "qaqc_log")))
 
   # Step 3: Drift correction
