@@ -18,7 +18,7 @@
 #'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
 #' @param temp_ice_flag_C Water temperature (C) below which ice conditions
 #'   are flagged. Default \code{0.3}.
-#' @param temp_high_dry_C Water temperature (C) above which a dry sensor is
+#' @param temp_dry_flag_C Water temperature (C) above which a dry sensor is
 #'   suspected. Default \code{25}.
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
 #'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
@@ -38,7 +38,7 @@
 #'   \item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_flag_C}:
 #'     flagged for review; data not changed.}
 #'   \item{\code{FLAG_DRY}}{Possible dry sensor: water temperature >
-#'     \code{temp_high_dry_C}; or, when \code{airtemp_C} is present, air-water
+#'     \code{temp_dry_flag_C}; or, when \code{airtemp_C} is present, air-water
 #'     temperature within \code{temp_air_water_diff_C} degrees C, or air warmer
 #'     than water.}
 #' }
@@ -55,7 +55,7 @@ qc_watertemp <- function(input_data,
                            temp_high_limit_C = 50,
                            temp_low_limit_C = -1,
                            temp_ice_flag_C  = 0.3,
-                           temp_high_dry_C       = 25,
+                           temp_dry_flag_C       = 25,
                            temp_air_water_diff_C = 2,
                            log_root = NULL,
                            user     = NULL) {
@@ -117,7 +117,7 @@ qc_watertemp <- function(input_data,
   neg_lt_minus1 <- !is.na(df$watertemp_C) & df$watertemp_C < temp_low_limit_C
  # neg_between   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_low_limit_C & df$watertemp_C < 0
   flag_ice_vec  <- !is.na(df$watertemp_C) & df$watertemp_C <= temp_ice_flag_C
-  wt_high_dry   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_high_dry_C
+  wt_high_dry   <- !is.na(df$watertemp_C) & df$watertemp_C >= temp_dry_flag_C
   wt_high_limit   <- !is.na(df$watertemp_C) & df$watertemp_C > temp_high_limit_C
 
   # ---- 3. Apply adjustments -------------------------------------------------
@@ -201,7 +201,7 @@ qc_watertemp <- function(input_data,
       field       = "watertemp_C_adj",
       code        = "FLAG_DRY",
       action_note = paste0("Possible dry sensor: water temperature > ",
-                           temp_high_dry_C, "\u00b0C",
+                           temp_dry_flag_C, "\u00b0C",
                            if (has_airtemp) paste0(", or air-water temperature within ",
                                                    temp_air_water_diff_C, "\u00b0C / air warmer than water")
                            else "",
