@@ -8,8 +8,8 @@
 #'
 #' The following rules are applied:
 #' \describe{
-#'   \item{\code{FLAG_DISTURBANCE}}{Consecutive conductivity change exceeding
-#'     \code{disturbance_threshold_uScm}; flagged for review (no automatic
+#'   \item{\code{FLAG_SPIKE}}{Consecutive conductivity change exceeding
+#'     \code{spike_flag_uScm}; flagged for review (no automatic
 #'     removal).}
 #'   \item{\code{FLAG_ICE}}{Water temperature >= \code{temp_low_limit_C} and
 #'     < \code{temp_ice_flag_C} degrees C; flagged for possible ice conditions.}
@@ -22,7 +22,7 @@
 #'     values in \code{watertemp_C_adj} and \code{spc_uScm_adj} are set to
 #'     \code{NA}.}
 #'   \item{\code{FLAG_DRY}}{Sliding 12-point window where conductivity <=
-#'     \code{dry_threshold_uScm}. If air temperature data is available, the
+#'     \code{dry_flag_uScm}. If air temperature data is available, the
 #'     air--water temperature difference must also be <=
 #'     \code{temp_air_water_diff_C}. Flagged as probable dry sensor.}
 #' }
@@ -59,10 +59,10 @@
 #'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 #'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
 #'   than \code{temp_low_limit_C}. Default \code{0.3}.
-#' @param disturbance_threshold_uScm Numeric. Absolute conductivity change
+#' @param spike_flag_uScm Numeric. Absolute conductivity change
 #'   between consecutive samples that triggers the spike flag. Default
 #'   \code{200}.
-#' @param dry_threshold_uScm Numeric. Conductivity below this value is
+#' @param dry_flag_uScm Numeric. Conductivity below this value is
 #'   considered a probable dry sensor. Default \code{10}.
 #' @param temp_air_water_diff_C Numeric. Maximum absolute air--water
 #'   temperature difference to support the dry-sensor inference (requires
@@ -73,7 +73,7 @@
 #'   \itemize{
 #'     \item \strong{Adjusted columns:} \code{conduct_uScm_adj},
 #'       \code{watertemp_C_adj}.
-#'     \item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+#'     \item \strong{Flag columns:} \code{FLAG_SPIKE},
 #'       \code{FLAG_ICE}, \code{OUTLIER_WT}, \code{OUTLIER_CO},
 #'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
@@ -97,8 +97,8 @@ qc_conductivity <- function(
     temp_low_limit_C           = -2,
     temp_high_limit_C          = 50,
     temp_ice_flag_C            = 0.3,
-    disturbance_threshold_uScm = 200,
-    dry_threshold_uScm         = 10,
+    spike_flag_uScm = 200,
+    dry_flag_uScm         = 10,
     temp_air_water_diff_C      = 2
 ) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -163,7 +163,7 @@ qc_conductivity <- function(
 
   # Conductivity spike (use adj)
   diff_cond  <- c(NA_real_, diff(df$conduct_uScm_adj))
-  spike      <- abs(diff_cond) > disturbance_threshold_uScm
+  spike      <- abs(diff_cond) > spike_flag_uScm
 
   # Air-water support for dry inference (optional)
   if ("airtemp_C_adj" %in% names(df)) {
@@ -197,7 +197,7 @@ qc_conductivity <- function(
       ),
 
       # Keep key flags for plotting / diagnostics
-      FLAG_DISTURBANCE      = spike,
+      FLAG_SPIKE            = spike,
       FLAG_ICE              = temp_ice,
       OUTLIER_WT            = temp_range,
       OUTLIER_CO            = cond_range
@@ -218,7 +218,7 @@ qc_conductivity <- function(
         window_diff <- df$air_watertemp_diff[j:(j + 11)]
 
         if (any(!is.na(window_co)) && any(!is.na(window_diff))) {
-          if (min(window_co, na.rm = TRUE) <= dry_threshold_uScm &&
+          if (min(window_co, na.rm = TRUE) <= dry_flag_uScm &&
               max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C) {
             df$FLAG_DRY[j:(j + 11)] <- TRUE
           }
@@ -230,7 +230,7 @@ qc_conductivity <- function(
         window_co <- df$conduct_uScm_adj[j:(j + 11)]
 
         if (any(!is.na(window_co))) {
-          if (min(window_co, na.rm = TRUE) <= dry_threshold_uScm) {
+          if (min(window_co, na.rm = TRUE) <= dry_flag_uScm) {
             df$FLAG_DRY[j:(j + 11)] <- TRUE
           }
         }
@@ -259,10 +259,10 @@ qc_conductivity <- function(
   rules <- list(
     # Spikes (no automatic removal, just flag & log)
     list(
-      flag        = df$FLAG_DISTURBANCE %in% TRUE,
+      flag        = df$FLAG_SPIKE %in% TRUE,
       field       = "conduct_uScm_adj",
-      code        = "FLAG_DISTURBANCE",
-      action_note = paste0("Spike > ", disturbance_threshold_uScm, " \u00b5S/cm between samples; flagged for review.")
+      code        = "FLAG_SPIKE",
+      action_note = paste0("Spike > ", spike_flag_uScm, " \u00b5S/cm between samples; flagged for review.")
     ),
     # Ice-like temperatures
     list(
@@ -298,13 +298,13 @@ qc_conductivity <- function(
       code        = "FLAG_DRY",
       action_note = if (has_air_temp) {
         paste0(
-          "Possible dry sensor: conductivity < ", dry_threshold_uScm,
+          "Possible dry sensor: conductivity < ", dry_flag_uScm,
           " \u00b5S/cm and air-water temperature difference <= ", temp_air_water_diff_C,
           " \u00b0C for >= 12 consecutive points."
         )
       } else {
         paste0(
-          "Possible dry sensor: conductivity < ", dry_threshold_uScm,
+          "Possible dry sensor: conductivity < ", dry_flag_uScm,
           " \u00b5S/cm for >= 12 consecutive points (no air temperature data available)."
         )
       }
