@@ -2,7 +2,7 @@
 # Tests for qc_waterlevel()
 #
 # This function runs automated quality checks on converted water-level data.
-# It adds flag columns (flag_ice, flag_disturbance, flag_wl_dry, etc.) and
+# It adds flag columns (flag_ice, flag_spike, flag_wl_dry, etc.) and
 # writes a QAQC log CSV summarizing what was flagged.
 #
 # PERFORMANCE NOTE: We use cached conversion results from
@@ -17,7 +17,7 @@ test_that("test waterlevel qaqc", {
   converted_data <- get_wl_converted_data()
 
   # --- Verify that QAQC flag columns do NOT exist before running QAQC ------
-  qa.columns <- c("FLAG_DISTURBANCE", "FLAG_ICE", "FLAG_DRY",
+  qa.columns <- c("FLAG_SPIKE", "FLAG_ICE", "FLAG_DRY",
                    "OUTLIER_WT")
   missing_cols <- setdiff(qa.columns, colnames(converted_data))
   expect_equal(missing_cols, qa.columns)
