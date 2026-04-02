@@ -24,11 +24,11 @@
 #'   Values outside `[temp_low_limit_C, temp_high_limit_C]` are set to `NA` in
 #'   `airtemp_C_adj` and flagged.
 #' @param temp_high_limit_C Upper bound (C) for plausible barometric temperatures.
-#' @param pressure_low_kpa Lower bound (kPa) for plausible barometric pressure.
+#' @param pressure_low_limit_kpa Lower bound (kPa) for plausible barometric pressure.
 #'   Values below this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 51 kPa.
-#' @param pressure_high_kpa Upper bound (kPa) for plausible barometric pressure.
+#' @param pressure_high_limit_kpa Upper bound (kPa) for plausible barometric pressure.
 #'   Values above this are set to `NA` in `airpress_kPa_adj` and flagged. Default is 112 kPa.
-#' @param spike_threshold_kpa Threshold (kPa) for flagging sudden pressure
+#' @param spike_flag_kpa Pressure value (kPa) for flagging sudden pressure
 #'   spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.
 #' @param flatline_n Integer; number of consecutive identical values required
 #'   to flag a potential flatline in the pressure series. Default is 6.
@@ -37,7 +37,7 @@
 #' If `airpress_kPa_adj` or `airtemp_C_adj` do not exist, they are created as
 #' copies of the raw `airpress_kPa` / `airtemp_C` columns and then modified
 #' by the QA/QC rules. Edit flags (`OUTLIER_AP`,
-#' `OUTLIER_AT`, `FLAG_DISTURBANCE`, `FLAG_FLATLINE`) are created if missing
+#' `OUTLIER_AT`, `FLAG_SPIKE`, `FLAG_FLATLINE`) are created if missing
 #' and set to `TRUE` where each rule applies.
 #'
 #' For each rule that triggers, a corresponding QA/QC log entry is appended via
@@ -57,9 +57,9 @@ qc_barometric <- function(input_data,
                             user = NULL,
                             temp_low_limit_C  = -40,
                             temp_high_limit_C = 50,
-                            pressure_low_kpa  = 51,
-                            pressure_high_kpa = 112,
-                            spike_threshold_kpa = 1.5,   # sudden >1.5 kPa jump
+                            pressure_low_limit_kpa  = 51,
+                            pressure_high_limit_kpa = 112,
+                            spike_flag_kpa = 1.5,   # sudden >1.5 kPa jump
                             flatline_n = 6               # 6 consecutive identical values
 ) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -85,7 +85,7 @@ qc_barometric <- function(input_data,
 
   # Create edit flags if missing
   flags <- c("OUTLIER_AP","FLAG_FLATLINE",
-             "FLAG_DISTURBANCE","OUTLIER_AT")
+             "FLAG_SPIKE","OUTLIER_AT")
   for (f in flags) if (!f %in% names(df)) df[[f]] <- FALSE
 
 
@@ -97,12 +97,12 @@ qc_barometric <- function(input_data,
   bad_temp <- !is.na(temp) & (temp < temp_low_limit_C | temp > temp_high_limit_C)
 
   # Pressure outside expected terrestrial range (NA-safe)
-  bad_press_low  <- !is.na(press) & press < pressure_low_kpa
-  bad_press_high <- !is.na(press) & press > pressure_high_kpa
+  bad_press_low  <- !is.na(press) & press < pressure_low_limit_kpa
+  bad_press_high <- !is.na(press) & press > pressure_high_limit_kpa
 
   # Spikes: sudden jump > threshold (first element → FALSE, NA gaps → FALSE)
   diff_press <- c(NA_real_, abs(diff(press)))
-  is_spike   <- !is.na(diff_press) & diff_press > spike_threshold_kpa
+  is_spike   <- !is.na(diff_press) & diff_press > spike_flag_kpa
 
   # Flatline detection (n identical values in a row)
   # Replace NAs with a sentinel so rle() doesn't treat NA runs as flatlines
@@ -131,7 +131,7 @@ qc_barometric <- function(input_data,
       OUTLIER_AP = dplyr::if_else(bad_press_high, TRUE, .data$OUTLIER_AP),
       OUTLIER_AP  = dplyr::if_else(bad_press_low,  TRUE, .data$OUTLIER_AP),
       OUTLIER_AT = dplyr::if_else(bad_temp,        TRUE, .data$OUTLIER_AT),
-      FLAG_DISTURBANCE      = dplyr::if_else(is_spike,        TRUE, .data$FLAG_DISTURBANCE),
+      FLAG_SPIKE      = dplyr::if_else(is_spike,        TRUE, .data$FLAG_SPIKE),
       FLAG_FLATLINE   = dplyr::if_else(is_flatline,     TRUE, .data$FLAG_FLATLINE)
     )
 
@@ -142,13 +142,13 @@ qc_barometric <- function(input_data,
 
   events <- list(
     list(name="PRESSURE_HIGH", idx=which(bad_press_high),
-         note=paste0("Pressure above ", pressure_high_kpa, " kPa removed")),
+         note=paste0("Pressure above ", pressure_high_limit_kpa, " kPa removed")),
     list(name="PRESSURE_LOW", idx=which(bad_press_low),
-         note=paste0("Pressure below ", pressure_low_kpa, " kPa removed")),
+         note=paste0("Pressure below ", pressure_low_limit_kpa, " kPa removed")),
     list(name="TEMP_OUT_RANGE", idx=which(bad_temp),
          note=paste0("Temperature outside [", temp_low_limit_C,", ", temp_high_limit_C, "] C")),
     list(name="SPIKE", idx=which(is_spike),
-         note=paste0("Spike > ", spike_threshold_kpa, " kPa detected")),
+         note=paste0("Spike > ", spike_flag_kpa, " kPa detected")),
     list(name="FLATLINE", idx=which(is_flatline),
          note=paste0("Flatline >= ", flatline_n, " identical readings"))
   )
