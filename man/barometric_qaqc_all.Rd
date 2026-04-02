@@ -9,11 +9,11 @@ barometric_qaqc_all(
   metadata_path = NULL,
   path_to_output_folder = NULL,
   log_root = NULL,
-  temp_low_limit = -40,
-  temp_high_limit = 50,
-  pressure_low_kpa = 85,
-  pressure_high_kpa = 105,
-  spike_threshold_kpa = 1.5,
+  temp_low_limit_C = -40,
+  temp_high_limit_C = 50,
+  pressure_low_limit_kpa = 51,
+  pressure_high_limit_kpa = 112,
+  spike_flag_kpa = 1.5,
   flatline_n = 6,
   user = NULL,
   metadata = NULL,
@@ -39,23 +39,31 @@ needed, e.g. \code{"data/testing/processed"}.}
 \code{\link[=qc_barometric]{qc_barometric()}} and related functions, typically the same as
 \code{path_to_output_folder}, e.g. \code{"data/testing/processed"}.}
 
-\item{temp_low_limit}{Lower bound (°C) for plausible barometric logger
-temperatures. Values outside this range may be flagged or removed.}
+\item{temp_low_limit_C}{Lower bound (C) for plausible air temperatures.
+Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
+Default is -40 C.}
 
-\item{temp_high_limit}{Upper bound (°C) for plausible barometric logger
-temperatures.}
+\item{temp_high_limit_C}{Upper bound (C) for plausible air temperature.
+Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
+Default is 50 C.}
 
-\item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric
-pressure.}
+\item{pressure_low_limit_kpa}{Lower bound (kPa) for plausible barometric pressure.
+Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
+Default is 51 kPa.}
 
-\item{pressure_high_kpa}{Upper bound (kPa) for plausible barometric
-pressure.}
+\item{pressure_high_limit_kpa}{Upper bound (kPa) for plausible barometric pressure.
+Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
+Default is 112 kPa.}
 
-\item{spike_threshold_kpa}{Threshold (kPa) for flagging sudden pressure
-spikes between consecutive timesteps.}
+\item{spike_flag_kpa}{Pressure value (kPa) for flagging sudden pressure
+spikes between consecutive timesteps (absolute difference in kPa).
+Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+Default is 1.5 kPa.}
 
-\item{flatline_n}{Integer; number of consecutive identical values used to
-flag potential flatlining in the pressure series.}
+\item{flatline_n}{Integer; number of consecutive identical values required
+to flag a potential flatline in the pressure series.
+Values are flagged for review as \code{TRUE} in \code{FLAG_FLATLINE}.
+Default is 6.}
 
 \item{user}{Character username written into the QA/QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
