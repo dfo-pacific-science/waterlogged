@@ -10,7 +10,7 @@ qc_watertemp(
   temp_high_limit_C = 50,
   temp_low_limit_C = -1,
   temp_ice_flag_C = 0.3,
-  temp_high_dry_C = 25,
+  temp_dry_flag_C = 25,
   temp_air_water_diff_C = 2,
   log_root = NULL,
   user = NULL
@@ -32,14 +32,14 @@ Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as 
 Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
 
 \item{temp_ice_flag_C}{Water temperature (C) below which ice conditions
-are flagged. Default \code{0.3}.}
+are flagged as \code{TRUE} in \code{FLAG_ICE}. Default \code{0.3}.}
 
-\item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
-suspected. Default \code{25}.}
+\item{temp_dry_flag_C}{Water temperature (C) above which a dry sensor is
+suspected and as \code{TRUE} in \code{FLAG_DRY}. Default \code{25}.}
 
 \item{temp_air_water_diff_C}{Absolute difference (C) between water and air
 temperature below which a dry sensor is suspected (when \code{airtemp_C}
-is present). Default \code{2}.}
+is present) as \code{TRUE} in \code{FLAG_DRY}. Default \code{2}.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
@@ -71,8 +71,8 @@ The following rules are applied:
 \item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_flag_C}:
 flagged for review; data not changed.}
 \item{\code{FLAG_DRY}}{Possible dry sensor: water temperature >
-\code{temp_high_dry_C}; or, when \code{airtemp_C} is present, air-water
+\code{temp_dry_flag_C}; or, when \code{airtemp_C} is present, air-water
 temperature within \code{temp_air_water_diff_C} degrees C, or air warmer
-than water.}
+than water. Flagged for review, data not changed.}
 }
 }
