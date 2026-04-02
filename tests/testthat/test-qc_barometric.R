@@ -10,7 +10,7 @@ test_that("test barometric qaqc", {
   sites_compiled = baro_bound[[1]]
 
   #check qa flags doesnt exist before
-  qa.columns = c("FLAG_DISTURBANCE","FLAG_FLATLINE",
+  qa.columns = c("FLAG_SPIKE","FLAG_FLATLINE",
                  "OUTLIER_AT","OUTLIER_AP")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
