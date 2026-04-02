@@ -19,11 +19,11 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   baro_qc <- barometric_qaqc_all(
     baro_data         = baro_data,
     metadata_path     = metadata_file,
-    pressure_low_kpa  = 85,
-    pressure_high_kpa = 105,
+    pressure_low_limit_kpa  = 85,
+    pressure_high_limit_kpa = 105,
     temp_low_limit    = -40,
     temp_high_limit   = 50,
-    spike_threshold_kpa = 1.5,
+    spike_flag_kpa = 1.5,
     flatline_n        = 6
   )
 
