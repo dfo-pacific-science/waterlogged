@@ -42,11 +42,11 @@ In Shiny apps, pass the logged-in user explicitly
 (e.g. \code{session$user}).}
 
 \item{cond_low_limit_uScm}{Numeric. Lower bound for acceptable conductivity.
-Values below this are set to \code{NA} and n \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+Values below this are set to \code{NA} in \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
 Adjust this value depending on logger specifications. Default is 0 uScm.}
 
 \item{cond_high_limit_uScm}{Numeric. Upper bound for acceptable conductivity.
-Values above this are set to \code{NA} and n \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+Values above this are set to \code{NA} in \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
 Adjust this value depending on logger specifications. Default is 2500 uScm.}
 
 \item{temp_low_limit_C}{Lower bound (C) for plausible water temperatures.
@@ -70,7 +70,7 @@ Default is 200 uScm.}
 \item{dry_flag_uScm}{Numeric. Conductivity below this value is
 considered a probable dry sensor. Default \code{10}.}
 
-\item{temp_air_water_diff_C}{Numeric. Maximum absolute air--water
+\item{temp_air_water_diff_C}{Numeric. Maximum absolute air-water
 temperature difference to support the dry-sensor inference (requires
 \code{airtemp_C} column). Default \code{2}.}
 }
