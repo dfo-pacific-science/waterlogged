@@ -7,9 +7,9 @@
 qc_waterlevel(
   input_data,
   select_station,
-  temp_ice_threshold_C = 0.3,
+  temp_ice_flag_C = 0.3,
   temp_high_dry_C = 19,
-  wl_disturb_threshold_m = 0.1,
+  wl_spike_flag_m = 0.1,
   log_root = NULL,
   user = NULL
 )
@@ -26,14 +26,14 @@ parseable by \code{lubridate::ymd_hms()}), \code{waterlevel_m},
 \item{select_station}{Character scalar. The \code{site_station_code} to
 process. Only rows matching this station are retained.}
 
-\item{temp_ice_threshold_C}{Water temperature (C) below which ice conditions
+\item{temp_ice_flag_C}{Water temperature (C) below which ice conditions
 are flagged. Default \code{0.3}.}
 
 \item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
 suspected. Default \code{19}.}
 
-\item{wl_disturb_threshold_m}{Absolute step-change threshold (m) between
-consecutive water level readings above which a disturbance is flagged.
+\item{wl_spike_flag_m}{Absolute step-change value (m) between
+consecutive water level readings above which a spike is flagged.
 Default \code{0.1}.}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
@@ -53,7 +53,7 @@ The filtered data frame for \code{select_station}, sorted by
 \itemize{
 \item \strong{Adjusted columns:} \code{waterlevel_m_adj},
 \code{watertemp_C_adj}.
-\item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+\item \strong{Flag columns:} \code{FLAG_SPIKE},
 \code{OUTLIER_WT}, \code{FLAG_ICE},
 \code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
@@ -75,7 +75,7 @@ degrees C removed (\code{NA}); between \code{-1} and 0
 degrees C corrected to 0.}
 \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
 for possible ice conditions.}
-\item{\code{FLAG_DISTURBANCE}}{Consecutive water level step change
+\item{\code{FLAG_SPIKE}}{Consecutive water level step change
 > 0.1 m flagged as potential logger disturbance.}
 \item{\code{FLAG_DRY}}{Possible dry sensor: water temperature
 > 19 degrees C, water pressure <= air pressure.}
