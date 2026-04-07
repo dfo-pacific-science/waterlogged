@@ -40,8 +40,8 @@ qc_airtemp <- function(input_data,
                          select_station,
                          temp_low_flag_C  = -40,
                          temp_high_flag_C =  50,
-                         temp_low_limit_C  = NULL,
-                         temp_high_limit_C = NULL,
+                         temp_low_limit_C  = -Inf,
+                         temp_high_limit_C = Inf,
                          log_root = NULL,
                          user     = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
