@@ -14,8 +14,8 @@ qc_conductivity(
   temp_low_limit_C = -2,
   temp_high_limit_C = 50,
   temp_ice_flag_C = 0.3,
-  disturbance_threshold_uScm = 200,
-  dry_threshold_uScm = 10,
+  spike_flag_uScm = 200,
+  dry_flag_uScm = 10,
   temp_air_water_diff_C = 2
 )
 }
@@ -61,11 +61,11 @@ flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 and \code{temp_ice_flag_C} are flagged. Must be positive and greater
 than \code{temp_low_limit_C}. Default \code{0.3}.}
 
-\item{disturbance_threshold_uScm}{Numeric. Absolute conductivity change
+\item{spike_flag_uScm}{Numeric. Absolute conductivity change
 between consecutive samples that triggers the spike flag. Default
 \code{200}.}
 
-\item{dry_threshold_uScm}{Numeric. Conductivity below this value is
+\item{dry_flag_uScm}{Numeric. Conductivity below this value is
 considered a probable dry sensor. Default \code{10}.}
 
 \item{temp_air_water_diff_C}{Numeric. Maximum absolute air--water
@@ -78,7 +78,7 @@ The filtered data frame for \code{select_station}, sorted by
 \itemize{
 \item \strong{Adjusted columns:} \code{conduct_uScm_adj},
 \code{watertemp_C_adj}.
-\item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+\item \strong{Flag columns:} \code{FLAG_SPIKE},
 \code{FLAG_ICE}, \code{OUTLIER_WT}, \code{OUTLIER_CO},
 \code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
@@ -95,8 +95,8 @@ and Boolean flag columns are added for review.
 \details{
 The following rules are applied:
 \describe{
-\item{\code{FLAG_DISTURBANCE}}{Consecutive conductivity change exceeding
-\code{disturbance_threshold_uScm}; flagged for review (no automatic
+\item{\code{FLAG_SPIKE}}{Consecutive conductivity change exceeding
+\code{spike_flag_uScm}; flagged for review (no automatic
 removal).}
 \item{\code{FLAG_ICE}}{Water temperature >= \code{temp_low_limit_C} and
 < \code{temp_ice_flag_C} degrees C; flagged for possible ice conditions.}
@@ -109,7 +109,7 @@ values in \code{conduct_uScm_adj} and \code{spc_uScm_adj} are set to
 values in \code{watertemp_C_adj} and \code{spc_uScm_adj} are set to
 \code{NA}.}
 \item{\code{FLAG_DRY}}{Sliding 12-point window where conductivity <=
-\code{dry_threshold_uScm}. If air temperature data is available, the
+\code{dry_flag_uScm}. If air temperature data is available, the
 air--water temperature difference must also be <=
 \code{temp_air_water_diff_C}. Flagged as probable dry sensor.}
 }

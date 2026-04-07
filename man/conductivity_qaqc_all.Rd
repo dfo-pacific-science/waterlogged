@@ -11,9 +11,9 @@ conductivity_qaqc_all(
   log_root = NULL,
   temp_low_limit_C = -2,
   temp_high_limit_C = 40,
-  disturbance_threshold_uScm = 200,
-  dry_threshold_uScm = 10,
-  air_water_diff_threshold_C = 2,
+  spike_flag_uScm = 200,
+  dry_flag_uScm = 10,
+  temp_air_water_diff_C = 2,
   file_suffix = "COND",
   user = NULL,
   metadata = NULL,
@@ -45,13 +45,13 @@ temperature (passed to \code{\link{qc_conductivity}}). Default
 \item{temp_high_limit_C}{Numeric. Upper bound for acceptable water
 temperature. Default \code{40}.}
 
-\item{disturbance_threshold_uScm}{Numeric. Spike detection threshold
+\item{spike_flag_uScm}{Numeric. Spike detection threshold
 between consecutive samples. Default \code{200}.}
 
-\item{dry_threshold_uScm}{Numeric. Conductivity below this value flags
+\item{dry_flag_uScm}{Numeric. Conductivity below this value flags
 a probable dry sensor. Default \code{10}.}
 
-\item{air_water_diff_threshold_C}{Numeric. Maximum air--water
+\item{temp_air_water_diff_C}{Numeric. Maximum air--water
 temperature difference to support dry inference. Default \code{2}.}
 
 \item{file_suffix}{Character scalar. Suffix used when building the

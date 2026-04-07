@@ -9,11 +9,11 @@ barometric_qaqc_all(
   metadata_path = NULL,
   path_to_output_folder = NULL,
   log_root = NULL,
-  temp_low_limit = -40,
-  temp_high_limit = 50,
-  pressure_low_kpa = 85,
-  pressure_high_kpa = 105,
-  spike_threshold_kpa = 1.5,
+  temp_low_limit_C = -40,
+  temp_high_limit_C = 50,
+  pressure_low_limit_kpa = 85,
+  pressure_high_limit_kpa = 105,
+  spike_flag_kpa = 1.5,
   flatline_n = 6,
   user = NULL,
   metadata = NULL,
@@ -39,19 +39,19 @@ needed, e.g. \code{"data/testing/processed"}.}
 \code{\link[=qc_barometric]{qc_barometric()}} and related functions, typically the same as
 \code{path_to_output_folder}, e.g. \code{"data/testing/processed"}.}
 
-\item{temp_low_limit}{Lower bound (°C) for plausible barometric logger
+\item{temp_low_limit_C}{Lower bound (°C) for plausible barometric logger
 temperatures. Values outside this range may be flagged or removed.}
 
-\item{temp_high_limit}{Upper bound (°C) for plausible barometric logger
+\item{temp_high_limit_C}{Upper bound (°C) for plausible barometric logger
 temperatures.}
 
-\item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric
+\item{pressure_low_limit_kpa}{Lower bound (kPa) for plausible barometric
 pressure.}
 
-\item{pressure_high_kpa}{Upper bound (kPa) for plausible barometric
+\item{pressure_high_limit_kpa}{Upper bound (kPa) for plausible barometric
 pressure.}
 
-\item{spike_threshold_kpa}{Threshold (kPa) for flagging sudden pressure
+\item{spike_flag_kpa}{Pressure value (kPa) for flagging sudden pressure
 spikes between consecutive timesteps.}
 
 \item{flatline_n}{Integer; number of consecutive identical values used to

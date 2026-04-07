@@ -11,9 +11,9 @@ qc_barometric(
   user = NULL,
   temp_low_limit_C = -40,
   temp_high_limit_C = 50,
-  pressure_low_kpa = 51,
-  pressure_high_kpa = 112,
-  spike_threshold_kpa = 1.5,
+  pressure_low_limit_kpa = 51,
+  pressure_high_limit_kpa = 112,
+  spike_flag_kpa = 1.5,
   flatline_n = 6
 )
 }
@@ -42,13 +42,13 @@ Values outside \verb{[temp_low_limit_C, temp_high_limit_C]} are set to \code{NA}
 
 \item{temp_high_limit_C}{Upper bound (C) for plausible barometric temperatures.}
 
-\item{pressure_low_kpa}{Lower bound (kPa) for plausible barometric pressure.
+\item{pressure_low_limit_kpa}{Lower bound (kPa) for plausible barometric pressure.
 Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 51 kPa.}
 
-\item{pressure_high_kpa}{Upper bound (kPa) for plausible barometric pressure.
+\item{pressure_high_limit_kpa}{Upper bound (kPa) for plausible barometric pressure.
 Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 112 kPa.}
 
-\item{spike_threshold_kpa}{Threshold (kPa) for flagging sudden pressure
+\item{spike_flag_kpa}{Pressure value (kPa) for flagging sudden pressure
 spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.}
 
 \item{flatline_n}{Integer; number of consecutive identical values required
@@ -70,7 +70,7 @@ flags.
 If \code{airpress_kPa_adj} or \code{airtemp_C_adj} do not exist, they are created as
 copies of the raw \code{airpress_kPa} / \code{airtemp_C} columns and then modified
 by the QA/QC rules. Edit flags (\code{OUTLIER_AP},
-\code{OUTLIER_AT}, \code{FLAG_DISTURBANCE}, \code{FLAG_FLATLINE}) are created if missing
+\code{OUTLIER_AT}, \code{FLAG_SPIKE}, \code{FLAG_FLATLINE}) are created if missing
 and set to \code{TRUE} where each rule applies.
 
 For each rule that triggers, a corresponding QA/QC log entry is appended via

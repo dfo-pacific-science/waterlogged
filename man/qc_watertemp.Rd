@@ -10,7 +10,7 @@ qc_watertemp(
   temp_high_limit_C = 50,
   temp_low_limit_C = -1,
   temp_ice_flag_C = 0.3,
-  temp_high_dry_C = 25,
+  temp_dry_flag_C = 25,
   temp_air_water_diff_C = 2,
   log_root = NULL,
   user = NULL
@@ -34,7 +34,7 @@ Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as 
 \item{temp_ice_flag_C}{Water temperature (C) below which ice conditions
 are flagged. Default \code{0.3}.}
 
-\item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
+\item{temp_dry_flag_C}{Water temperature (C) above which a dry sensor is
 suspected. Default \code{25}.}
 
 \item{temp_air_water_diff_C}{Absolute difference (C) between water and air
@@ -71,7 +71,7 @@ The following rules are applied:
 \item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_flag_C}:
 flagged for review; data not changed.}
 \item{\code{FLAG_DRY}}{Possible dry sensor: water temperature >
-\code{temp_high_dry_C}; or, when \code{airtemp_C} is present, air-water
+\code{temp_dry_flag_C}; or, when \code{airtemp_C} is present, air-water
 temperature within \code{temp_air_water_diff_C} degrees C, or air warmer
 than water.}
 }
