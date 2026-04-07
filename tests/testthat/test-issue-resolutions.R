@@ -290,14 +290,14 @@ test_that("#73 - message when log_root is NULL and rows modified", {
   )
 })
 
-# --- Issue #65: conductivity_temp_compensation flexible column resolution -----
+# --- Issue #65: convert_conductivity_spc_uScm flexible column resolution -----
 
 test_that("#65 - works with _adj columns (post-QAQC)", {
   df <- data.frame(
     conduct_uScm_adj = c(100, 200, 300),
     watertemp_C_adj  = c(10,  20,  25)
   )
-  result <- conductivity_temp_compensation(df)
+  result <- convert_conductivity_spc_uScm(df)
   expect_true("spc_uScm_adj" %in% names(result))
   expect_equal(nrow(result), 3)
   # At 25C the coefficient is ~1.0, so SPC should be close to raw EC
@@ -309,7 +309,7 @@ test_that("#65 - falls back to raw columns (pre-QAQC)", {
     conduct_uScm = c(100, 200, 300),
     watertemp_C  = c(10,  20,  25)
   )
-  result <- conductivity_temp_compensation(df)
+  result <- convert_conductivity_spc_uScm(df)
   expect_true("spc_uScm_adj" %in% names(result))
   expect_equal(result$spc_uScm_adj[3], 300, tolerance = 1)
 })
@@ -321,7 +321,7 @@ test_that("#65 - prefers _adj over raw when both exist", {
     watertemp_C      = c(0,   0,   0),
     watertemp_C_adj  = c(10,  20,  25)
   )
-  result <- conductivity_temp_compensation(df)
+  result <- convert_conductivity_spc_uScm(df)
   # Should use _adj (300 at 25C) not raw (999 at 0C)
   expect_equal(result$spc_uScm_adj[3], 300, tolerance = 1)
 })
@@ -329,7 +329,7 @@ test_that("#65 - prefers _adj over raw when both exist", {
 test_that("#65 - errors when no conductivity column exists", {
   df <- data.frame(watertemp_C = c(10, 20))
   expect_error(
-    conductivity_temp_compensation(df),
+    convert_conductivity_spc_uScm(df),
     "conduct_uScm"
   )
 })
@@ -337,7 +337,7 @@ test_that("#65 - errors when no conductivity column exists", {
 test_that("#65 - errors when no temperature column exists", {
   df <- data.frame(conduct_uScm = c(100, 200))
   expect_error(
-    conductivity_temp_compensation(df),
+    convert_conductivity_spc_uScm(df),
     "watertemp_C"
   )
 })
