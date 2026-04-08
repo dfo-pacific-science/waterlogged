@@ -12,7 +12,7 @@ conductivity_qaqc_all(
   cond_low_limit_uScm = 0,
   cond_high_limit_uScm = 2500,
   temp_low_limit_C = -2,
-  temp_high_limit_C = 40,
+  temp_high_limit_C = 50,
   spike_flag_uScm = 200,
   dry_flag_uScm = 10,
   temp_air_water_diff_C = 2,
