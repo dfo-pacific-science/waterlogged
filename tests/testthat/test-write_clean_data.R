@@ -110,7 +110,7 @@ test_that("test write clean data for conductivity", {
   )
 
   # Temperature compensation converts raw conductivity to specific conductance
-  cond_with_spc <- conductivity_temp_compensation(cond_complete_QAQC)
+  cond_with_spc <- convert_conductivity_spc_uScm(cond_complete_QAQC)
   expect_true("spc_uScm_adj" %in% names(cond_with_spc))
 
   # Verify no clean data exists before writing

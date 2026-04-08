@@ -49,7 +49,7 @@ test_that("conductivity workflow runs end-to-end", {
   expect_gt(sum(cond_qc$edit_cond_drift, na.rm = TRUE), 0)
 
   # Step 4: Temperature compensation
-  cond_qc <- conductivity_temp_compensation(cond_qc)
+  cond_qc <- convert_conductivity_spc_uScm(cond_qc)
 
   expect_true("spc_uScm_adj" %in% names(cond_qc))
   expect_false(all(is.na(cond_qc$spc_uScm_adj)))
