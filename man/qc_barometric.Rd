@@ -36,23 +36,31 @@ local OS user).
 In Shiny apps, pass the logged-in user explicitly
 (e.g. \code{session$user}).}
 
-\item{temp_low_limit_C}{Lower bound (C) for plausible barometric temperatures.
-Values outside \verb{[temp_low_limit_C, temp_high_limit_C]} are set to \code{NA} in
-\code{airtemp_C_adj} and flagged.}
+\item{temp_low_limit_C}{Lower bound (C) for plausible air temperatures.
+Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
+Default is -40 C.}
 
-\item{temp_high_limit_C}{Upper bound (C) for plausible barometric temperatures.}
+\item{temp_high_limit_C}{Upper bound (C) for plausible air temperature.
+Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
+Default is 50 C.}
 
 \item{pressure_low_limit_kpa}{Lower bound (kPa) for plausible barometric pressure.
-Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 51 kPa.}
+Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
+Default is 51 kPa.}
 
 \item{pressure_high_limit_kpa}{Upper bound (kPa) for plausible barometric pressure.
-Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged. Default is 112 kPa.}
+Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
+Default is 112 kPa.}
 
 \item{spike_flag_kpa}{Pressure value (kPa) for flagging sudden pressure
-spikes between consecutive timesteps (absolute difference in kPa). Default is 1.5 kPa.}
+spikes between consecutive timesteps (absolute difference in kPa).
+Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+Default is 1.5 kPa.}
 
 \item{flatline_n}{Integer; number of consecutive identical values required
-to flag a potential flatline in the pressure series. Default is 6.}
+to flag a potential flatline in the pressure series.
+Values are flagged for review as \code{TRUE} in \code{FLAG_FLATLINE}.
+Default is 6.}
 }
 \value{
 A data frame containing only rows for \code{select_station}, sorted by

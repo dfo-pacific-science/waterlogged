@@ -9,6 +9,8 @@ conductivity_qaqc_all(
   metadata_path = NULL,
   path_to_output_folder = NULL,
   log_root = NULL,
+  cond_low_limit_uScm = 0,
+  cond_high_limit_uScm = 2500,
   temp_low_limit_C = -2,
   temp_high_limit_C = 40,
   spike_flag_uScm = 200,
@@ -38,21 +40,33 @@ directory where per-year v0.1 COND CSVs will be written. When
 QAQC log files, passed through to \code{\link{qc_conductivity}}.
 When \code{NULL} (default), no log files are written.}
 
-\item{temp_low_limit_C}{Numeric. Lower bound for acceptable water
-temperature (passed to \code{\link{qc_conductivity}}). Default
-\code{-2}.}
+\item{cond_low_limit_uScm}{Numeric. Lower bound for acceptable conductivity.
+Values below this are set to \code{NA} and n \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+Adjust this value depending on logger specifications. Default is 0 uScm.}
 
-\item{temp_high_limit_C}{Numeric. Upper bound for acceptable water
-temperature. Default \code{40}.}
+\item{cond_high_limit_uScm}{Numeric. Upper bound for acceptable conductivity.
+Values above this are set to \code{NA} and n \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+Adjust this value depending on logger specifications. Default is 2500 uScm.}
 
-\item{spike_flag_uScm}{Numeric. Spike detection threshold
-between consecutive samples. Default \code{200}.}
+\item{temp_low_limit_C}{Lower bound (C) for plausible water temperatures.
+Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+Default is -2 C.}
 
-\item{dry_flag_uScm}{Numeric. Conductivity below this value flags
-a probable dry sensor. Default \code{10}.}
+\item{temp_high_limit_C}{Upper bound (C) for plausible water temperature.
+Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+Default is 50 C.}
 
-\item{temp_air_water_diff_C}{Numeric. Maximum air--water
-temperature difference to support dry inference. Default \code{2}.}
+\item{spike_flag_uScm}{Numeric. Absolute conductivity change
+between consecutive samples that triggers the spike flag.
+Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+Default is 200 uScm.}
+
+\item{dry_flag_uScm}{Numeric. Conductivity below this value is
+considered a probable dry sensor. Default \code{10}.}
+
+\item{temp_air_water_diff_C}{Numeric. Maximum absolute air--water
+temperature difference to support the dry-sensor inference (requires
+\code{airtemp_C} column). Default \code{2}.}
 
 \item{file_suffix}{Character scalar. Suffix used when building the
 filename search pattern (e.g. \code{"COND"} matches
@@ -73,6 +87,11 @@ to \code{cond_data_path} for Shiny mode). Must contain
 \code{site_station_code}, \code{timestamp}, \code{conduct_uScm}, and
 \code{watertemp_C}. Exactly one of \code{cond_data_path} or
 \code{cond_data} must be supplied.}
+
+\item{temp_ice_flag_C}{Upper bound of water temperature (\code{°C}) for
+flagging ice conditions. Temperatures between \code{temp_low_limit_C}
+and \code{temp_ice_flag_C} are flagged. Must be positive and greater
+than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
 }
 \value{
 A single long-format data frame created by binding the QAQC'd

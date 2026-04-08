@@ -23,17 +23,31 @@
 #' @param log_root Character scalar or \code{NULL}. Root directory for
 #'   QAQC log files, passed through to \code{\link{qc_conductivity}}.
 #'   When \code{NULL} (default), no log files are written.
-#' @param temp_low_limit_C Numeric. Lower bound for acceptable water
-#'   temperature (passed to \code{\link{qc_conductivity}}). Default
-#'   \code{-2}.
-#' @param temp_high_limit_C Numeric. Upper bound for acceptable water
-#'   temperature. Default \code{40}.
-#' @param spike_flag_uScm Numeric. Spike detection threshold
-#'   between consecutive samples. Default \code{200}.
-#' @param dry_flag_uScm Numeric. Conductivity below this value flags
-#'   a probable dry sensor. Default \code{10}.
-#' @param temp_air_water_diff_C Numeric. Maximum air--water
-#'   temperature difference to support dry inference. Default \code{2}.
+#' @param temp_low_limit_C Lower bound (C) for plausible water temperatures.
+#'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+#'   Default is -2 C.
+#' @param temp_high_limit_C Upper bound (C) for plausible water temperature.
+#'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+#'   Default is 50 C.
+#' @param cond_high_limit_uScm Numeric. Upper bound for acceptable conductivity.
+#'   Values above this are set to \code{NA} and n \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+#'   Adjust this value depending on logger specifications. Default is 2500 uScm.
+#' @param cond_low_limit_uScm Numeric. Lower bound for acceptable conductivity.
+#'   Values below this are set to \code{NA} and n \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+#'   Adjust this value depending on logger specifications. Default is 0 uScm.
+#' @param temp_ice_flag_C Upper bound of water temperature (\code{°C}) for
+#'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
+#'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
+#'   than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.
+#' @param spike_flag_uScm Numeric. Absolute conductivity change
+#'   between consecutive samples that triggers the spike flag.
+#'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+#'   Default is 200 uScm.
+#' @param dry_flag_uScm Numeric. Conductivity below this value is
+#'   considered a probable dry sensor. Default \code{10}.
+#' @param temp_air_water_diff_C Numeric. Maximum absolute air--water
+#'   temperature difference to support the dry-sensor inference (requires
+#'   \code{airtemp_C} column). Default \code{2}.
 #' @param file_suffix Character scalar. Suffix used when building the
 #'   filename search pattern (e.g. \code{"COND"} matches
 #'   \code{STATION_COND_*.csv}). Default \code{"COND"}.
@@ -62,19 +76,21 @@
 #'
 #' @export
 conductivity_qaqc_all <- function(
-    cond_data_path = NULL,
-    metadata_path = NULL,
-    path_to_output_folder = NULL,
-    log_root = NULL,
-    temp_low_limit_C           = -2,
-    temp_high_limit_C          = 40,
-    spike_flag_uScm = 200,
-    dry_flag_uScm         = 10,
-    temp_air_water_diff_C = 2,
-    file_suffix                = "COND",
-    user                       = NULL,
-    metadata = NULL,
-    cond_data = NULL
+    cond_data_path          = NULL,
+    metadata_path           = NULL,
+    path_to_output_folder   = NULL,
+    log_root                = NULL,
+    cond_low_limit_uScm     = 0,
+    cond_high_limit_uScm    = 2500,
+    temp_low_limit_C        = -2,
+    temp_high_limit_C       = 50,
+    spike_flag_uScm         = 200,
+    dry_flag_uScm           = 10,
+    temp_air_water_diff_C   = 2,
+    file_suffix             = "COND",
+    user                    = NULL,
+    metadata                = NULL,
+    cond_data               = NULL
 ) {
   if (is.null(user)) user <- Sys.info()[["user"]]
 
@@ -167,9 +183,11 @@ conductivity_qaqc_all <- function(
       user                     = user,
       temp_low_limit_C         = temp_low_limit_C,
       temp_high_limit_C        = temp_high_limit_C,
-      spike_flag_uScm = spike_flag_uScm,
-      dry_flag_uScm       = dry_flag_uScm,
-      temp_air_water_diff_C = temp_air_water_diff_C
+      cond_low_limit_uScm      = cond_low_limit_uScm,
+      cond_high_limit_uScm     = cond_high_limit_uScm,
+      spike_flag_uScm          = spike_flag_uScm,
+      dry_flag_uScm            = dry_flag_uScm,
+      temp_air_water_diff_C    = temp_air_water_diff_C
     )
 
     # Simple printed summary

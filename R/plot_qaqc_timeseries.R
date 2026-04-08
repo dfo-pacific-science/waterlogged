@@ -302,11 +302,11 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
 
     # 3) Conductivity QA/QC flags panel
     co_flag_cols <- c(
-      "FLAG_DISTURBANCE",
+      "FLAG_SPIKE",
       "FLAG_ICE",
       "FLAG_DRY",
-      "FLAG_RANGE",
-      "OUTLIER_WT"
+      "OUTLIER_WT",
+      "OUTLIER_CO"
     )
     co_flags <- build_flag_long(co_df, co_flag_cols)
 
@@ -419,7 +419,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
 
     # WL flags
     wl_flag_cols <- c(
-      "FLAG_DISTURBANCE",
+      "FLAG_SPIKE",
       "FLAG_ICE",
       "OUTLIER_WT",
       "FLAG_DRY"
@@ -527,7 +527,9 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
 
     # BARO flags panel — prefer modern boolean columns; fall back to legacy code column
     baro_bool_cols <- c("OUTLIER_AP",
-                        "FLAG_FLATLINE", "FLAG_DISTURBANCE", "OUTLIER_AT")
+                        "OUTLIER_AT",
+                        "FLAG_FLATLINE",
+                        "FLAG_SPIKE")
     baro_flags     <- build_flag_long(baro_df, baro_bool_cols)
     use_code_col   <- FALSE
     if (is.null(baro_flags)) {

@@ -8,7 +8,7 @@ qc_waterlevel(
   input_data,
   select_station,
   temp_ice_flag_C = 0.3,
-  temp_high_dry_C = 19,
+  temp_dry_flag_C = 19,
   wl_spike_flag_m = 0.1,
   log_root = NULL,
   user = NULL
@@ -26,15 +26,19 @@ parseable by \code{lubridate::ymd_hms()}), \code{waterlevel_m},
 \item{select_station}{Character scalar. The \code{site_station_code} to
 process. Only rows matching this station are retained.}
 
-\item{temp_ice_flag_C}{Water temperature (C) below which ice conditions
-are flagged. Default \code{0.3}.}
+\item{temp_ice_flag_C}{Upper bound of water temperature (C) for
+flagging ice conditions. Temperatures between \code{temp_low_limit_C}
+and \code{temp_ice_flag_C} are flagged. Must be positive and greater
+than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
 
-\item{temp_high_dry_C}{Water temperature (C) above which a dry sensor is
-suspected. Default \code{19}.}
+\item{temp_dry_flag_C}{Water temperature (C) above which a dry sensor is
+suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
+Default is 19.}
 
 \item{wl_spike_flag_m}{Absolute step-change value (m) between
 consecutive water level readings above which a spike is flagged.
-Default \code{0.1}.}
+Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+Default is 0.1 (m).}
 
 \item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
 log files. When non-\code{NULL}, a log CSV is written via
