@@ -156,7 +156,7 @@ conductivity_qaqc_all <- function(
     }
 
     if (!inherits(raw_cond$timestamp, "POSIXct")) {
-      raw_cond$timestamp <- lubridate::ymd_hms(raw_cond$timestamp, tz = "UTC")
+      raw_cond$timestamp <- parse_dt(raw_cond$timestamp, "timestamp")
     }
 
     # Ensure site_station_code column
