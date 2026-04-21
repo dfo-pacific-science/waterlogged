@@ -43,7 +43,7 @@ The following validation steps are applied in order:
 \item Empty rows (all \code{NA} or blank) are dropped.
 \item Required columns are checked: \code{site_station_code},
 \code{timestamp_deploy}, \code{timestamp_remove}, \code{model},
-\code{sn}, \code{metric}, \code{status}, \code{latitude},
+\code{sn}, \code{metric}, \code{latitude},
 \code{longitude}.
 \item \code{timestamp_deploy} and \code{timestamp_remove} are
 parsed using \code{lubridate::mdy_hm()} first, then fall back to
