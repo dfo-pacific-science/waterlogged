@@ -32,7 +32,7 @@
 #'   \item Empty rows (all \code{NA} or blank) are dropped.
 #'   \item Required columns are checked: \code{site_station_code},
 #'     \code{timestamp_deploy}, \code{timestamp_remove}, \code{model},
-#'     \code{sn}, \code{metric}, \code{status}, \code{latitude},
+#'     \code{sn}, \code{metric}, \code{latitude},
 #'     \code{longitude}.
 #'   \item \code{timestamp_deploy} and \code{timestamp_remove} are
 #'     parsed using \code{lubridate::mdy_hm()} first, then fall back to
@@ -78,7 +78,7 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL, tz = "UTC") {
 
     # 3) Required columns present?
     required_cols <- c("site_station_code", "timestamp_deploy", "timestamp_remove",
-                       "model", "sn", "metric", "status", "latitude", "longitude")
+                       "model", "sn", "metric", "latitude", "longitude")
 
     missing_cols  <- setdiff(required_cols, names(metadata))
     if (length(missing_cols)) {
