@@ -3,7 +3,7 @@
 #' Reads all HOBO CSV files in a folder (or from explicit file paths), links
 #' each logger serial number to deployment metadata, trims records to
 #' deployment/removal windows, standardises core column names by metric
-#' (barometric, waterlevel, DO, TidbiT temperature, conductivity), optionally
+#' (barometric, waterlevel, dissolved oxygen, air temperature, water temperature, conductivity), optionally
 #' writes per-station/year v0.1 CSVs, and returns a compiled long data frame
 #' plus a quick QC plot.
 #'
@@ -258,14 +258,6 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   # order by site and timestamp
   sites_compiled<- sites_compiled[order(sites_compiled$site_station_code, sites_compiled$timestamp), ]
 
-
-
-  #####
-  # NEED TO ADD CODE FOR TIDBIT QAQC STILL, ALSO WHAT HAPPENS IF USER HAS MORE THAN 1 LOGGER TYPE?
-  # U20s and TidbiTs can be used for different metrics (U20 can be barometricpressure or waterlevel,
-  # TidbiT can be air or water temperature, Pendant can be temp/light/event)
-  # perhaps separate by model and metric?
-  #####
 
   logger_type <- unique(metadat_link$model)
   if (length(logger_type) != 1) {
