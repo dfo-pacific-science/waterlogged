@@ -19,14 +19,14 @@
 #'
 #' @keywords internal
 QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
-  
-  # Required columns etc. 
+
+  # Required columns etc.
   required_cols <- c("site_station_code",
                      "timestamp",
                      "waterpress_kPa",
                      "watertemp_C",
                      "airpress_kPa")
-  
+
   missing_cols <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
@@ -34,12 +34,12 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
       paste(missing_cols, collapse = ", ")
     )
   }
-  
+
   # Logger type QC (unchanged from before)
   if ("logger_type" %in% names(input_data)) {
     lt_raw   <- unique(input_data$logger_type)
     lt_clean <- tolower(trimws(as.character(lt_raw)))
-    
+
     if (!any(grepl(logger_type_expected, lt_clean, fixed = TRUE))) {
       warning(
         "convert_waterlevel_kPa_m(): logger_type values (",
@@ -51,7 +51,7 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
   } else {
     warning("convert_waterlevel_kPa_m(): column 'logger_type' not found; skipping logger-type QC.")
   }
-  
+
   # Timestamp QC
   if (!inherits(input_data$timestamp, "POSIXct")) {
     ts_parsed <- suppressWarnings(lubridate::ymd_hms(input_data$timestamp, tz = "UTC"))
@@ -61,7 +61,7 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
     }
     input_data$timestamp <- ts_parsed
   }
-  
+
   return(input_data)
 }
 
@@ -132,14 +132,14 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
     } else {
       stop("Must provide either 'ref_path' or 'ref_data' as a data frame.")
     }
-    
+
     ## 3) Drop completely empty rows ----
     ref <- ref[rowSums(is.na(ref) | ref == "") != ncol(ref), , drop = FALSE]
     if (!nrow(ref)) {
       ref_label <- if (!is.null(ref_path)) paste0("'", ref_path, "'") else "supplied data frame"
       stop("Reference data (", ref_label, ") has no non-empty rows after cleaning.")
     }
-    
+
     ## 4) Required columns ----
     required_cols <- c("site_station_code", "timestamp", "site_comments")
     missing_cols  <- setdiff(required_cols, names(ref))
@@ -149,12 +149,12 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
         paste(missing_cols, collapse = ", ")
       )
     }
-    
+
     # Need at least stage_m or depth_m
     if (!("stage_m" %in% names(ref)) && !("depth_m" %in% names(ref))) {
       stop("Reference data must contain at least one of 'stage_m' or 'depth_m'.")
     }
-    
+
     ## 5) Parse timestamp column ----
     parse_dt <- function(x) {
       if (inherits(x, "POSIXct")) return(x)
@@ -189,9 +189,9 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
       }
       p2
     }
-    
+
     ref$timestamp <- parse_dt(ref$timestamp)
-    
+
     ## 6) stage_m / depth_m numeric & light checks ----
     if ("stage_m" %in% names(ref)) {
       ref$stage_m <- suppressWarnings(as.numeric(ref$stage_m))
@@ -199,18 +199,18 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
         warning("Some 'stage_m' values are negative - check units and data entry.")
       }
     }
-    
+
     if ("depth_m" %in% names(ref)) {
       ref$depth_m <- suppressWarnings(as.numeric(ref$depth_m))
       if (any(ref$depth_m < 0, na.rm = TRUE)) {
         warning("Some 'depth_m' values are negative - check units and data entry.")
       }
     }
-    
+
     ## 7) High-level check for any usable reference values -----------
     has_stage_vals <- "stage_m" %in% names(ref) && any(!is.na(ref$stage_m))
     has_depth_vals <- "depth_m" %in% names(ref) && any(!is.na(ref$depth_m))
-    
+
     # Optional: treat some discharge columns as acceptable "reference"
     discharge_cols <- intersect(
       names(ref),
@@ -226,14 +226,14 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
         )
       )
     }
-    
+
     if (!has_stage_vals && !has_depth_vals && !has_discharge_vals) {
       warning(
         "Reference data has no usable stage, depth, or discharge values; ",
         "no reference levels can be derived from this file."
       )
     }
-    
+
     ## 8) Light hygiene (trim before duplicate check so spaces don't mask dups) ----
     ref$site_station_code <- trimws(as.character(ref$site_station_code))
     ref$site_comments     <- trimws(as.character(ref$site_comments))
@@ -246,9 +246,9 @@ QAQC_reference_data <- function(ref_path = NULL, ref_data = NULL) {
         sum(dup_idx), " duplicates). You may want to consolidate or remove them."
       )
     }
-    
+
     ref
-    
+
   }, error = function(e) {
     stop("Error reading/parsing reference data: ", e$message, call. = FALSE)
   })
@@ -314,15 +314,15 @@ convert_waterlevel_single <- function(input_data,
                                       select_measurement = 1,
                                       path_to_output_folder = NULL,
                                       return_plots = TRUE) {
-  
+
   ## A) Filter input_data to this station -----------------------
   output_data <- input_data[input_data$site_station_code == select_station, , drop = FALSE]
   if (!nrow(output_data)) {
     stop("No rows found in input_data for site_station_code = '", select_station, "'.")
   }
-  
+
   ts_range <- range(output_data$timestamp, na.rm = TRUE)
-  
+
   ## B) Extract reference rows for this station -----------------
   ref_dat <- reference_data |>
     dplyr::filter(site_station_code == select_station) |>
@@ -330,14 +330,14 @@ convert_waterlevel_single <- function(input_data,
     dplyr::select(timestamp, ref_m, site_comments) |>
     dplyr::filter(!is.na(ref_m)) |>
     dplyr::arrange(timestamp)
-  
+
   if (!nrow(ref_dat)) {
     stop(
       "No non-NA reference measurements (", ref_level_col, ") for station ",
       select_station, "."
     )
   }
-  
+
   # Round to nearest hour (to match logger)
   ref_dat$timestamp <- lubridate::round_date(ref_dat$timestamp, "hour")
 
@@ -365,14 +365,14 @@ convert_waterlevel_single <- function(input_data,
   # Filter to logger time range
   ref_dat <- ref_dat |>
     dplyr::filter(timestamp >= ts_range[1], timestamp <= ts_range[2])
-  
+
   if (!nrow(ref_dat)) {
     stop(
       "No reference measurements for ", select_station,
       " fall within the input_data timestamp range."
     )
   }
-  
+
   # Check select_measurement index
   if (select_measurement < 1 || select_measurement > nrow(ref_dat)) {
     stop(
@@ -381,7 +381,7 @@ convert_waterlevel_single <- function(input_data,
       select_station, "."
     )
   }
-  
+
   # Join reference values onto time series (for plotting later).
   # ref_dat timestamps are already rounded to the nearest hour; round logger
   # timestamps to the same resolution so they match even when the logger
@@ -390,12 +390,12 @@ convert_waterlevel_single <- function(input_data,
   output_data <- dplyr::left_join(output_data, ref_dat,
                                   by = c("timestamp_hr" = "timestamp"))
   output_data$timestamp_hr <- NULL
-  
+
   ## C) Metric conversions & constants --------------------------
   FEET_TO_METERS <- 0.3048
   KPA_TO_PSI     <- 0.1450377
   PSI_TO_PSF     <- 144.0
-  
+
   ## D) Fluid density of water ----------------------------------
   output_data <- output_data |>
     dplyr::mutate(
@@ -409,18 +409,18 @@ convert_waterlevel_single <- function(input_data,
         (1 + 16.879850e-03 * watertemp_C),
       density_lbft3 = 0.0624279606 * density_kgm3
     )
-  
+
   ## E) Convert pressures to depth (m) --------------------------
   output_data <- output_data |>
     dplyr::mutate(
       sensor_depth_m      = FEET_TO_METERS * (KPA_TO_PSI * PSI_TO_PSF * waterpress_kPa) / density_lbft3,
       baro_sensor_depth_m = FEET_TO_METERS * (KPA_TO_PSI * PSI_TO_PSF * airpress_kPa)      / density_lbft3
     )
-  
+
   ## F) Reference point & compensation constant k ---------------
   T_meas <- ref_dat$timestamp[select_measurement]
   L_meas <- ref_dat$ref_m[select_measurement]
-  
+
   # Find the logger row nearest to the (hour-rounded) reference timestamp.
   # Exact equality fails when loggers start mid-interval (e.g. 09:07 rather
   # than 09:00), so use nearest-within-30-min matching instead.
@@ -447,16 +447,22 @@ convert_waterlevel_single <- function(input_data,
 
   D_ref   <- output_data$sensor_depth_m[nearest_idx]
   D_baro0 <- output_data$baro_sensor_depth_m[nearest_idx]
-  
+
   k <- L_meas - (D_ref - D_baro0)
-  
+
   ## G) Apply compensation to entire series ---------------------
   output_data <- output_data |>
     dplyr::mutate(
       waterlevel_m         = sensor_depth_m - baro_sensor_depth_m + k,
       waterlevel_reference = ref_type_clean
     )
-  
+
+   # remove intermediate data columns
+
+  output_data <- output_data |>
+    dplyr::select(-dplyr::any_of(c("density_kgm3", "density_lbft3", "sensor_depth_m", "baro_sensor_depth_m")))
+
+
   ## H) QAQC plot (single station) ------------------------------
   if (return_plots) {
   p <- ggplot2::ggplot(output_data,
@@ -506,7 +512,7 @@ convert_waterlevel_single <- function(input_data,
       message(sprintf("Barometric compensation (v0.3) for %s written to %s", select_station, out_path))
     }
   }
-  
+
   ## J) Return list ---------------------------------------------
   return(list(
     site_wl = output_data,
@@ -551,11 +557,11 @@ convert_waterlevel_single <- function(input_data,
 #'
 #' @keywords internal
 diagnose_reference_failure <- function(station, input_data, reference_df, reference_type) {
-  
+
   ref_col <- if (reference_type == "depth") "depth_m" else "stage_m"
-  
+
   logger_range <- range(input_data$timestamp[input_data$site_station_code == station], na.rm = TRUE)
-  
+
   # 1) Any rows for this station?
   ref_rows <- reference_df[reference_df$site_station_code == station, ]
   if (nrow(ref_rows) == 0) {
@@ -567,7 +573,7 @@ diagnose_reference_failure <- function(station, input_data, reference_df, refere
       )
     )
   }
-  
+
   # 2) All reference values NA?
   if (all(is.na(ref_rows[[ref_col]]))) {
     return(
@@ -578,17 +584,17 @@ diagnose_reference_failure <- function(station, input_data, reference_df, refere
       )
     )
   }
-  
+
   # 3) After rounding timestamps - do any fall inside logger time range?
   rounded_rows <- ref_rows
   rounded_rows$timestamp <- lubridate::round_date(rounded_rows$timestamp, "hour")
-  
+
   ref_in_range <- rounded_rows[
     rounded_rows$timestamp >= logger_range[1] &
       rounded_rows$timestamp <= logger_range[2], ]
-  
+
   if (nrow(ref_in_range) == 0) {
-    
+
     return(
       paste0(
         "Reference timestamps do *not* fall within logger time range.\n",
@@ -600,7 +606,7 @@ diagnose_reference_failure <- function(station, input_data, reference_df, refere
       )
     )
   }
-  
+
   # 4) Default message when unknown error occurs
   paste0(
     "Unknown reference-data error for station ", station, ".\n",

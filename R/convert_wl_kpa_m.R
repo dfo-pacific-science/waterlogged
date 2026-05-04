@@ -116,20 +116,20 @@ convert_waterlevel_kPa_m <- function(input_data,
   } else {
     reference_data <- QAQC_reference_data(ref_path = reference_data)
   }
-  
+
   ## 2) QAQC input_data -----------------------------------------
   input_data <- QAQC_wl_kpa_inputs(
     input_data,
     logger_type_expected = logger_type_expected
   )
-  
+
   ## 3) Clean reference_type ------------------------------------
   ref_type_clean <- tolower(trimws(reference_type))
   if (!ref_type_clean %in% c("stage", "depth")) {
     stop("reference_type must be either 'stage' or 'depth'.")
   }
   ref_level_col <- if (ref_type_clean == "stage") "stage_m" else "depth_m"
-  
+
   ## 4) Ensure reference_data has needed cols -------------------
   needed_ref_cols <- c("site_station_code", "timestamp", ref_level_col)
   missing_ref_cols <- setdiff(needed_ref_cols, names(reference_data))
@@ -141,29 +141,29 @@ convert_waterlevel_kPa_m <- function(input_data,
       paste(needed_ref_cols, collapse = ", ")
     )
   }
-  
+
   ## 5) Handle select_station = "all" / NA / missing ------------
   if (missing(select_station) ||
       is.null(select_station) ||
       (length(select_station) == 1 &&
        (is.na(select_station) || tolower(select_station) == "all"))) {
-    
+
     stations <- sort(unique(input_data$site_station_code))
     if (!length(stations)) {
       stop("No site_station_code values found in input_data.")
     }
-    
+
     message(
       "Running waterlevel conversion for ALL stations: ",
       paste(stations, collapse = ", ")
     )
-    
+
     site_list <- list()
     ref_list  <- list()
-    
+
     for (stn in stations) {
       message("Processing station: ", stn)
-      
+
       res <- tryCatch(
         convert_waterlevel_single(
           input_data            = input_data,
@@ -184,20 +184,26 @@ convert_waterlevel_kPa_m <- function(input_data,
           return(NULL)
         }
       )
-      
+
       if (!is.null(res)) {
         site_list[[stn]] <- res$site_wl
         ref_list[[stn]]  <- res$ref_dat
       }
     }
-    
+
     if (!length(site_list)) {
       stop("No stations could be successfully processed.")
     }
-    
+
     site_wl_all <- dplyr::bind_rows(site_list)
     ref_all     <- dplyr::bind_rows(ref_list)
-    
+
+    # remove intermediate data columns
+
+    site_wl_all <- site_wl_all |>
+      dplyr::select(-dplyr::any_of(c("density_kgm3", "density_lbft3", "sensor_depth_m", "baro_sensor_depth_m")))
+
+
     # Facetted QAQC plot across all stations
     if (return_plots) {
     p_all <- ggplot2::ggplot(site_wl_all,
@@ -221,16 +227,16 @@ convert_waterlevel_kPa_m <- function(input_data,
     }
 
     message("Results returned as list: [[1]] all waterlevel data, [[2]] all reference data, [[3]] facetted QAQC plot")
-    
+
     return(list(
       site_wl = site_wl_all,
       ref_dat = ref_all,
       wl_plot = wl_plot
     ))
   }
-  
+
   ## 6) Single-station mode -------------------------------------
-  
+
   res_single <- convert_waterlevel_single(
     input_data            = input_data,
     select_station        = select_station,
@@ -241,8 +247,8 @@ convert_waterlevel_kPa_m <- function(input_data,
     path_to_output_folder = path_to_output_folder,
     return_plots          = return_plots
   )
-  
+
   message("Results returned as list: [[1]] waterlevel data, [[2]] reference data, [[3]] QAQC plot")
-  
+
   return(res_single)
 }
