@@ -341,6 +341,18 @@ wl_qc <- adjust_logger_NA(
    timestamp_end    = "2025-02-10 00:00:00",
    manual_note      = "Ice confirmed from field visit and temperature data"
 )
+
+```
+
+Review the timeseries to see the change.
+
+```{r visual-review2, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  wl_data        = wl_qc,
+  baro_data      = baro_qc,
+  select_station = "ALBR_ST_30",
+  static         = TRUE
+)
 ```
 
 ### 8b. Correct a spike / flatline (linear interpolation)
@@ -352,24 +364,67 @@ wl_qc <- adjust_waterlevel_spike(
   input_data       = wl_qc,
   select_station   = "ALBR_ST_30",
   timestamp_start  = "2025-02-03 21:00:00",
-  timestamp_end    = "2025-02-10 16:00:00",
+  timestamp_end    = "2025-02-20 17:00:00",
   reason_to_adjust = "ice",
   manual_note      = "Interpolated across ice spike"
 )
+
 ```
+
+Review the timeseries to see the change.
+
+```{r visual-review3, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  wl_data        = wl_qc,
+  baro_data      = baro_qc,
+  select_station = "ALBR_ST_30",
+  static         = TRUE
+)
+```
+
 
 ### 8c. Correct a step offset (cable break / logger moved)
 
 Applies a constant vertical shift to all data from a specific point onward, correcting for a sudden physical displacement. If the logger physically moves (e.g., a flood shifts the mounting bracket), all readings after that point are offset by a constant amount.
 
+Here we will adjust the data to simulate a cable break on June 1st, and then show how to correct it. 
+
+```{r simm-cable-break}
+wl_qc <- wl_qc|> dplyr::mutate(waterlevel_m = dplyr::case_when(timestamp > as.POSIXct("2025-06-01 00:00:00" ,tz = "UTC") ~   waterlevel_m+4,
+                                                     .default = waterlevel_m ))
+wl_qc$waterlevel_m_adj <- wl_qc$waterlevel_m
+
+plot_qaqc_timeseries(
+  wl_data        = wl_qc,
+  baro_data      = baro_qc,
+  select_station = "ALBR_ST_30",
+  static         = TRUE)
+
+```
+
+A cable break will appear as a sudden, constant shift upwards in waterlevel, since the logger has falled to the bottom of the water column (more water pressure above the logger). Correct it by identifying the timestamp just before the cable break as  timestamp_start ("2025-05-31 23:00:00") and the timestamp of the first erroneous water level reading as timestamp_end ("2025-06-01 00:00:00").
+
 ```{r manual-offset, eval=FALSE}
 wl_qc <- adjust_WL_offset(
   input_data      = wl_qc,
   select_station  = "ALBR_ST_30",
-  timestamp_start = "2025-02-04 07:00:00",
-  timestamp_end   = "2025-02-09 00:00:00",
-  manual_note     = "Logger displaced by high water event"
+  timestamp_end = "2025-06-01 01:00:00",
+  timestamp_start   = "2025-06-01 00:00:00",
+  manual_note     = "Cable break; logger found on streambed below stilling well"
 )
+```
+
+
+Review the timeseries to see the change.
+
+```{r visual-review4, fig.height=10, fig.width=7}
+plot_qaqc_timeseries(
+  wl_data        = wl_qc,
+  baro_data      = baro_qc,
+  select_station = "ALBR_ST_30",
+  static         = TRUE)
+  
+
 ```
 
 ### 8d. Multi-point drift correction
