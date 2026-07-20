@@ -1,4 +1,4 @@
-#' Align (snap) logger timestamps to a regular interval
+#' Align logger timestamps to a regular interval
 #'
 #' This function standardises the `timestamp` column onto a regular time
 #' grid (e.g., 5, 10, 15, 30 minutes, 1 hour) using rounding, flooring,
@@ -44,14 +44,14 @@
 #'   \itemize{
 #'     \item \code{timestamp_raw}: original logger timestamps (created if
 #'       missing).
-#'     \item \code{timestamp}: snapped timestamps on the specified grid.
+#'     \item \code{timestamp}: aligned timestamps on the specified grid.
 #'   }
 #'
 #'   All other columns are returned unchanged.
 #'
 #' @examples
 #' \dontrun{
-#' aligned_wl <- resample_timestamps(
+#' aligned_wl <- align_timestamps(
 #'   input_data     = wl_bound,
 #'   interval       = "15 min",
 #'   align          = "round",
@@ -62,7 +62,7 @@
 #' }
 #'
 #' @export
-resample_timestamps <- function(input_data,
+align_timestamps <- function(input_data,
                                 interval       = "15 min",
                                 align          = c("round", "floor", "ceiling"),
                                 select_station = NULL,
@@ -71,18 +71,18 @@ resample_timestamps <- function(input_data,
                                 user           = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
   align <- match.arg(align)
-  
+
   if (!"timestamp" %in% names(input_data)) {
-    stop("resample_timestamps(): input_data must contain a 'timestamp' column.")
+    stop("align_timestamps(): input_data must contain a 'timestamp' column.")
   }
-  
+
   # Optional station filter ----------------------------------------------------
   output_data <- input_data
 
   if (!is.null(select_station)) {
     if (!"site_station_code" %in% names(input_data)) {
       stop(
-        "resample_timestamps(): `select_station` provided but ",
+        "align_timestamps(): `select_station` provided but ",
         "'site_station_code' column is missing."
       )
     }
@@ -90,7 +90,7 @@ resample_timestamps <- function(input_data,
     idx_station <- which(input_data$site_station_code == select_station)
 
     if (length(idx_station) == 0) {
-      warning("resample_timestamps(): no rows for station ", select_station)
+      warning("align_timestamps(): no rows for station ", select_station)
       return(output_data)
     }
 
@@ -98,41 +98,41 @@ resample_timestamps <- function(input_data,
   } else {
     df <- input_data
   }
-  
+
   # Ensure POSIXct -------------------------------------------------------------
   if (!inherits(df$timestamp, "POSIXct")) {
     df$timestamp <- lubridate::ymd_hms(df$timestamp, tz = "UTC")
   }
-  
+
   # Sort by time to make interval check sensible
   df <- df[order(df$timestamp), , drop = FALSE]
-  
+
   # Preserve original times in timestamp_raw -----------------------------------
   if (!"timestamp_raw" %in% names(df)) {
     df$timestamp_raw <- df$timestamp
   }
-  
+
   # Warn if requested interval is finer than native logger interval -----------
   if (nrow(df) > 1) {
     # Use raw timestamps if present to reflect logger behaviour
     ts_vec <- df$timestamp_raw
     orig_interval_sec <- stats::median(diff(as.numeric(ts_vec)), na.rm = TRUE)
-    
+
     target_interval_sec <- as.numeric(lubridate::duration(interval))
-    
+
     if (!is.na(orig_interval_sec) && !is.na(target_interval_sec) &&
         orig_interval_sec > target_interval_sec) {
       warning(
-        "resample_timestamps(): The requested interval (", interval,
+        "align_timestamps(): The requested interval (", interval,
         ") is finer than the original logger interval (~",
         round(orig_interval_sec / 60, 2), " minutes). ",
-        "Timestamps will be snapped to the nearest ", interval,
+        "Timestamps will be alinged to the nearest ", interval,
         " grid, but no new rows will be created and no interpolation will occur.\n"
       )
     }
   }
-  
-  # Compute snapped timestamps -------------------------------------------------
+
+  # Compute aligned timestamps -------------------------------------------------
   snap_fun <- switch(
     align,
     round   = lubridate::round_date,
@@ -146,25 +146,25 @@ resample_timestamps <- function(input_data,
   n_dups <- sum(duplicated(snapped_ts))
   if (n_dups > 0) {
     warning(
-      "resample_timestamps(): snapping created ", n_dups,
-      " duplicate timestamp(s). Consider aggregating before snapping."
+      "align_timestamps(): alignment created ", n_dups,
+      " duplicate timestamp(s). Consider aggregating before aligning."
     )
   }
 
   # Identify changed rows (for logging)
   changed_idx <- which(df$timestamp_raw != snapped_ts)
 
-  # Apply snapped timestamps
+  # Apply aligned timestamps
   df$timestamp <- snapped_ts
-  
+
   # QA/QC logging --------------------------------------------------------------
   do_logging <- !is.null(log_root) && !is.null(metric) && !is.null(select_station)
-  
+
   if (do_logging) {
     run_time    <- Sys.time()
-    fun_name    <- "resample_timestamps"
-    manual_note <- "Timestamps snapped to a regular interval."
-    action      <- "SNAP_TIME"
+    fun_name    <- "align_timestamps"
+    manual_note <- "Timestamps aligned to a regular interval."
+    action      <- "ALIGN_TIME"
     field       <- "timestamp"
 
     if (length(changed_idx) > 0) {
@@ -176,9 +176,9 @@ resample_timestamps <- function(input_data,
         metric      = metric,
         field       = field,
         action      = action,
-        code        = "SNAP_TIME",
+        code        = "ALIGN_TIME",
         action_note = paste0(
-          "Timestamps snapped to ", interval,
+          "Timestamps aligned to ", interval,
           " using ", align, " alignment."
         ),
         manual_note = manual_note,
@@ -193,9 +193,9 @@ resample_timestamps <- function(input_data,
         metric      = metric,
         field       = field,
         action      = action,
-        code        = "SNAP_TIME",
+        code        = "ALIGN_TIME",
         action_note = paste0(
-          "resample_timestamps() ran; timestamps already aligned to ",
+          "align_timestamps() ran; timestamps already aligned to ",
           interval, " (no changes applied)."
         ),
         manual_note = manual_note,

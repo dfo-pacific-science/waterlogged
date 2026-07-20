@@ -8,17 +8,21 @@
 #'
 #' The following rules are applied:
 #' \describe{
-#'   \item{\code{FLAG_DISTURBANCE}}{Consecutive conductivity change exceeding
-#'     \code{disturbance_threshold_uScm}; flagged for review (no automatic
-#'     removal).}
-#'   \item{\code{FLAG_ICE}}{Water temperature >= \code{temp_low_limit_C} and
-#'     < \code{temp_ice_flag_C} degrees C; flagged for possible ice conditions.}
+#'   \item{\code{OUTLIER_CO}}{Conductivity outside
+#'     \code{cond_low_limit_uScm} to \code{cond_high_limit_uScm}; corresponding
+#'     values in \code{conduct_uScm_adj} and \code{spc_uScm_adj} are set to
+#'     \code{NA}.}
 #'   \item{\code{OUTLIER_WT}}{Water temperature outside
 #'     \code{temp_low_limit_C} to \code{temp_high_limit_C}; corresponding
 #'     values in \code{watertemp_C_adj} and \code{spc_uScm_adj} are set to
 #'     \code{NA}.}
+#'   \item{\code{FLAG_SPIKE}}{Consecutive conductivity change exceeding
+#'     \code{spike_flag_uScm}; flagged for review (no automatic
+#'     removal).}
+#'   \item{\code{FLAG_ICE}}{Water temperature >= \code{temp_low_limit_C} and
+#'     < \code{temp_ice_flag_C} degrees C; flagged for possible ice conditions.}
 #'   \item{\code{FLAG_DRY}}{Sliding 12-point window where conductivity <=
-#'     \code{dry_threshold_uScm}. If air temperature data is available, the
+#'     \code{dry_flag_uScm}. If air temperature data is available, the
 #'     air--water temperature difference must also be <=
 #'     \code{temp_air_water_diff_C}. Flagged as probable dry sensor.}
 #' }
@@ -40,24 +44,29 @@
 #'   \code{Sys.info()[["user"]]} (the local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
 #'   (e.g. \code{session$user}).
-#' @param temp_high_limit_C Numeric. Upper bound for acceptable water
-#'   temperature. Values above this are set to \code{NA}. Default
-#'   \code{40}.
-#' @param temp_low_limit_C Numeric. Lower bound for acceptable water
-#'   temperature. Values below this are set to
-#'   \code{NA}. Values between \code{temp_low_limit_C} and
-#'   \code{temp_ice_flag_C} are snapped to 0 \code{°C}. Default
-#'   \code{-2}.
+#' @param temp_low_limit_C Lower bound (C) for plausible water temperatures.
+#'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+#'   Default is -2 C.
+#' @param temp_high_limit_C Upper bound (C) for plausible water temperature.
+#'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
+#'   Default is 50 C.
+#' @param cond_high_limit_uScm Numeric. Upper bound for acceptable conductivity.
+#'   Values above this are set to \code{NA} in \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+#'   Adjust this value depending on logger specifications. Default is 2500 uScm.
+#' @param cond_low_limit_uScm Numeric. Lower bound for acceptable conductivity.
+#'   Values below this are set to \code{NA} in \code{conduct_uScm_adj} and flagged as \code{TRUE} in \code{OUTLIER_CO}.
+#'   Adjust this value depending on logger specifications. Default is 0 uScm.
 #' @param temp_ice_flag_C Upper bound of water temperature (\code{°C}) for
 #'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 #'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
-#'   than \code{temp_low_limit_C}. Default \code{0.3}.
-#' @param disturbance_threshold_uScm Numeric. Absolute conductivity change
-#'   between consecutive samples that triggers the spike flag. Default
-#'   \code{200}.
-#' @param dry_threshold_uScm Numeric. Conductivity below this value is
+#'   than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.
+#' @param spike_flag_uScm Numeric. Absolute conductivity change
+#'   between consecutive samples that triggers the spike flag.
+#'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+#'   Default is 200 uScm.
+#' @param dry_flag_uScm Numeric. Conductivity below this value is
 #'   considered a probable dry sensor. Default \code{10}.
-#' @param temp_air_water_diff_C Numeric. Maximum absolute air--water
+#' @param temp_air_water_diff_C Numeric. Maximum absolute air-water
 #'   temperature difference to support the dry-sensor inference (requires
 #'   \code{airtemp_C} column). Default \code{2}.
 #'
@@ -66,8 +75,8 @@
 #'   \itemize{
 #'     \item \strong{Adjusted columns:} \code{conduct_uScm_adj},
 #'       \code{watertemp_C_adj}.
-#'     \item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
-#'       \code{FLAG_ICE}, \code{OUTLIER_WT},
+#'     \item \strong{Flag columns:} \code{FLAG_SPIKE},
+#'       \code{FLAG_ICE}, \code{OUTLIER_WT}, \code{OUTLIER_CO},
 #'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
 #'       of QAQC log rows summarising every rule that fired.
@@ -83,13 +92,15 @@
 qc_conductivity <- function(
     input_data,
     select_station,
-    log_root = NULL,
+    log_root                   = NULL,
     user                       = NULL,
+    cond_low_limit_uScm        = 0,
+    cond_high_limit_uScm       = 2500,
     temp_low_limit_C           = -2,
     temp_high_limit_C          = 50,
     temp_ice_flag_C            = 0.3,
-    disturbance_threshold_uScm = 200,
-    dry_threshold_uScm         = 10,
+    spike_flag_uScm            = 200,
+    dry_flag_uScm              = 10,
     temp_air_water_diff_C      = 2
 ) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -145,13 +156,16 @@ qc_conductivity <- function(
   }
 
   # ---- 3. Detection helpers (use adj as working values) ---------------------
+  # Conductivity range
+  cond_range <- df$conduct_uScm_adj < cond_low_limit_uScm | df$conduct_uScm_adj > cond_high_limit_uScm
+
   # Temperature conditions
   temp_range <- df$watertemp_C_adj < temp_low_limit_C | df$watertemp_C_adj > temp_high_limit_C
   temp_ice   <- df$watertemp_C_adj >= temp_low_limit_C & df$watertemp_C_adj < temp_ice_flag_C
 
   # Conductivity spike (use adj)
   diff_cond  <- c(NA_real_, diff(df$conduct_uScm_adj))
-  spike      <- abs(diff_cond) > disturbance_threshold_uScm
+  spike      <- abs(diff_cond) > spike_flag_uScm
 
   # Air-water support for dry inference (optional)
   if ("airtemp_C_adj" %in% names(df)) {
@@ -171,13 +185,24 @@ qc_conductivity <- function(
     dplyr::mutate(
       dplyr::across(
         dplyr::any_of(c("watertemp_C_adj", "spc_uScm_adj")),
-        ~ dplyr::if_else(temp_range, NA_real_, .x)
+        ~ dplyr::case_when(
+          temp_range ~ NA_real_,
+          .default = .x
+        )
+      ),
+      dplyr::across(
+        dplyr::any_of(c("conduct_uScm_adj", "spc_uScm_adj")),
+        ~ dplyr::case_when(
+          cond_range ~ NA_real_,
+          .default = .x
+        )
       ),
 
       # Keep key flags for plotting / diagnostics
-      FLAG_DISTURBANCE      = spike,
+      FLAG_SPIKE            = spike,
       FLAG_ICE              = temp_ice,
       OUTLIER_WT            = temp_range,
+      OUTLIER_CO            = cond_range
     )
 
   # ---- 5. 12-point dry flag (FLAG_DRY) using adj CO -----------------------
@@ -195,7 +220,7 @@ qc_conductivity <- function(
         window_diff <- df$air_watertemp_diff[j:(j + 11)]
 
         if (any(!is.na(window_co)) && any(!is.na(window_diff))) {
-          if (min(window_co, na.rm = TRUE) <= dry_threshold_uScm &&
+          if (min(window_co, na.rm = TRUE) <= dry_flag_uScm &&
               max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C) {
             df$FLAG_DRY[j:(j + 11)] <- TRUE
           }
@@ -207,7 +232,7 @@ qc_conductivity <- function(
         window_co <- df$conduct_uScm_adj[j:(j + 11)]
 
         if (any(!is.na(window_co))) {
-          if (min(window_co, na.rm = TRUE) <= dry_threshold_uScm) {
+          if (min(window_co, na.rm = TRUE) <= dry_flag_uScm) {
             df$FLAG_DRY[j:(j + 11)] <- TRUE
           }
         }
@@ -220,7 +245,7 @@ qc_conductivity <- function(
     dplyr::select(
       -dplyr::any_of(c(
         "air_watertemp_diff",
-        "diff_cond"
+        "diff_cond", "metric_norm"
       ))
     )
 
@@ -236,17 +261,17 @@ qc_conductivity <- function(
   rules <- list(
     # Spikes (no automatic removal, just flag & log)
     list(
-      flag        = df$FLAG_DISTURBANCE %in% TRUE,
+      flag        = df$FLAG_SPIKE %in% TRUE,
       field       = "conduct_uScm_adj",
-      code        = "FLAG_DISTURBANCE",
-      action_note = paste0("Spike > ", disturbance_threshold_uScm, " \u00b5S/cm between samples; flagged for review.")
+      code        = "FLAG_SPIKE",
+      action_note = paste0("Spike > ", spike_flag_uScm, " uS/cm between samples; flagged for review.")
     ),
     # Ice-like temperatures
     list(
       flag        = df$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_adj",
       code        = "FLAG_ICE",
-      action_note = paste0("Water temperature >= ", temp_low_limit_C, " and < ", temp_ice_flag_C, " \u00b0C (likely ice); flagged for review.")
+      action_note = paste0("Water temperature >= ", temp_low_limit_C, " and < ", temp_ice_flag_C, " C (likely ice); flagged for review.")
     ),
     # Out-of-range temps (low or high)
     list(
@@ -255,7 +280,17 @@ qc_conductivity <- function(
       code        = "OUTLIER_WT",
       action_note = paste0(
         "Water temperature outside acceptable range (",
-        temp_low_limit_C, " to ", temp_high_limit_C, " \u00b0C): removed."
+        temp_low_limit_C, " to ", temp_high_limit_C, " C): removed."
+      )
+    ),
+    # Out-of-range conductivity (low or high)
+    list(
+      flag        = (df$OUTLIER_CO) %in% TRUE,
+      field       = "conduct_uScm_adj",
+      code        = "OUTLIER_CO",
+      action_note = paste0(
+        "Conductivity outside acceptable range (",
+        cond_low_limit_uScm, " to ", cond_high_limit_uScm, " uS/cm): removed."
       )
     ),
     # Dry conditions - COND-specific
@@ -265,14 +300,14 @@ qc_conductivity <- function(
       code        = "FLAG_DRY",
       action_note = if (has_air_temp) {
         paste0(
-          "Possible dry sensor: conductivity < ", dry_threshold_uScm,
-          " \u00b5S/cm and air-water temperature difference <= ", temp_air_water_diff_C,
-          " \u00b0C for >= 12 consecutive points."
+          "Possible dry sensor: conductivity < ", dry_flag_uScm,
+          " uS/cm and air-water temperature difference <= ", temp_air_water_diff_C,
+          " C for >= 12 consecutive points."
         )
       } else {
         paste0(
-          "Possible dry sensor: conductivity < ", dry_threshold_uScm,
-          " \u00b5S/cm for >= 12 consecutive points (no air temperature data available)."
+          "Possible dry sensor: conductivity < ", dry_flag_uScm,
+          " uS/cm for >= 12 consecutive points (no air temperature data available)."
         )
       }
     )

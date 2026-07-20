@@ -59,7 +59,8 @@ Define paths to the test data.
 
 ```{r paths}
 metadata_file  <- system.file("extdata/metadata/metadata.csv", package = "waterlogged")
-baro_folder    <- system.file("extdata/water_temperature/airtemp", package = "waterlogged")
+airtemp_folder    <- system.file("extdata/water_temperature/airtemp/raw", package = "waterlogged")
+watertemp_folder    <- system.file("extdata/water_temperature/watertemp/raw", package = "waterlogged")
 log_root_folder <- tempdir()
 ```
 
@@ -71,7 +72,7 @@ To save bound files, specify the path to the desired output folder with the opti
 
 at_bound <- bind_hobo_files(
   path_to_raw_folder = airtemp_folder,
-  metadata  = metadata_file,
+  metadata_path  = metadata_file,
 )
 
 # to see the trimmed and re-bound baro dataset, save the first element of the list as a dataframe:
@@ -219,7 +220,7 @@ write_clean_data(
 
 wt_bound <- bind_hobo_files(
   path_to_raw_folder = watertemp_folder,
-  metadata  = metadata_file,
+  metadata_path  = metadata_file,
 )
 
 # to see the trimmed and re-bound baro dataset, save the first element of the list as a dataframe:
@@ -295,7 +296,7 @@ To identify the end of the ice period, zoom in on the segment between Mar 2024 a
 
 ![Example of using qc_watertemp flags to identify periods of ice in water temperature. Hovering the cursor over the last OUTLIER_WT marker gives the timestamp we will use for adjust_logger_NA(timestamp_end = "2024-03-08 02:00:00").](qc_watertemp_ice_example.png)
 
-```{r adjust-wt, fig.height=10, fig.width=7}
+```{r adjust-wt-ice, fig.height=10, fig.width=7}
 wt_qc2 <- adjust_logger_NA(
   input_data       = wt_qc,
   select_station   = unique(wt_data$site_station_code)[1],
@@ -328,7 +329,7 @@ In the plotly figure, we can see a FLAG_DRY that coincides with a large spike in
 
 The other periods of dry flags do not show the same magnitude and duration of overlap and can be ignored. 
 
-```{r adjust-wt, fig.height=10, fig.width=7}
+```{r adjust-wt-dry, fig.height=10, fig.width=7}
 wt_qc3 <- adjust_logger_NA(
   input_data       = wt_qc2,
   select_station   = unique(wt_data$site_station_code)[1],

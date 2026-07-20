@@ -59,7 +59,7 @@ QA/QC.}
 Reads all HOBO CSV files in a folder (or from explicit file paths), links
 each logger serial number to deployment metadata, trims records to
 deployment/removal windows, standardises core column names by metric
-(barometric, waterlevel, DO, TidbiT temperature, conductivity), optionally
+(barometric, waterlevel, dissolved oxygen, air temperature, water temperature, conductivity), optionally
 writes per-station/year v0.1 CSVs, and returns a compiled long data frame
 plus a quick QC plot.
 }

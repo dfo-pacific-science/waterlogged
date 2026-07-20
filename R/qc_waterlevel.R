@@ -13,7 +13,7 @@
 #'     degrees C corrected to 0.}
 #'   \item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
 #'     for possible ice conditions.}
-#'   \item{\code{FLAG_DISTURBANCE}}{Consecutive water level step change
+#'   \item{\code{FLAG_SPIKE}}{Consecutive water level step change
 #'     > 0.1 m flagged as potential logger disturbance.}
 #'   \item{\code{FLAG_DRY}}{Possible dry sensor: water temperature
 #'     > 19 degrees C, water pressure <= air pressure.}
@@ -28,13 +28,17 @@
 #'   \code{\link{add_nearest_baro}}.
 #' @param select_station Character scalar. The \code{site_station_code} to
 #'   process. Only rows matching this station are retained.
-#' @param temp_ice_threshold_C Water temperature (C) below which ice conditions
-#'   are flagged. Default \code{0.3}.
-#' @param temp_high_dry_C Water temperature (C) above which a dry sensor is
-#'   suspected. Default \code{19}.
-#' @param wl_disturb_threshold_m Absolute step-change threshold (m) between
-#'   consecutive water level readings above which a disturbance is flagged.
-#'   Default \code{0.1}.
+#' @param temp_ice_flag_C Upper bound of water temperature (C) for
+#'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
+#'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
+#'   than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.
+#' @param temp_dry_flag_C Water temperature (C) above which a dry sensor is
+#'   suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
+#'   Default is 19.
+#' @param wl_spike_flag_m Absolute step-change value (m) between
+#'   consecutive water level readings above which a spike is flagged.
+#'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+#'   Default is 0.1 (m).
 #' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
 #'   log files. When non-\code{NULL}, a log CSV is written via
 #'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
@@ -50,7 +54,7 @@
 #'   \itemize{
 #'     \item \strong{Adjusted columns:} \code{waterlevel_m_adj},
 #'       \code{watertemp_C_adj}.
-#'     \item \strong{Flag columns:} \code{FLAG_DISTURBANCE},
+#'     \item \strong{Flag columns:} \code{FLAG_SPIKE},
 #'       \code{OUTLIER_WT}, \code{FLAG_ICE},
 #'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
@@ -67,9 +71,9 @@
 
 qc_waterlevel <- function(input_data,
                             select_station,
-                            temp_ice_threshold_C  = 0.3,
-                            temp_high_dry_C       = 19,
-                            wl_disturb_threshold_m = 0.1,
+                            temp_ice_flag_C  = 0.3,
+                            temp_dry_flag_C       = 19,
+                            wl_spike_flag_m = 0.1,
                             log_root = NULL,
                             user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -113,7 +117,7 @@ qc_waterlevel <- function(input_data,
   if (!"watertemp_C_adj" %in% names(output_data))
     output_data$watertemp_C_adj  <- output_data$watertemp_C
 
-  # Pre-compute median timestep for disturbance gap filtering (scalar, not a column)
+  # Pre-compute median timestep for spike gap filtering (scalar, not a column)
   med_step_secs <- as.numeric(
     stats::median(diff(output_data$timestamp), na.rm = TRUE),
     units = "secs"
@@ -122,18 +126,18 @@ qc_waterlevel <- function(input_data,
   # 3. Apply QA/QC rules (WL + WT) --------------------------------------------
   output_data <- output_data |>
     dplyr::mutate(
-      # --- disturbance detection (lag-based: flags the first disturbed row) ---
+      # --- spike detection (lag-based: flags the first disturbed row) ---
       wl_diff_abs = c(NA_real_, abs(diff(waterlevel_m))),
       wl_dt_secs  = c(NA_real_, as.numeric(diff(timestamp), units = "secs")),
 
-      FLAG_DISTURBANCE = !is.na(wl_diff_abs) &
+      FLAG_SPIKE = !is.na(wl_diff_abs) &
         !is.na(wl_dt_secs) &
         wl_dt_secs <= 2 * med_step_secs &
-        wl_diff_abs > wl_disturb_threshold_m,
+        wl_diff_abs > wl_spike_flag_m,
 
       # --- water temperature helpers (from old qc_watertemp) ---
-      wt_high_dry   = !is.na(watertemp_C) & watertemp_C > temp_high_dry_C,
-      FLAG_ICE      = !is.na(watertemp_C) & watertemp_C < temp_ice_threshold_C,
+      wt_high_dry   = !is.na(watertemp_C) & watertemp_C > temp_dry_flag_C,
+      FLAG_ICE      = !is.na(watertemp_C) & watertemp_C < temp_ice_flag_C,
       neg_lt_minus1 = !is.na(watertemp_C) & watertemp_C < -1,
       neg_between   = !is.na(watertemp_C) & watertemp_C < 0 & watertemp_C >= -1,
 
@@ -144,7 +148,7 @@ qc_waterlevel <- function(input_data,
       # old WL-based dry rule, updated to 19 deg C to match qc_watertemp doc
       flag_dry_wl = !is.na(waterlevel_m) & !is.na(watertemp_C) &
         !is.na(waterpress_kPa) & !is.na(airpress_kPa) &
-        (watertemp_C > temp_high_dry_C | waterpress_kPa <= airpress_kPa),
+        (watertemp_C > temp_dry_flag_C | waterpress_kPa <= airpress_kPa),
 
       # combine temperature-based dry signals
       flag_dry_temp = wt_high_dry,
@@ -186,21 +190,21 @@ qc_waterlevel <- function(input_data,
       flag        = output_data$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_adj",
       code        = "FLAG_ICE",
-      action_note = paste0("Possible ice conditions: water temperature < ",temp_ice_threshold_C," C; flagged for review.")
+      action_note = paste0("Possible ice conditions: water temperature < ",temp_ice_flag_C," C; flagged for review.")
     ),
     # WL-related rules (waterlevel_m_adj field)
     list(
-      flag        = output_data$FLAG_DISTURBANCE %in% TRUE,
+      flag        = output_data$FLAG_SPIKE %in% TRUE,
       field       = "waterlevel_m_adj",
-      code        = "FLAG_DISTURBANCE",
-      action_note = paste0("Large step change in water level (> ", wl_disturb_threshold_m,
+      code        = "FLAG_SPIKE",
+      action_note = paste0("Large step change in water level (> ", wl_spike_flag_m,
                            " m); flagged as potential logger disturbance.")
     ),
     list(
       flag        = output_data$FLAG_DRY %in% TRUE,
       field       = "waterlevel_m_adj",
       code        = "FLAG_DRY",
-      action_note = paste0("Possible dry sensor (water temperature > ", temp_high_dry_C," C or low pressure); flagged.")
+      action_note = paste0("Possible dry sensor (water temperature > ", temp_dry_flag_C," C or low pressure); flagged.")
     )
   )
 

@@ -10,13 +10,13 @@
 #'   \code{airtemp_C}.
 #' @param select_station Character, station code to process
 #'   (matches \code{site_station_code}).
-#' @param temp_low_flag Lower bound (C) for acceptable air temperature.
+#' @param temp_low_flag_C Lower bound (C) for acceptable air temperature.
 #'   Values below this are flagged as \code{TRUE} in \code{FLAG_RANGE}.
-#' @param temp_high_flag Upper bound (C) for acceptable air temperature.
+#' @param temp_high_flag_C Upper bound (C) for acceptable air temperature.
 #'   Values above this are flagged as \code{TRUE} in \code{FLAG_RANGE}.
-#'@param temp_low_limit Lower bound (C) for plausible air temperature.
+#'@param temp_low_limit_C Lower bound (C) for plausible air temperature.
 #'   Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
-#' @param temp_high_limit Upper bound (C) for plausible air temperature.
+#' @param temp_high_limit_C Upper bound (C) for plausible air temperature.
 #'   Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}
 #' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
 #'   log files. When non-\code{NULL}, a log CSV is written via
@@ -38,10 +38,10 @@
 #' @export
 qc_airtemp <- function(input_data,
                          select_station,
-                         temp_low_flag  = -20,
-                         temp_high_flag =  50,
-                         temp_low_limit  = -Inf,
-                         temp_high_limit =  +Inf,
+                         temp_low_flag_C  = -40,
+                         temp_high_flag_C =  50,
+                         temp_low_limit_C  = -Inf,
+                         temp_high_limit_C = Inf,
                          log_root = NULL,
                          user     = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
@@ -60,6 +60,20 @@ qc_airtemp <- function(input_data,
          paste(miss, collapse = ", "), call. = FALSE)
   }
 
+  # ensure flags and limits in range
+  if (temp_low_limit_C > 0) {
+    stop(
+      "qc_airtemp(): temp_low_limit_C must be <= 0. "
+    )
+  }
+
+  if (temp_low_flag_C < temp_low_limit_C) {
+    stop(
+      paste("qc_airtemp(): flagging value for low temperature, (temp_low_flag_C:", temp_low_flag_C,
+            ") must be greater than temperature outlier limit (temp_low_limit_C:", temp_low_limit_C, "). ")
+    )
+  }
+
   # Create adjusted column if missing
   if (!"airtemp_C_adj" %in% names(output_data)) output_data$airtemp_C_adj <- output_data$airtemp_C
 
@@ -69,10 +83,10 @@ qc_airtemp <- function(input_data,
 
   # ---- 2. Detection rule ----------------------------------------------------
  flag_temp <- !is.na(output_data$airtemp_C) &
-    (output_data$airtemp_C < temp_low_flag | output_data$airtemp_C > temp_high_flag)
+    (output_data$airtemp_C <= temp_low_flag_C | output_data$airtemp_C >= temp_high_flag_C)
 
   bad_temp <- !is.na(output_data$airtemp_C) &
-    (output_data$airtemp_C < temp_low_limit | output_data$airtemp_C > temp_high_limit)
+    (output_data$airtemp_C < temp_low_limit_C | output_data$airtemp_C > temp_high_limit_C)
 
   # ---- 3. Apply adjustments -------------------------------------------------
   output_data <- output_data |>
@@ -97,8 +111,8 @@ qc_airtemp <- function(input_data,
       field       = "airtemp_C_adj",
       action      = "TEMP_OUT_RANGE",
       code        = "TEMP_OUT_RANGE",
-      action_note = paste0("Air temperature outside [", temp_low_limit, ", ",
-                           temp_high_limit, "] C; set to NA")
+      action_note = paste0("Air temperature outside [", temp_low_limit_C, ", ",
+                           temp_high_limit_C, "] C; set to NA")
     ),
     # AT flagged
     list(
@@ -106,8 +120,8 @@ qc_airtemp <- function(input_data,
       field       = "airtemp_C_adj",
       action      = "TEMP_FLAG_RANGE",
       code        = "TEMP_FLAG_RANGE",
-      action_note = paste0("Air temperature outside [", temp_low_flag, ", ",
-                           temp_high_flag, "] C; flagged for review")
+      action_note = paste0("Air temperature outside [", temp_low_flag_C, ", ",
+                           temp_high_flag_C, "] C; flagged for review")
     )
   )
 

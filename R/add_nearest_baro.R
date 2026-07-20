@@ -554,5 +554,10 @@ add_nearest_baro <- function(input_data,
       color = "Baro code"
     )
 
+  # remove metric_norm
+
+  df_with_baro <-  df_with_baro |>
+    dplyr::select(-dplyr::any_of("metric_norm"))
+
   return(list(df_with_baro, qc_plot))
 }

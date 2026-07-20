@@ -40,7 +40,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' station_wl_qc2 <- adjust_WL_offset(
+#' station_wl_qc2 <- adjust_waterlevel_offset(
 #'   input_data      = station_wl_qc,
 #'   select_station  = "WL_ALBR_ST_30",
 #'   timestamp_start = "2025-02-04 07:00:00",
@@ -52,7 +52,7 @@
 #'
 #' @export
 
-adjust_WL_offset <- function(input_data,
+adjust_waterlevel_offset <- function(input_data,
                              select_station,
                              timestamp_start,
                              timestamp_end,
@@ -63,36 +63,36 @@ adjust_WL_offset <- function(input_data,
 
   #  QAQC inputs
   if (missing(manual_note) || trimws(manual_note) == "") {
-    stop("adjust_WL_offset(): 'manual_note' must be a non-empty string.",
+    stop("adjust_waterlevel_offset(): 'manual_note' must be a non-empty string.",
          call. = FALSE)
   }
-  
+
   # ---- Filter to selected station & sort -------------------------------------
   waterlevel_data <- input_data |>
     dplyr::filter(.data$site_station_code == select_station) |>
     dplyr::arrange(.data$timestamp)
-  
+
   required_cols <- c(
     "timestamp",
     "site_station_code",
     "waterlevel_m",
     "waterlevel_m_adj"
   )
-  
+
   missing_cols <- setdiff(required_cols, names(waterlevel_data))
   if (length(missing_cols) > 0) {
     stop(
-      "adjust_WL_offset(): Missing required column(s): ",
+      "adjust_waterlevel_offset(): Missing required column(s): ",
       paste(missing_cols, collapse = ", "),
       call. = FALSE
     )
   }
-  
+
   if (nrow(waterlevel_data) == 0) {
-    stop("adjust_WL_offset(): no rows found for station '", select_station, "'.",
+    stop("adjust_waterlevel_offset(): no rows found for station '", select_station, "'.",
          call. = FALSE)
   }
-  
+
   # ---- Parse timestamps (character -> POSIXct) -------------------------------
   ts_start <- lubridate::ymd_hms(timestamp_start, tz = "UTC")
   ts_end   <- lubridate::ymd_hms(timestamp_end,   tz = "UTC")
@@ -108,7 +108,7 @@ adjust_WL_offset <- function(input_data,
   if (ts_end <= ts_start) {
     stop("timestamp_end must be after timestamp_start.", call. = FALSE)
   }
-  
+
   # ---- Get start/end water levels (raw) --------------------------------------
   before_break <- waterlevel_data |>
     dplyr::filter(.data$timestamp == ts_start) |>
@@ -130,7 +130,7 @@ adjust_WL_offset <- function(input_data,
 
   if (is.na(before_break) || is.na(after_break)) {
     stop(
-      "adjust_WL_offset(): waterlevel_m is NA at one or both reference ",
+      "adjust_waterlevel_offset(): waterlevel_m is NA at one or both reference ",
       "timestamps. Cannot compute offset.",
       call. = FALSE
     )
@@ -138,23 +138,23 @@ adjust_WL_offset <- function(input_data,
 
   # Offset = post minus pre; subtracted later to realign post-break data
   corr_break <- after_break - before_break
-  
+
   # ---- Ensure flag column exists ---------------------------------------------
   if (!"edit_offset" %in% names(waterlevel_data)) {
     waterlevel_data$edit_offset <- FALSE
   }
-  
+
   # ---- Apply constant offset after the break ---------------------------------
   waterlevel_data <- waterlevel_data |>
     dplyr::mutate(
       after_break = timestamp >= ts_end,
-      
+
       # Only ever touch the adjusted series; keep raw intact
       waterlevel_m_adj = dplyr::case_when(
         after_break ~ waterlevel_m_adj - corr_break,
         TRUE        ~ waterlevel_m_adj
       ),
-      
+
       edit_offset = dplyr::if_else(
         after_break,
         TRUE,
@@ -162,19 +162,19 @@ adjust_WL_offset <- function(input_data,
       )
     ) |>
     dplyr::select(-after_break)
-  
+
   # ---- Build QA/QC log entry -------------------------------------------------
   metric   <- "WL"
   field    <- "waterlevel_m_adj"
   action   <- "CABLE_OFFSET"
-  fun_name <- "adjust_WL_offset"
+  fun_name <- "adjust_waterlevel_offset"
   run_time <- Sys.time()
   code     <- "LOGGER_DISTURBANCE"
-  
+
   ts_affected <- waterlevel_data$timestamp[
     waterlevel_data$timestamp >= ts_end
   ]
-  
+
   log_this <- make_qaqc_log_row(
     timestamps  = ts_affected,
     station     = select_station,
@@ -192,7 +192,7 @@ adjust_WL_offset <- function(input_data,
     user        = user,
     run_time    = run_time
   )
-  
+
   if (!is.null(log_this)) {
     qaqc_log_maybe_append(log_root, select_station, metric, log_this)
   } else {

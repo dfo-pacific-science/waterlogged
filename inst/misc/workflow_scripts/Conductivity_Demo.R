@@ -12,9 +12,10 @@
 #   1. Reads raw conductivity logger files (from multiple stations) and links
 #      them to deployment metadata
 #   2. Runs automatic quality checks (spikes, ice, dry sensor)
-#   3. Converts electrical conductivity to specific conductance (SPC)
-#   4. Shows how to manually remove bad data
-#   5. Exports the final clean dataset
+#   3. Visually review plots to identify problem periods
+#   4. Converts electrical conductivity to specific conductance (SPC)
+#   5. Shows how to manually remove bad data
+#   6. Exports the final clean dataset
 #
 # WHAT IS CONDUCTIVITY?
 #   Electrical conductivity (EC) measures how well water conducts
@@ -147,12 +148,15 @@ print(cond_plot)
 #
 # WHAT IT CHECKS:
 #   1. Spikes     — sudden large jumps in conductivity between consecutive
-#                   readings (> disturbance_threshold_uScm, default 200)
-#   2. Ice        — water temperature in the near-freezing/slush zone
-#                   (>= -1 and < 0.3 deg C)
-#   3. Temp range — temperature outside plausible limits (< -1 or > 40 deg C);
+#                   readings (> spike_flag_uScm, default 200)
+#   2. Ice        — water temperature below 0.3 °C (sensor may be frozen)
+#   3. Temp range — temperature outside plausible limits (< -2 or > 40 deg C);
 #                   these extreme values are converted to NA.
-#   4. Dry sensor — very low conductivity (<= dry_threshold_uScm, default 10)
+#   4. Cond range – conductivity outside of plausible limits (< 0 or >
+#                   2500 µS/cm); the upper range should be set according to the
+#                   specific calibration or measurement threshold of the logger
+#                   (refer to device specifications).
+#   5. Dry sensor — very low conductivity (<= dry_flag_uScm, default 10)
 #                   and air-water temp difference <= 2 deg C (if air temp is
 #                   available) for a rolling 12-hour window.
 #
@@ -164,6 +168,7 @@ print(cond_plot)
 #   FLAG_DISTURBANCE  — TRUE where a conductivity spike was detected
 #   FLAG_ICE          — TRUE where water temp indicates possible ice/slush
 #   OUTLIER_WT        — TRUE where temp was out of bounds (set to NA)
+#   OUTLIER_CO        - TRUE where conductivity was out of bounds (set to NA)
 #   FLAG_DRY          — TRUE where sensor appears to be out of water
 # -----------------------------------------------------------------------------
 
@@ -175,15 +180,15 @@ cond_qc <- qc_conductivity(
   temp_low_limit_C           = -2,
   temp_high_limit_C          = 40,
   temp_ice_flag_C            = 0.3,
-  disturbance_threshold_uScm = 200,
-  dry_threshold_uScm         = 10,
+  spike_flag_uScm            = 200,
+  dry_flag_uScm              = 10,
   temp_air_water_diff_C      = 2
 )
 
 # Summarize flags
 cat("QAQC results for BUGS_WE_01:\n")
 cat("  Total rows:       ", nrow(cond_qc), "\n")
-cat("  Spikes:           ", sum(cond_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
+cat("  Spikes:           ", sum(cond_qc$FLAG_SPIKE, na.rm = TRUE), "\n")
 cat("  Ice flagged:      ", sum(cond_qc$FLAG_ICE, na.rm = TRUE), "\n")
 cat("  Temp outlier:     ", sum(cond_qc$OUTLIER_WT, na.rm = TRUE), "\n")
 cat("  Dry flagged:      ", sum(cond_qc$FLAG_DRY, na.rm = TRUE), "\n")
@@ -201,7 +206,25 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 # barometric logger
 
 baro_folder     <- file.path(data_dir, "baro")
+baro_files      <- list.files(path = baro_folder, pattern = "\\.csv$", full.names = TRUE)
+baro_filenames  <- basename(baro_files)
 
+cat("Found", length(baro_files), "CSV file(s):\n")
+cat(paste(" -", baro_filenames), sep = "\n")
+cat("\n")
+
+baro_data <- lapply(baro_files, read.csv) |>
+  dplyr::bind_rows()
+
+cat("Barometric data:", nrow(baro_data), "rows\n")
+cat("Stations:", paste(unique(baro_data$site_station_code), collapse = ", "), "\n")
+cat("Date range:", as.character(min(baro_data$timestamp, na.rm = TRUE)),
+    "to", as.character(max(baro_data$timestamp, na.rm = TRUE)), "\n")
+cat("Temperature range:",
+    round(min(baro_data$airtemp_C_adj, na.rm = TRUE), 1), "to",
+    round(max(baro_data$airtemp_C_adj, na.rm = TRUE), 1), "deg C\n")
+
+# Re-run qc_conductivity with baro (air temperature) data added
 cond_with_baro <- add_nearest_baro(
   input_data = cond_data,
   baro_data_path = baro_folder,
@@ -218,8 +241,8 @@ cond_qc_at <- qc_conductivity(
   temp_low_limit_C           = -2,
   temp_high_limit_C          = 40,
   temp_ice_flag_C            = 0.3,
-  disturbance_threshold_uScm = 200,
-  dry_threshold_uScm         = 10,
+  spike_flag_uScm            = 200,
+  dry_flag_uScm              = 10,
   temp_air_water_diff_C      = 2
 )
 
@@ -284,10 +307,9 @@ plot_qaqc_timeseries(
 #
 # -----------------------------------------------------------------------------
 
-?conductivity_temp_compensation
+?convert_conductivity_spc_uScm
 
-
-cond_qc_spc <- conductivity_temp_compensation(cond_qc_at)
+cond_qc_spc <- convert_conductivity_spc_uScm(cond_qc_at)
 
 cat("Temperature compensation complete.\n")
 cat("Raw conductivity range:   ",
@@ -422,7 +444,7 @@ cat("Clean data written to:", output_folder, "\n")
 #   Step 1:  bind_hobo_files() on COND    -> cond_data  (raw conductivity)
 #   Step 2:  qc_conductivity()          -> cond_qc    (auto QAQC'd)
 #   Step 3:  plot_qaqc_timeseries()       -> (visual review)
-#   Step 4:  conductivity_temp_compensation() -> cond_qc (adds SPC)
+#   Step 4:  convert_conductivity_spc_uScm() -> cond_qc (adds SPC)
 #   Step 5:  Manual adjustments           -> cond_qc    (updated)
 #   Step 6:  plot_qaqc_timeseries()       -> (final review)
 #   Step 7:  write_clean_data()            -> CSV file (v1.0)

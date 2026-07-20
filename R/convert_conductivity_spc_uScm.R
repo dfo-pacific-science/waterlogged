@@ -39,7 +39,7 @@
 #'   (optional drift correction for conductivity)
 #'
 #' @export
-conductivity_temp_compensation <- function(input_data) {
+convert_conductivity_spc_uScm <- function(input_data) {
 
   # ---- Resolve input columns (prefer _adj, fall back to raw) -----------------
   has_cond_adj <- "conduct_uScm_adj" %in% names(input_data)
@@ -49,13 +49,13 @@ conductivity_temp_compensation <- function(input_data) {
 
   if (!has_cond_adj && !has_cond_raw) {
     stop(
-      "conductivity_temp_compensation(): Input must contain ",
+      "convert_conductivity_spc_uScm(): Input must contain ",
       "'conduct_uScm_adj' or 'conduct_uScm'."
     )
   }
   if (!has_temp_adj && !has_temp_raw) {
     stop(
-      "conductivity_temp_compensation(): Input must contain ",
+      "convert_conductivity_spc_uScm(): Input must contain ",
       "'watertemp_C_adj' or 'watertemp_C'."
     )
   }
@@ -180,7 +180,7 @@ conductivity_temp_compensation <- function(input_data) {
   if (pct_missing_temp > 5) {
     warning(
       sprintf(
-        "conductivity_temp_compensation(): %.1f%% of %s values are NA; ",
+        "convert_conductivity_spc_uScm(): %.1f%% of %s values are NA; ",
         pct_missing_temp, temp_col
       ),
       "specific conductance could not be computed for those timestamps."

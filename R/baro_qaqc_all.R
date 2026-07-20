@@ -23,18 +23,26 @@
 #' @param log_root Root folder where QA/QC logs are written by
 #'   [qc_barometric()] and related functions, typically the same as
 #'   `path_to_output_folder`, e.g. `"data/testing/processed"`.
-#' @param temp_low_limit Lower bound (°C) for plausible barometric logger
-#'   temperatures. Values outside this range may be flagged or removed.
-#' @param temp_high_limit Upper bound (°C) for plausible barometric logger
-#'   temperatures.
-#' @param pressure_low_kpa Lower bound (kPa) for plausible barometric
-#'   pressure.
-#' @param pressure_high_kpa Upper bound (kPa) for plausible barometric
-#'   pressure.
-#' @param spike_threshold_kpa Threshold (kPa) for flagging sudden pressure
-#'   spikes between consecutive timesteps.
-#' @param flatline_n Integer; number of consecutive identical values used to
-#'   flag potential flatlining in the pressure series.
+#' @param temp_low_limit_C Lower bound (C) for plausible air temperatures.
+#'   Values below this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
+#'   Default is -40 C.
+#' @param temp_high_limit_C Upper bound (C) for plausible air temperature.
+#'   Values above this are set to \code{NA} in \code{airtemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_AT}.
+#'   Default is 50 C.
+#' @param pressure_low_limit_kpa Lower bound (kPa) for plausible barometric pressure.
+#'   Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
+#'   Default is 51 kPa.
+#' @param pressure_high_limit_kpa Upper bound (kPa) for plausible barometric pressure.
+#'   Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
+#'   Default is 112 kPa.
+#' @param spike_flag_kpa Pressure value (kPa) for flagging sudden pressure
+#'   spikes between consecutive timesteps (absolute difference in kPa).
+#'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
+#'   Default is 1.5 kPa.
+#' @param flatline_n Integer; number of consecutive identical values required
+#'   to flag a potential flatline in the pressure series.
+#'   Values are flagged for review as \code{TRUE} in \code{FLAG_FLATLINE}.
+#'   Default is 6.
 #' @param user Character username written into the QA/QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
 #'   local OS user).
@@ -60,11 +68,11 @@ barometric_qaqc_all <- function(
     metadata_path = NULL,
     path_to_output_folder = NULL,
     log_root = NULL,
-    temp_low_limit     = -40,
-    temp_high_limit    = 50,
-    pressure_low_kpa   = 85,
-    pressure_high_kpa  = 105,
-    spike_threshold_kpa = 1.5,
+    temp_low_limit_C     = -40,
+    temp_high_limit_C    = 50,
+    pressure_low_limit_kpa   = 51,
+    pressure_high_limit_kpa  = 112,
+    spike_flag_kpa = 1.5,
     flatline_n          = 6,
     user = NULL,
     metadata = NULL,
@@ -143,11 +151,11 @@ barometric_qaqc_all <- function(
       select_station     = stn,
       log_root           = log_root,
       user               = user,
-      temp_low_limit     = temp_low_limit,
-      temp_high_limit    = temp_high_limit,
-      pressure_low_kpa   = pressure_low_kpa,
-      pressure_high_kpa  = pressure_high_kpa,
-      spike_threshold_kpa = spike_threshold_kpa,
+      temp_low_limit_C     = temp_low_limit_C,
+      temp_high_limit_C    = temp_high_limit_C,
+      pressure_low_limit_kpa   = pressure_low_limit_kpa,
+      pressure_high_limit_kpa  = pressure_high_limit_kpa,
+      spike_flag_kpa = spike_flag_kpa,
       flatline_n          = flatline_n
     )
 

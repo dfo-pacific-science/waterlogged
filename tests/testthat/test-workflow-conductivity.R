@@ -1,6 +1,6 @@
 test_that("conductivity workflow runs end-to-end", {
 
-  metadata_file  <- system.file("extdata/conductivity/metadata.csv", package = "waterlogged")
+  metadata_file  <- system.file("extdata/conductivity/metadata.old.csv", package = "waterlogged")
   cond_folder    <- system.file("extdata/conductivity/COND", package = "waterlogged")
   reference_file <- system.file("extdata/conductivity/field_references.csv", package = "waterlogged")
 
@@ -24,15 +24,15 @@ test_that("conductivity workflow runs end-to-end", {
     select_station             = "TUMT_WE_40",
     temp_low_limit_C           = -2,
     temp_high_limit_C          = 40,
-    disturbance_threshold_uScm = 200,
-    dry_threshold_uScm         = 10,
-    air_water_diff_threshold_C = 2
+    spike_flag_uScm = 200,
+    dry_flag_uScm         = 10,
+    temp_air_water_diff_C      = 2
   )
 
   expect_s3_class(cond_qc, "data.frame")
   expect_equal(nrow(cond_qc), nrow(cond_data))
   expect_true(all(c("conduct_uScm_adj", "watertemp_C_adj") %in% names(cond_qc)))
-  expect_true(all(c("FLAG_DISTURBANCE", "FLAG_ICE", "FLAG_DRY") %in% names(cond_qc)))
+  expect_true(all(c("FLAG_SPIKE", "FLAG_ICE", "FLAG_DRY") %in% names(cond_qc)))
   expect_false(is.null(attr(cond_qc, "qaqc_log")))
 
   # Step 3: Drift correction
@@ -49,7 +49,7 @@ test_that("conductivity workflow runs end-to-end", {
   expect_gt(sum(cond_qc$edit_cond_drift, na.rm = TRUE), 0)
 
   # Step 4: Temperature compensation
-  cond_qc <- conductivity_temp_compensation(cond_qc)
+  cond_qc <- convert_conductivity_spc_uScm(cond_qc)
 
   expect_true("spc_uScm_adj" %in% names(cond_qc))
   expect_false(all(is.na(cond_qc$spc_uScm_adj)))

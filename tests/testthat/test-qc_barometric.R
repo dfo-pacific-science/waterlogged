@@ -10,7 +10,7 @@ test_that("test barometric qaqc", {
   sites_compiled = baro_bound[[1]]
 
   #check qa flags doesnt exist before
-  qa.columns = c("FLAG_DISTURBANCE","FLAG_FLATLINE",
+  qa.columns = c("FLAG_SPIKE","FLAG_FLATLINE",
                  "OUTLIER_AT","OUTLIER_AP")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
@@ -22,7 +22,7 @@ test_that("test barometric qaqc", {
   barometric_complete_QAQC = qc_barometric(sites_compiled,
                                        log_root = path_to_output_folder,
                                        select_station = "DARL_ST_30",
-                                       temp_high_limit=39)
+                                       temp_high_limit_C=39)
 
   #check outputs
   expect_s3_class(barometric_complete_QAQC, "data.frame")

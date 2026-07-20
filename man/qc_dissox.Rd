@@ -9,7 +9,7 @@ qc_dissox(
   select_station,
   do_high_limit_mgl = 30,
   do_low_limit_mgl = -1,
-  do_high_flag_mgl = 20,
+  do_dry_flag_mgl = 20,
   do_low_flag_mgl = 0,
   temp_high_limit_C = 50,
   temp_low_limit_C = -1,
@@ -31,26 +31,33 @@ the output of \code{\link{convert_do_mgl_percsat}} or
 process. Only rows matching this station are retained.}
 
 \item{do_high_limit_mgl}{Upper bound (mg/L) for plausible dissolved oxygen.
-Values above this are set to \code{NA}. Default \code{30}.}
+Values above this are set to \code{NA} in \code{do_mgl_adj} and \code{do_percsat_adj}.
+Default is 30 mg/L.}
 
 \item{do_low_limit_mgl}{Lower bound (mg/L) for dissolved oxygen. Values
 between \code{do_low_limit_mgl} and \code{0} are corrected to \code{0}; values below
-\code{do_low_limit_mgl} are set to \code{NA}. Default \code{-1}. Must be less than or equal to zero.}
+\code{do_low_limit_mgl} are set to \code{NA} in \code{do_mgl_adj} and \code{do_percsat_adj}.
+Default is -1. Must be less than or equal to zero.}
 
-\item{do_high_flag_mgl}{Upper bound (mg/L) for flag dry dissolved oxygen.
-Values above this are flagged as \code{FLAG_DRY}. Default \code{20}.}
+\item{do_dry_flag_mgl}{Upper bound (mg/L) for flag dry dissolved oxygen.
+Values above this are flagged for review as \code{FLAG_DRY}. Default is 20 mg/L.}
 
 \item{do_low_flag_mgl}{Lower bound (mg/L) for flag range dissolved oxygen; values below
-\code{do_low_flag_mgl} and \code{0} are flagged as \code{FLAG_RANGE}. Default \code{0}. Must be greater than or equal to 0.}
+\code{do_low_flag_mgl} and \code{0} are flagged as \code{FLAG_RANGE}.
+Default is 0. Must be greater than or equal to 0.}
 
 \item{temp_high_limit_C}{Upper bound (C) for plausible water temperature.
+Default is 50 C.
 Values above this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
 
-\item{temp_low_limit_C}{Lower bound (C) for plausible water temperature. Default \code{-1}. Must be less than or equal to zero.
+\item{temp_low_limit_C}{Lower bound (C) for plausible water temperature.
+Default is -1. Must be less than or equal to zero.
 Values below this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.}
 
-\item{temp_ice_flag_C}{Water temperature (C) below which ice conditions
-are flagged. Default \code{0.3}. Must be greater than or equal to 0.}
+\item{temp_ice_flag_C}{Upper bound of water temperature (\code{°C}) for
+flagging ice conditions. Temperatures between \code{temp_low_limit_C}
+and \code{temp_ice_flag_C} are flagged. Must be positive and greater
+than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
 
 \item{temp_air_water_diff_C}{Absolute difference (C) between water and air
 temperature below which a dry sensor is suspected (when \code{airtemp_C}
@@ -92,17 +99,20 @@ The following rules are applied in order:
 \describe{
 \item{\code{ERROR_DO}}{Logger error code (\code{-888.88}) in DO or
 water temperature -- DO and percent sat set to \code{NA}.}
-\item{\code{OUTLIER_DO}}{DO between 0 and \code{-1} mg/L corrected to
-0; DO less than \code{-1} mg/L or greater than 30 mg/L removed (\code{NA}).}
-\item{\code{OUTLIER_WT}}{Water temperature below \code{-1}
-degrees C removed (\code{NA}); between \code{-1} and 0
-degrees C corrected to 0.}
-\item{\code{FLAG_RANGE}}{Sliding 12-point window where DO mg/L is greater than the calibration range of 20 mg/L.}
-\item{\code{FLAG_ICE}}{Water temperature < 0.3 degrees C flagged
+\item{\code{OUTLIER_DO}}{DO between 0 and \code{do_low_limit_mgl} mg/L corrected to
+0; DO less than \code{do_low_limit_mgl} mg/L or greater than \code{do_high_limit_mgl} mg/L removed (\code{NA}).}
+\item{\code{OUTLIER_WT}}{Water temperature below \code{temp_low_limit_C}
+degrees C removed (\code{NA})}
+\item{\code{FLAG_ICE}}{Water temperature < \code{temp_ice_flag_C} degrees C flagged
 for possible ice conditions.}
+\item{\code{FLAG_RANGE}}{DO < \code{do_low_flag_mgl} degrees C flagged
+for possible sensor error, if low DO is not expected}
 \item{\code{FLAG_DRY}}{Sliding 12-point window where percent sat
->= 100 and air--water temperature difference <= 2
+>= 100 and air--water temperature difference <= \code{temp_air_water_diff_C}
 degrees C, indicating a potentially dry sensor.}
+\item{\code{FLAG_DRY}}{DO > \code{do_dry_flag_mgl} degrees C flagged
+for possible dry sensor}
+
 }
 }
 \seealso{

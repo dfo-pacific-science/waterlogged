@@ -10,7 +10,7 @@ test_that("test airtemp qaqc", {
   sites_compiled = baro_bound[[1]]
 
   #check modern flag columns don't exist before
-  qa.columns = c("OUTLIER_AT", "airtemp_C_adj")
+  qa.columns = c("OUTLIER_AT", "FLAG_RANGE", "airtemp_C_adj")
   missing_cols <- setdiff(qa.columns, colnames(sites_compiled))
   expect_equal(missing_cols, qa.columns)
 

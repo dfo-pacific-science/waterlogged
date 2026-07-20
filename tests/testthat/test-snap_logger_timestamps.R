@@ -33,7 +33,7 @@ test_that("Test snap logger timestamps", {
   ), "Baro data didnt match timestamps for 0.0% of timestamps for site DARL_ST_30.")
 
 
-  aligned_cond <- resample_timestamps(input_data     = cond_bound[[1]],
+  aligned_cond <- align_timestamps(input_data     = cond_bound[[1]],
                                       interval       = "1 hour",
                                       align          = "round")
 

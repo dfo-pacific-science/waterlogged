@@ -3,7 +3,7 @@
 #' Reads all HOBO CSV files in a folder (or from explicit file paths), links
 #' each logger serial number to deployment metadata, trims records to
 #' deployment/removal windows, standardises core column names by metric
-#' (barometric, waterlevel, DO, TidbiT temperature, conductivity), optionally
+#' (barometric, waterlevel, dissolved oxygen, air temperature, water temperature, conductivity), optionally
 #' writes per-station/year v0.1 CSVs, and returns a compiled long data frame
 #' plus a quick QC plot.
 #'
@@ -259,14 +259,6 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
   sites_compiled<- sites_compiled[order(sites_compiled$site_station_code, sites_compiled$timestamp), ]
 
 
-
-  #####
-  # NEED TO ADD CODE FOR TIDBIT QAQC STILL, ALSO WHAT HAPPENS IF USER HAS MORE THAN 1 LOGGER TYPE?
-  # U20s and TidbiTs can be used for different metrics (U20 can be barometricpressure or waterlevel,
-  # TidbiT can be air or water temperature, Pendant can be temp/light/event)
-  # perhaps separate by model and metric?
-  #####
-
   logger_type <- unique(metadat_link$model)
   if (length(logger_type) != 1) {
     warning("Multiple logger models found for these files: ",
@@ -438,11 +430,15 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     stop("Could not determine logger_header from column names and measurement_type.")
   }
 
-  # Remove HOBO event columns we don't need
+
+  # drop HOBOware event columns
   sites_compiled <- sites_compiled |>
-    dplyr::select(
-      -dplyr::matches("Coupler Detached|Coupler Attached|Stopped|End Of File")
-    )
+    dplyr::select(-dplyr::matches("Coupler|Connected|Stopped|End of File|Logged|Bad Battery|Good Battery", ignore.case = TRUE))
+
+  # drop extra columns
+  sites_compiled <- sites_compiled |>
+    dplyr::select(-dplyr::any_of(c("file_name","timezone", "data1_type", "data1_unit", "data2_type", "data2_unit")))
+
 
   #### EXPORT CSV BY LOGGER TYPE LOCATION AND YEAR
   # some stations may have multiple logger files, one from a download in spring and another for a download in fall

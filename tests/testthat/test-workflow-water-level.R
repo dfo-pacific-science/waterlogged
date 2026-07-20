@@ -23,18 +23,18 @@ test_that("water level workflow runs end-to-end", {
   baro_qc <- barometric_qaqc_all(
     baro_data         = baro_data,
     metadata_path     = metadata_file,
-    pressure_low_kpa  = 85,
-    pressure_high_kpa = 105,
+    pressure_low_limit_kpa  = 85,
+    pressure_high_limit_kpa = 105,
     temp_low_limit    = -40,
     temp_high_limit   = 50,
-    spike_threshold_kpa = 1.5,
+    spike_flag_kpa = 1.5,
     flatline_n        = 6
   )
 
   expect_s3_class(baro_qc, "data.frame")
   expect_equal(nrow(baro_qc), nrow(baro_data))
   expect_true(all(c("airpress_kPa_adj", "airtemp_C_adj") %in% names(baro_qc)))
-  expect_true(all(c("OUTLIER_AP", "FLAG_DISTURBANCE", "FLAG_FLATLINE") %in% names(baro_qc)))
+  expect_true(all(c("OUTLIER_AP", "FLAG_SPIKE", "FLAG_FLATLINE") %in% names(baro_qc)))
 
   # Step 3: Bind water level files
   level_bound <- bind_hobo_files(
@@ -87,7 +87,7 @@ test_that("water level workflow runs end-to-end", {
   expect_s3_class(wl_qc, "data.frame")
   expect_equal(nrow(wl_qc), nrow(site_wl))
   expect_true(all(c("waterlevel_m_adj", "watertemp_C_adj") %in% names(wl_qc)))
-  expect_true(all(c("FLAG_ICE", "FLAG_DISTURBANCE", "FLAG_DRY") %in% names(wl_qc)))
+  expect_true(all(c("FLAG_ICE", "FLAG_SPIKE", "FLAG_DRY") %in% names(wl_qc)))
   expect_false(is.null(attr(wl_qc, "qaqc_log")))
 
   # Step 7: Plot (just check it doesn't error)
