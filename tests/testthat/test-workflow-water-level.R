@@ -20,13 +20,13 @@ test_that("water level workflow runs end-to-end", {
   expect_s3_class(baro_bound[[2]], "ggplot")
 
   # Step 2: Baro QAQC
-  baro_qc <- barometric_qaqc_all(
+  baro_qc <- qc_barometric(
     baro_data         = baro_data,
-    metadata_path     = metadata_file,
+    select_station = "ALBR_ST_30",
     pressure_low_limit_kpa  = 85,
     pressure_high_limit_kpa = 105,
-    temp_low_limit    = -40,
-    temp_high_limit   = 50,
+    temp_low_limit_C    = -40,
+    temp_high_limit_C   = 50,
     spike_flag_kpa = 1.5,
     flatline_n        = 6
   )
