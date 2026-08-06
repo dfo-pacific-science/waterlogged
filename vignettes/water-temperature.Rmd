@@ -1,5 +1,5 @@
 ---
-title: "Air/Water Temperature Pipeline"
+title: "Water Temperature Pipeline"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Water Temperature Pipeline}
