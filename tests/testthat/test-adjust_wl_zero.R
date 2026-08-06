@@ -1,5 +1,5 @@
 # ============================================================================
-# Tests for adjust_WL_zero()
+# Tests for adjust_waterlevel_zero()
 #
 # This function shifts the water level baseline (zero datum) by a specified
 # amount, either across the full time series or within a specific time window.
@@ -14,7 +14,7 @@ test_that("test adjust wl zero", {
   # This is a data frame with waterlevel_m, waterlevel_m_adj, and flag columns.
   waterlevel_complete_QAQC <- get_wl_qaqc_data()
 
-  # Create a fresh output folder for the QAQC log that adjust_WL_zero writes
+  # Create a fresh output folder for the QAQC log that adjust_waterlevel_zero writes
   path_to_output_folder <- withr::local_tempdir()
 
   # --- Test 1: Adjust within a specific time window -------------------------
@@ -23,7 +23,7 @@ test_that("test adjust wl zero", {
   timestamp_start <- "2024-11-01 00:00:00"
   timestamp_end   <- "2024-12-31 00:00:00"
 
-  adjusted_wl <- adjust_WL_zero(
+  adjusted_wl <- adjust_waterlevel_zero(
     waterlevel_complete_QAQC,
     select_station  = "ALBR_ST_30",
     change_value    = 1,
@@ -57,7 +57,7 @@ test_that("test adjust wl zero", {
 
   # --- Test 2: Adjust entire time series (no timestamp bounds) --------------
   # When no start/end timestamps are given, ALL readings should be shifted.
-  adjusted_wl_no_timestamps <- adjust_WL_zero(
+  adjusted_wl_no_timestamps <- adjust_waterlevel_zero(
     waterlevel_complete_QAQC,
     select_station = "ALBR_ST_30",
     change_value   = 1,
