@@ -3,7 +3,7 @@ title: "Air Temperature Pipeline"
 output: rmarkdown::pdf_document
 output_dir: "E:/projects/waterlogged_v3.0/vignettes/"
 vignette: >
-  %\VignetteIndexEntry{Air/Water Temperature Pipeline}
+  %\VignetteIndexEntry{Air Temperature Pipeline}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
