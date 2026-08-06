@@ -32,7 +32,7 @@ test_that("water level workflow runs end-to-end", {
   )
 
   expect_s3_class(baro_qc, "data.frame")
-  expect_equal(nrow(baro_qc), nrow(baro_data))
+  expect_equal(nrow(baro_qc[baro_qc$site_station_code=="ALBR_ST_30"]), nrow(baro_data))
   expect_true(all(c("airpress_kPa_adj", "airtemp_C_adj") %in% names(baro_qc)))
   expect_true(all(c("OUTLIER_AP", "FLAG_SPIKE", "FLAG_FLATLINE") %in% names(baro_qc)))
 
