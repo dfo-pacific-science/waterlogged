@@ -21,7 +21,7 @@ test_that("water level workflow runs end-to-end", {
 
   # Step 2: Baro QAQC
   baro_qc <- qc_barometric(
-    baro_data         = baro_data,
+    input_data         = baro_data,
     select_station = "ALBR_ST_30",
     pressure_low_limit_kpa  = 85,
     pressure_high_limit_kpa = 105,
