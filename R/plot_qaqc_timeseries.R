@@ -754,6 +754,49 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
           type        = "date"
         ),
         plot_bgcolor = "#e5ecf6"
-      )
+      ) |>
+      htmlwidgets::onRender("
+  function(el) {
+    el.on('plotly_relayout', function(eventData) {
+      // Check if the slider moved and modified the x-axis range
+      if (eventData['xaxis.range[0]'] !== undefined) {
+        var xMin = new Date(eventData['xaxis.range[0]']);
+        var xMax = new Date(eventData['xaxis.range[1]']);
+
+        // Target the first data trace
+        var trace = el._fullData[0];
+        var visibleY = [];
+
+        // Loop over data points to find what is currently visible on screen
+        for (var i = 0; i < trace.x.length; i++) {
+          var currentX = new Date(trace.x[i]);
+          if (currentX >= xMin && currentX <= xMax) {
+            visibleY.push(trace.y[i]);
+          }
+        }
+
+        // If we found visible points, recalculate min/max and update layout
+        if (visibleY.length > 0) {
+          var yMin = Math.min.apply(null, visibleY);
+          var yMax = Math.max.apply(null, visibleY);
+
+          // Add a small 5% padding padding so lines don't hug the graph edges
+          var padding = (yMax - yMin) * 0.05;
+
+          Plotly.relayout(el, {
+            'yaxis.range': [yMin - padding, yMax + padding]
+          });
+        }
+      }
+
+      // Reset y-axis if the user double-clicks to reset the slider entirely
+      if (eventData['xaxis.autorange'] === true) {
+        Plotly.relayout(el, { 'yaxis.autorange': true });
+      }
+    });
+  }
+")
+
+
   }
 }
