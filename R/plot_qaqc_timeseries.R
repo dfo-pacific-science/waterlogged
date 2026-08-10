@@ -107,6 +107,76 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
   panels  <- list()
   heights <- numeric(0)
 
+  # ---- AIR TEMPERATURE PANELS ------------------------------------------------
+  if (has_at) {
+    # 1) Air temperature timeseries
+    p_at <- ggplot2::ggplot(at_df, ggplot2::aes(x = timestamp))
+    at_line_cols <- c()
+
+    p_at <- p_at +
+      ggplot2::geom_line(
+        ggplot2::aes(y = airtemp_C, colour = "airtemp_raw"),
+        alpha = 0.5
+      )
+    at_line_cols["airtemp_raw"] <- cols$air_temp_raw
+
+    if ("airtemp_C_adj" %in% names(at_df)) {
+      p_at <- p_at +
+        ggplot2::geom_line(
+          ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj")
+        )
+      at_line_cols["airtemp_adj"] <- cols$air_temp_adj
+    }
+
+    p_at <- p_at +
+      ggplot2::scale_color_manual(values = at_line_cols) +
+      ggplot2::labs(
+        title  = paste("Air Temperature QC flags -", select_station),
+        y      = "Air temperature (\u00b0C)",
+        x      = "",
+        colour = ""
+      ) +
+      ggplot2::theme_classic()
+
+    panels  <- c(panels, list("p_at"=p_at))
+    heights <- c(heights, 0.20)
+
+    # 2) Air temperature QA/QC flags panel
+    at_flag_cols <- c("OUTLIER_AT","FLAG_RANGE")
+    at_flags     <- build_flag_long(at_df, at_flag_cols)
+
+    if (!is.null(at_flags)) {
+      levels_at <- levels(at_flags$flag_type)
+      style_at  <- qaqc_flag_style(levels_at)
+
+      p_at_qaqc <- ggplot2::ggplot(
+        at_flags,
+        ggplot2::aes(
+          x      = timestamp,
+          y      = flag_type,
+          shape  = flag_type,
+          colour = flag_type
+        )
+      ) +
+        ggplot2::geom_point(size = 1.8) +
+        ggplot2::scale_shape_manual(values = style_at$shape) +
+        ggplot2::scale_color_manual(values = style_at$colour) +
+        ggplot2::scale_x_datetime(limits = at_x_range) +
+        ggplot2::labs(
+          title  = paste("Air Temperature QC flags -", select_station),
+          x      = "",
+          y      = "",
+          shape  = "",
+          colour = ""
+        ) +
+        ggplot2::theme_classic()
+
+      panels  <- c(panels, list("p_at_qaqc"=p_at_qaqc))
+      heights <- c(heights, 0.10)
+    }
+  }
+
+
   # ---- DO PANELS -------------------------------------------------------------
   if (has_do) {
     # 1) DO timeseries (mg/L)
@@ -284,6 +354,32 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
             alpha = 0.5
           )
         line_cols["airtemp"] <- cols$cond_air_temp
+      }
+
+      # optionally overlay air temperature if present as additional data source
+      if (has_at) {
+        # use adjusted air temp as priority in overlay
+        if("airtemp_C_adj" %in% names(at_df)) {
+          p_co_temp <- p_co_temp +
+            ggplot2::geom_line(data = at_df,
+                               ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj"),
+                               alpha = 0.5)
+          line_cols["airtemp_adj"] <- cols$air_temp_adj
+        }else{
+          # if not present then use raw
+          p_co_temp <- p_co_temp +
+            ggplot2::geom_line(data = at_df,
+                               ggplot2::aes(y = airtemp_C, colour = "airtemp"),
+                               alpha = 0.5)
+
+          line_cols["airtemp"] <- cols$air_temp_raw
+        }
+
+        #drop separate air temp panels, since now overlaid
+        panels <- within(panels, rm(p_at, p_at_qaqc))
+        heights <- heights[-match(0.2, heights)]
+        heights <- heights[-match(0.1, heights)]
+
       }
 
       p_co_temp <- p_co_temp +
@@ -570,75 +666,6 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     }
   }
 
-  # ---- AIR TEMPERATURE PANELS ------------------------------------------------
-  if (has_at) {
-    # 1) Air temperature timeseries
-    p_at <- ggplot2::ggplot(at_df, ggplot2::aes(x = timestamp))
-    at_line_cols <- c()
-
-    p_at <- p_at +
-      ggplot2::geom_line(
-        ggplot2::aes(y = airtemp_C, colour = "airtemp_raw"),
-        alpha = 0.5
-      )
-    at_line_cols["airtemp_raw"] <- cols$air_temp_raw
-
-    if ("airtemp_C_adj" %in% names(at_df)) {
-      p_at <- p_at +
-        ggplot2::geom_line(
-          ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj")
-        )
-      at_line_cols["airtemp_adj"] <- cols$air_temp_adj
-    }
-
-    p_at <- p_at +
-      ggplot2::scale_color_manual(values = at_line_cols) +
-      ggplot2::labs(
-        title  = paste("Air Temperature QC flags -", select_station),
-        y      = "Air temperature (\u00b0C)",
-        x      = "",
-        colour = ""
-      ) +
-      ggplot2::theme_classic()
-
-    panels  <- c(panels, list(p_at))
-    heights <- c(heights, 0.20)
-
-    # 2) Air temperature QA/QC flags panel
-    at_flag_cols <- c("OUTLIER_AT","FLAG_RANGE")
-    at_flags     <- build_flag_long(at_df, at_flag_cols)
-
-    if (!is.null(at_flags)) {
-      levels_at <- levels(at_flags$flag_type)
-      style_at  <- qaqc_flag_style(levels_at)
-
-      p_at_qaqc <- ggplot2::ggplot(
-        at_flags,
-        ggplot2::aes(
-          x      = timestamp,
-          y      = flag_type,
-          shape  = flag_type,
-          colour = flag_type
-        )
-      ) +
-        ggplot2::geom_point(size = 1.8) +
-        ggplot2::scale_shape_manual(values = style_at$shape) +
-        ggplot2::scale_color_manual(values = style_at$colour) +
-        ggplot2::scale_x_datetime(limits = at_x_range) +
-        ggplot2::labs(
-          title  = paste("Air Temperature QC flags -", select_station),
-          x      = "",
-          y      = "",
-          shape  = "",
-          colour = ""
-        ) +
-        ggplot2::theme_classic()
-
-      panels  <- c(panels, list(p_at_qaqc))
-      heights <- c(heights, 0.10)
-    }
-  }
-
   # ---- WATER TEMPERATURE PANELS ----------------------------------------------
   if (has_wt) {
     # 1) Water temperature timeseries
@@ -668,6 +695,33 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
           alpha = 0.5
         )
       wt_line_cols["airtemp"] <- cols$air_temp_raw
+    }
+
+    # optionally overlay air temperature if present as additional data source
+
+    if (has_at) {
+      # use adjusted air temp as priority in overlay
+      if("airtemp_C_adj" %in% names(at_df)) {
+        p_wt <- p_wt +
+          ggplot2::geom_line(data = at_df,
+                             ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj"),
+                             alpha = 0.5)
+        wt_line_cols["airtemp_adj"] <- cols$air_temp_adj
+      }else{
+        # if not present then use raw
+        p_wt <- p_wt +
+          ggplot2::geom_line(data = at_df,
+                             ggplot2::aes(y = airtemp_C, colour = "airtemp"),
+                             alpha = 0.5)
+
+        wt_line_cols["airtemp"] <- cols$air_temp_raw
+      }
+
+      #drop separate air temp panels, since now overlaid
+      panels <- within(panels, rm(p_at, p_at_qaqc))
+      heights <- heights[-match(0.2, heights)]
+      heights <- heights[-match(0.1, heights)]
+
     }
 
     p_wt <- p_wt +
