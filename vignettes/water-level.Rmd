@@ -112,14 +112,14 @@ What it checks:
 The function never modifies the raw data. Instead, it creates new `_adj` (adjusted) columns that start as copies of the raw values. Any values that fail a check are set to `NA` in the `_adj` column. Boolean flag columns (`OUTLIER_*`, `FLAG_*`) record exactly what was checked and changed.
 
 ```{r baro-qaqc}
-baro_qc <- qc_barometric(
-  input_data         = baro_data,
-  select_station = unique(baro_data$site_station_code)[1],
-  pressure_low_limit_kpa  = 85,
-  pressure_high_limit_kpa = 105,
-  temp_low_limit_C    = -40,
-  temp_high_limit_C   = 50,
-  spike_flag_kpa = 1.5,
+baro_qc <- barometric_qaqc_all(
+  baro_data         = baro_data,
+  metadata_path     = metadata_file,
+  pressure_low_kpa  = 85,
+  pressure_high_kpa = 105,
+  temp_low_limit    = -40,
+  temp_high_limit   = 50,
+  spike_threshold_kpa = 1.5,
   flatline_n        = 6
 )
 
@@ -127,7 +127,7 @@ cat("Baro QAQC results:\n")
 cat("  Total rows:      ", nrow(baro_qc), "\n")
 cat("  Pressure outliers:", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "flagged\n")
 cat("  Temp outliers:    ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "flagged\n")
-cat("  Pressure Spikes:     ", sum(baro_qc$FLAG_SPIKE, na.rm = TRUE), "flagged\n")
+cat("  Disturbances:     ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "flagged\n")
 cat("  Flatlines:        ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "flagged\n")
 cat("  Raw NAs in airpress_kPa:     ",
     sum(is.na(baro_qc$airpress_kPa)), "\n")
@@ -314,12 +314,11 @@ This is an iterative process: view the plot, identify a problem period, apply a 
 
 ```{r visual-review, fig.height=10, fig.width=7}
 plot_qaqc_timeseries(
-  #wl_data        = wl_qc,
+  wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30",
-  static         = FALSE
+  static         = TRUE
 )
-
 ```
 
 ## Manual Adjustments (Examples)
@@ -342,18 +341,6 @@ wl_qc <- adjust_logger_NA(
    timestamp_end    = "2025-02-10 00:00:00",
    manual_note      = "Ice confirmed from field visit and temperature data"
 )
-
-```
-
-Review the timeseries to see the change.
-
-```{r visual-review2, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
-  wl_data        = wl_qc,
-  baro_data      = baro_qc,
-  select_station = "ALBR_ST_30",
-  static         = TRUE
-)
 ```
 
 ### 8b. Correct a spike / flatline (linear interpolation)
@@ -365,67 +352,24 @@ wl_qc <- adjust_waterlevel_spike(
   input_data       = wl_qc,
   select_station   = "ALBR_ST_30",
   timestamp_start  = "2025-02-03 21:00:00",
-  timestamp_end    = "2025-02-20 17:00:00",
+  timestamp_end    = "2025-02-10 16:00:00",
   reason_to_adjust = "ice",
   manual_note      = "Interpolated across ice spike"
 )
-
 ```
-
-Review the timeseries to see the change.
-
-```{r visual-review3, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
-  wl_data        = wl_qc,
-  baro_data      = baro_qc,
-  select_station = "ALBR_ST_30",
-  static         = TRUE
-)
-```
-
 
 ### 8c. Correct a step offset (cable break / logger moved)
 
 Applies a constant vertical shift to all data from a specific point onward, correcting for a sudden physical displacement. If the logger physically moves (e.g., a flood shifts the mounting bracket), all readings after that point are offset by a constant amount.
 
-Here we will adjust the data to simulate a cable break on June 1st, and then show how to correct it. 
-
-```{r simm-cable-break}
-wl_qc <- wl_qc|> dplyr::mutate(waterlevel_m = dplyr::case_when(timestamp > as.POSIXct("2025-06-01 00:00:00" ,tz = "UTC") ~   waterlevel_m+4,
-                                                     .default = waterlevel_m ))
-wl_qc$waterlevel_m_adj <- wl_qc$waterlevel_m
-
-plot_qaqc_timeseries(
-  wl_data        = wl_qc,
-  baro_data      = baro_qc,
-  select_station = "ALBR_ST_30",
-  static         = TRUE)
-
-```
-
-A cable break will appear as a sudden, constant shift upwards in waterlevel, since the logger has falled to the bottom of the water column (more water pressure above the logger). Correct it by identifying the timestamp just before the cable break as  timestamp_start ("2025-05-31 23:00:00") and the timestamp of the first erroneous water level reading as timestamp_end ("2025-06-01 00:00:00").
-
 ```{r manual-offset, eval=FALSE}
 wl_qc <- adjust_WL_offset(
   input_data      = wl_qc,
   select_station  = "ALBR_ST_30",
-  timestamp_end = "2025-06-01 01:00:00",
-  timestamp_start   = "2025-06-01 00:00:00",
-  manual_note     = "Cable break; logger found on streambed below stilling well"
+  timestamp_start = "2025-02-04 07:00:00",
+  timestamp_end   = "2025-02-09 00:00:00",
+  manual_note     = "Logger displaced by high water event"
 )
-```
-
-
-Review the timeseries to see the change.
-
-```{r visual-review4, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
-  wl_data        = wl_qc,
-  baro_data      = baro_qc,
-  select_station = "ALBR_ST_30",
-  static         = TRUE)
-  
-
 ```
 
 ### 8d. Multi-point drift correction
