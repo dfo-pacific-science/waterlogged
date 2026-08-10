@@ -660,11 +660,21 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
       wt_line_cols["watertemp_adj"] <- cols$water_temp_adj
     }
 
-    # optionally overlay air temperature if present
+    # optionally overlay air temperature if present in wt data
     if ("airtemp_C" %in% names(wt_df)) {
       p_wt <- p_wt +
         ggplot2::geom_line(
           ggplot2::aes(y = airtemp_C, colour = "airtemp"),
+          alpha = 0.5
+        )
+      wt_line_cols["airtemp"] <- cols$air_temp_raw
+    }
+
+    # optionally overlay air temperature if added as at data
+    if (has_at) {
+      p_wt <- p_wt +
+        ggplot2::geom_line(
+          ggplot2::aes(data = at_df, y = airtemp_C, colour = "airtemp"),
           alpha = 0.5
         )
       wt_line_cols["airtemp"] <- cols$air_temp_raw
