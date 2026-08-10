@@ -138,12 +138,12 @@ normalise_metric <- function(metric, allow_all = FALSE) {
     stop("`metric = 'all'` is only allowed when explicitly permitted.", call. = FALSE)
   }
 
-  if (m %in% c("waterlevel", "stage"))               return("waterlevel")
-  if (m %in% c("do", "dissolvedoxygen", "oxygen"))   return("dissolvedoxygen")
-  if (m %in% c("baro", "barometric", "airpressure")) return("barometric")
-  if (m %in% c("watertemp", "watertemperature"))     return("watertemp")
-  if (m %in% c("airtemp", "airtemperature"))         return("airtemp")
-  if (m %in% c("conductivity", "cond", "spc"))       return("conductivity")
+  if (m %in% c("waterlevel", "stage"))               return(list(metric_norm ="waterlevel", pattern = "WL.*"))
+  if (m %in% c("do", "dissolvedoxygen", "oxygen"))   return(list(metric_norm ="dissolvedoxygen", pattern = "DO.*"))
+  if (m %in% c("baro", "barometric", "airpressure")) return(list(metric_norm ="barometric", pattern = "BARO_.*"))
+  if (m %in% c("watertemp", "watertemperature"))     return(list(metric_norm ="watertemp", pattern = "WT_.*"))
+  if (m %in% c("airtemp", "airtemperature"))         return(list(metric_norm ="airtemp",pattern = "AT_.*"))
+  if (m %in% c("conductivity", "cond", "spc"))       return(list(metric_norm ="conductivity", pattern = "CO_.*"))
 
   stop(
     "Unknown `metric`. Expected one of: ",
@@ -195,6 +195,7 @@ resolve_data_processing_pattern <- function(data_processing) {
   }
 
   dp <- tolower(trimws(data_processing))
+  # remove whitespace
   dp <- gsub("\\s+", "", dp)
 
   # explicit mappings
