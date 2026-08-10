@@ -238,10 +238,34 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
         line_cols["airtemp"] <- cols$do_air_temp
       }
 
+      # optionally overlay air temperature if present as additional data source
+      if (has_at) {
+        # use adjusted air temp as priority in overlay
+        if("airtemp_C_adj" %in% names(at_df)) {
+          p_do_temp <- p_do_temp +
+            ggplot2::geom_line(data = at_df,
+                               ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj"),
+                               alpha = 0.5)
+          line_cols["airtemp_adj"] <- cols$air_temp_adj
+        }else{
+          # if not present then use raw
+          p_do_temp <- p_do_temp +
+            ggplot2::geom_line(data = at_df,
+                               ggplot2::aes(y = airtemp_C, colour = "airtemp"),
+                               alpha = 0.5)
+
+          line_cols["airtemp"] <- cols$air_temp_raw
+        }
+        #drop separate air temp panels, since now overlaid
+        panels <- within(panels, rm(p_at, p_at_qaqc))
+        heights <- heights[-match(0.2, heights)]
+        heights <- heights[-match(0.1, heights)]
+      }
+
       p_do_temp <- p_do_temp +
         ggplot2::scale_color_manual(values = line_cols) +
         ggplot2::labs(
-          title  = "DO logger & baro temperature",
+          title  = "DO logger & air temperature",
           y      = "Temperature (\u00b0C)",
           x      = "",
           colour = ""
@@ -496,6 +520,29 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
           ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj")
         )
       line_cols["airtemp_adj"] <- cols$baro_air_adj
+    }
+    # optionally overlay air temperature if present as additional data source
+    if (has_at) {
+      # use adjusted air temp as priority in overlay
+      if("airtemp_C_adj" %in% names(at_df)) {
+        p_wl_temp <- p_wl_temp +
+          ggplot2::geom_line(data = at_df,
+                             ggplot2::aes(y = airtemp_C_adj, colour = "airtemp_adj"),
+                             alpha = 0.5)
+        line_cols["airtemp_adj"] <- cols$air_temp_adj
+      }else{
+        # if not present then use raw
+        p_wl_temp <- p_wl_temp +
+          ggplot2::geom_line(data = at_df,
+                             ggplot2::aes(y = airtemp_C, colour = "airtemp"),
+                             alpha = 0.5)
+
+        line_cols["airtemp"] <- cols$air_temp_raw
+      }
+      #drop separate air temp panels, since now overlaid
+      panels <- within(panels, rm(p_at, p_at_qaqc))
+      heights <- heights[-match(0.2, heights)]
+      heights <- heights[-match(0.1, heights)]
     }
 
     if (length(line_cols) > 0) {
