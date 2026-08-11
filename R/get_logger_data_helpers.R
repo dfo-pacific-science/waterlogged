@@ -117,33 +117,34 @@ read_logger_file <- function(file_path) {
 #'     \item{\code{"watertemp"}}{Also \code{"watertemperature"}.}
 #'     \item{\code{"airtemp"}}{Also \code{"airtemperature"}.}
 #'   }
-#' @param allow_all Logical.  When \code{TRUE}, the special value
-#'   \code{"all"} is accepted and returned as-is.  Default \code{FALSE}.
 #'
 #' @return A single canonical metric string.
 #'
 #' @seealso \code{\link{get_logger_data}} (sole caller)
 #'
 #' @keywords internal
-normalise_metric <- function(metric, allow_all = FALSE) {
-  if (is.null(metric) || length(metric) != 1L) {
-    stop("`metric` must be a single, non-NULL value.", call. = FALSE)
+normalise_metric <- function(metric) {
+  if (length(metric) > 1L) {
+    stop("`metric` must be a single value.", call. = FALSE)
   }
 
   m <- tolower(trimws(metric))
   m <- gsub("\\s+", "", m)
 
   if (m == "all") {
-    if (allow_all) return("all")
-    stop("`metric = 'all'` is only allowed when explicitly permitted.", call. = FALSE)
+    return(list(metric_norm ="all", pattern = ".*_"))
+    warning("`metric = 'all'` will return a data file that may contain multiple
+            types of loggers, merged by station ID and timestamp. To only return
+            one type of logger data, specify the logger type in the 'metric'
+            argument.")
   }
 
-  if (m %in% c("waterlevel", "stage"))               return(list(metric_norm ="waterlevel", pattern = "WL.*"))
-  if (m %in% c("do", "dissolvedoxygen", "oxygen"))   return(list(metric_norm ="dissolvedoxygen", pattern = "DO.*"))
-  if (m %in% c("baro", "barometric", "airpressure")) return(list(metric_norm ="barometric", pattern = "BARO_.*"))
-  if (m %in% c("watertemp", "watertemperature"))     return(list(metric_norm ="watertemp", pattern = "WT_.*"))
-  if (m %in% c("airtemp", "airtemperature"))         return(list(metric_norm ="airtemp",pattern = "AT_.*"))
-  if (m %in% c("conductivity", "cond", "spc"))       return(list(metric_norm ="conductivity", pattern = "CO_.*"))
+  if (m %in% c("waterlevel", "stage", "wl", "depth"))               return(list(metric_norm ="waterlevel", pattern = "WL_"))
+  if (m %in% c("do", "dissolvedoxygen", "oxygen", "dissox"))   return(list(metric_norm ="dissolvedoxygen", pattern = "DO_"))
+  if (m %in% c("baro", "barometric", "airpressure", "ap", "airpress")) return(list(metric_norm ="barometric", pattern = "BARO_"))
+  if (m %in% c("watertemp", "watertemperature", "wt"))     return(list(metric_norm ="watertemp", pattern = "WT_"))
+  if (m %in% c("airtemp", "airtemperature", "at"))         return(list(metric_norm ="airtemp",pattern = "AT_"))
+  if (m %in% c("conductivity", "cond", "spc", "co"))       return(list(metric_norm ="conductivity", pattern = "CO_"))
 
   stop(
     "Unknown `metric`. Expected one of: ",
@@ -153,6 +154,38 @@ normalise_metric <- function(metric, allow_all = FALSE) {
   )
 }
 
+#' Normalise a user-supplied station identifier string to file matching pattern
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to
+#' standardise the \code{select_station} argument.  Accepts character string
+#' (case-sensitive, whitespace-stripped) and returns regex pattern for file
+#' name
+#'
+#' @param select_station Either \code{"all"} (default) or one or more
+#'   \code{site_station_code} values to filter on. Must be exact match to
+#'   pattern in file name, case-sensitive.
+#'
+#' @return A normalized character string and regex pattern.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+normalise_station <- function(select_station) {
+  if (length(select_station) > 1L) {
+    stop("`select_station` must be a non-NULL, single value.", call. = FALSE)
+  }
+  # remove whitespace
+  s <- trimws(select_station)
+  s <- gsub("\\s+", "", s)
+
+  if (s == "all") {
+    return(list(select_station ="all", pattern = ".*_"))
+    warning("`select_station = 'all'` will return a data file that may contain
+    multiple stations, To only return data from one station ID, specify the
+    station ID in the 'select_station' argument.")
+  } else{return(list(station_norm =s, pattern = paste0(s,"_")))}
+
+}
 
 #' Resolve a data-processing version string to a file-matching pattern
 #'
@@ -191,7 +224,7 @@ normalise_metric <- function(metric, allow_all = FALSE) {
 resolve_data_processing_pattern <- function(data_processing) {
 
   if (is.null(data_processing) || length(data_processing) != 1L) {
-    stop("`data_processing` must be a single value.", call. = FALSE)
+    stop("`data_processing` must be a non-NULL, single value.", call. = FALSE)
   }
 
   dp <- tolower(trimws(data_processing))
@@ -207,37 +240,41 @@ resolve_data_processing_pattern <- function(data_processing) {
     dp <- "v0.2"
   } else if (dp %in% c("v0.3", "v03", "0.3")) {
     dp <- "v0.3"
-  } else if (dp %in% c("v1.0", "v10", "1.0", "1", "final", "processed", "clean")) {
+  } else if (dp %in% c("v1.0", "v10", "1.0", "v1", "1", "final", "processed", "clean")) {
     dp <- "v1.0"
   } else {
     # partial / fuzzy mappings as backup
-    if (grepl("^raw", dp))           dp <- "raw"
-    else if (grepl("0\\.1$", dp))    dp <- "v0.1"
-    else if (grepl("0\\.2$", dp))    dp <- "v0.2"
-    else if (grepl("0\\.3$", dp))    dp <- "v0.3"
-    else if (grepl("^v1", dp))       dp <- "v1.0"
-    else {
+    if (grepl("^raw", dp))           dp <- "raw" #starts with raw
+    else if (grepl("0\\.1$", dp))    dp <- "v0.1" #ends with 0.1
+    else if (grepl("0\\.2$", dp))    dp <- "v0.2" #ends with 0.2
+    else if (grepl("0\\.3$", dp))    dp <- "v0.3" #ends with 0.3
+    else if (grepl("^v1$", dp))       dp <- "v1.0"
+    # starts with v, any digit, ., ends with any digit
+    else if (grepl("^v\\d*\\.\\d*$", dp))     dp <- dp
+     else {
       stop(
-        "`data_processing` must be one of:\n",
-        "  - 'raw'\n",
-        "  - 'v0.1'\n",
-        "  - 'v0.2'\n",
-        "  - 'v0.3'\n",
-        "  - 'v1.0' / 'clean' (final version)\n\n",
+        "`data_processing` expecting one of:\n",
+        "  - 'raw': raw data file from logger, no suffix applied \n",
+        "  - 'v0.1': data bound and trimmed from bind_hobo_files function \n",
+        "  - 'v0.2': data joined with barometric data from add_nearest_baro function \n",
+        "  - 'v0.3': data converted to new metric from convert_.... functions \n",
+        "  - 'v1.#' / 'clean' data exported from write_clean_data function \n\n",
+        "  - 'v#.#' / user specified version suffix \n\n",
         "You gave: '", data_processing, "'.",
         call. = FALSE
       )
     }
   }
 
-  pattern <- switch(
+  pattern <-
+    switch(
     dp,
     "raw"  = "\\.csv$",      # any csv
     "v0.1" = "v0.1\\.csv$",
     "v0.2" = "v0.2\\.csv$",
     "v0.3" = "v0.3\\.csv$",
     "v1.0" = "v1.0\\.csv$",
-    stop("Unexpected `data_processing` value after QC: ", dp, call. = FALSE)
+    paste0(dp,"\\.csv$") # user specified version suffix
   )
 
   list(data_processing = dp, pattern = pattern)

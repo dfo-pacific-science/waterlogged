@@ -12,9 +12,9 @@
 #'   files by version suffix. \code{"clean"} is treated as \code{"v1.0"}.
 #'   Summarisation (i.e., \code{temporal_scale != "none"}) is only allowed for
 #'   v1.0/clean data.
-#' @param metric A character string indicating which metric group to summarise.
-#'   Used only when \code{temporal_scale != "none"}. Accepted values (case and
-#'   spaces ignored) are mapped to:
+#' @param metric Optional  character string indicating which logger file type to
+#'   search for. If \code{NULL} (default), all logger type files loaded.
+#'   Accepted values (case and spaces ignored) are mapped to:
 #'   \itemize{
 #'     \item \code{"waterlevel"}: water level + water temperature
 #'     \item \code{"dissolvedoxygen"}: DO (mg/L, %sat) + water temperature
@@ -44,25 +44,26 @@
 
 get_logger_data <- function(path_to_data = NULL,
                             data_processing = "v1.0",
-                            metric          = NULL,
+                            metric          = "all",
                             select_station  = "all",
-                             input_data      = NULL) {
+                            input_data      = NULL) {
 
   dp_info        <- resolve_data_processing_pattern(data_processing)
   data_processing <- dp_info$data_processing
 
   # if either metric or station are provided
-  if(!is.null(metric) | select_station!="all"){
-    site_info        <- resolve_site_pattern(select_station)
-    select_station <- site_info$select_station
+  if(metric !="all" | select_station!="all"){
+    station_info  <- normalise_station(select_station)
+    station_norm <- station_info$station_norm
 
     metric_info <- normalise_metric(metric)
     metric_norm <- metric_info$metric_norm
 
-    # look for files containing site or metric in any order, and the suffix of the data processing stage
-    pattern         <- paste0("^", site_info$pattern, metric_info$pattern, dp_info$pattern, "|", "^",  metric_info$pattern, site_info$pattern, dp_info$pattern)
+    # look for files containing site or metric first, and the suffix of the data processing stage
+    pattern         <- paste0("(^", station_info$pattern, metric_info$pattern, "|^", metric_info$pattern, station_info$pattern, ").*", dp_info$pattern)
 
   }else{
+    # otherwise just look for the matching data processing suffix
     pattern <- dp_info$pattern
     }
 
@@ -110,24 +111,23 @@ get_logger_data <- function(path_to_data = NULL,
     }
 
     # read and combine
+    # TODO allow for extra columns, join by site_station_code and timestamp
+    # allows for easy merge of different logger types by site
+
     dat <- purrr::map(file_paths, read_logger_file) |> dplyr::bind_rows()
   }
 
   # optional station filter
-  if (!identical(select_station, "all")) {
-    dat <- dat |> dplyr::filter(site_station_code %in% select_station)
-  }
-  # optional metric filter
-  if (!identical(select_station, "all")) {
-    dat <- dat |> dplyr::filter(site_station_code %in% select_station)
+  if (!identical(station_norm, "all")) {
+    dat <- dat |> dplyr::filter(site_station_code %in% station_norm)
   }
 
     return(dat)
 
   if(is.null(input_data))
-  message(paste("Returning all data from", select_station, "station(s) found in", path_to_data))
+  message(paste("Returning all data from", station_norm, "station(s) found in", path_to_data))
 
   if(is.null(path_to_data))
-    message(paste("Returning all data from", select_station, "station(s) found in", input_data))
+    message(paste("Returning all data from", station_norm, "station(s) found in", input_data))
 
 }
