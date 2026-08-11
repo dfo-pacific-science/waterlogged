@@ -25,6 +25,8 @@
 #'   }
 #' @param select_station Either \code{"all"} (default) or one or more
 #'   \code{site_station_code} values to filter on.
+#' @param year Either \code{"all"} (default) or 4 digit numeric value
+#' designating year of data to filter data files (format = YYYY).
 #' @param input_data A data frame of logger observations (alternative to
 #'   \code{path_to_data} for Shiny mode). When supplied, file discovery is
 #'   skipped and this data frame is used directly. Exactly one of
@@ -44,23 +46,26 @@
 
 get_logger_data <- function(path_to_data = NULL,
                             data_processing = "v1.0",
-                            metric          = "all",
+                            metric          = NULL,
+                            year = "all",
                             select_station  = "all",
                             input_data      = NULL) {
 
   dp_info        <- resolve_data_processing_pattern(data_processing)
   data_processing <- dp_info$data_processing
 
-  # if either metric or station are provided
-  if(metric !="all" | select_station!="all"){
+  # if either metric, year or station are provided
+  if(!is.null(metric) | select_station!="all" | year != "all"){
     station_info  <- normalise_station(select_station)
     station_norm <- station_info$station_norm
 
     metric_info <- normalise_metric(metric)
     metric_norm <- metric_info$metric_norm
 
+    year_norm <- normalise_year(year)
+
     # look for files containing site or metric first, and the suffix of the data processing stage
-    pattern         <- paste0("(^", station_info$pattern, metric_info$pattern, "|^", metric_info$pattern, station_info$pattern, ").*", dp_info$pattern)
+    pattern         <- paste0("(^", station_info$pattern, metric_info$pattern, year_norm, "|^", metric_info$pattern, station_info$pattern, year_norm, ").*", dp_info$pattern)
 
   }else{
     # otherwise just look for the matching data processing suffix
@@ -111,7 +116,7 @@ get_logger_data <- function(path_to_data = NULL,
     }
 
     # read and combine
-    # TODO allow for extra columns, join by site_station_code and timestamp
+    # TODO allow for multi metric, extra columns, join by site_station_code and timestamp
     # allows for easy merge of different logger types by site
 
     dat <- purrr::map(file_paths, read_logger_file) |> dplyr::bind_rows()
@@ -120,6 +125,11 @@ get_logger_data <- function(path_to_data = NULL,
   # optional station filter
   if (!identical(station_norm, "all")) {
     dat <- dat |> dplyr::filter(site_station_code %in% station_norm)
+  }
+
+  # optional year filter
+  if (!is.null(year_norm)) {
+    dat <- dat |> dplyr::filter(timestamp %in% year_norm)
   }
 
     return(dat)

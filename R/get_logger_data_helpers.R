@@ -77,12 +77,12 @@ read_logger_file <- function(file_path) {
   }
 
   if (!inherits(dat$timestamp, "POSIXct")) {
-    dat$timestamp <- suppressWarnings(
-      lubridate::ymd_hms(dat$timestamp, tz = "UTC")
-    )
-    if (all(is.na(dat$timestamp))) {
+      # parse timestamp column (utils.R)
+      dat$timestamp <- parse_dt(dat$timestamp)
+
+    if (any(is.na(dat$timestamp))) {
       warning(
-        "read_logger_file(): all timestamps failed to parse in '",
+        "read_logger_file(): some timestamps failed to parse in '",
         basename(file_path), "'. ",
         "Check that the timestamp column uses a YYYY-MM-DD HH:MM:SS format.",
         call. = FALSE
@@ -127,31 +127,31 @@ normalise_metric <- function(metric) {
   if (length(metric) > 1L) {
     stop("`metric` must be a single value.", call. = FALSE)
   }
+  if (is.null(metric)) {
+    return(list(metric_norm =NULL, pattern = ".*_"))
+    warning("No metric supplied by default. If specific metric is required, ensure that
+    folder mapped by 'file_path' only contains one type of logger, or 'metric'
+    is supplied, else logger files of multiple metrics will be returned.")
+  }else{
 
-  m <- tolower(trimws(metric))
-  m <- gsub("\\s+", "", m)
+    m <- tolower(trimws(metric))
+    m <- gsub("\\s+", "", m)
 
-  if (m == "all") {
-    return(list(metric_norm ="all", pattern = ".*_"))
-    warning("`metric = 'all'` will return a data file that may contain multiple
-            types of loggers, merged by station ID and timestamp. To only return
-            one type of logger data, specify the logger type in the 'metric'
-            argument.")
+    if (m %in% c("waterlevel", "stage", "wl", "depth"))               return(list(metric_norm ="waterlevel", pattern = "WL_"))
+    if (m %in% c("do", "dissolvedoxygen", "oxygen", "dissox"))   return(list(metric_norm ="dissolvedoxygen", pattern = "DO_"))
+    if (m %in% c("baro", "barometric", "airpressure", "ap", "airpress")) return(list(metric_norm ="barometric", pattern = "BARO_"))
+    if (m %in% c("watertemp", "watertemperature", "wt"))     return(list(metric_norm ="watertemp", pattern = "WT_"))
+    if (m %in% c("airtemp", "airtemperature", "at"))         return(list(metric_norm ="airtemp",pattern = "AT_"))
+    if (m %in% c("conductivity", "cond", "spc", "co"))       return(list(metric_norm ="conductivity", pattern = "CO_"))
+
+    stop(
+      "Unknown `metric`. Expected one of: ",
+      "'waterlevel', 'dissolvedoxygen', 'barometric', 'conductivity', 'watertemp', 'airtemp'",
+      " (case and spaces ignored). You gave: '", metric, "'.",
+      call. = FALSE
+    )
   }
 
-  if (m %in% c("waterlevel", "stage", "wl", "depth"))               return(list(metric_norm ="waterlevel", pattern = "WL_"))
-  if (m %in% c("do", "dissolvedoxygen", "oxygen", "dissox"))   return(list(metric_norm ="dissolvedoxygen", pattern = "DO_"))
-  if (m %in% c("baro", "barometric", "airpressure", "ap", "airpress")) return(list(metric_norm ="barometric", pattern = "BARO_"))
-  if (m %in% c("watertemp", "watertemperature", "wt"))     return(list(metric_norm ="watertemp", pattern = "WT_"))
-  if (m %in% c("airtemp", "airtemperature", "at"))         return(list(metric_norm ="airtemp",pattern = "AT_"))
-  if (m %in% c("conductivity", "cond", "spc", "co"))       return(list(metric_norm ="conductivity", pattern = "CO_"))
-
-  stop(
-    "Unknown `metric`. Expected one of: ",
-    "'waterlevel', 'dissolvedoxygen', 'barometric', 'conductivity', 'watertemp', 'airtemp'",
-    " (case and spaces ignored). You gave: '", metric, "'.",
-    call. = FALSE
-  )
 }
 
 #' Normalise a user-supplied station identifier string to file matching pattern
@@ -179,11 +179,43 @@ normalise_station <- function(select_station) {
   s <- gsub("\\s+", "", s)
 
   if (s == "all") {
-    return(list(select_station ="all", pattern = ".*_"))
+    return(list(station_norm ="all", pattern = ".*_"))
     warning("`select_station = 'all'` will return a data file that may contain
-    multiple stations, To only return data from one station ID, specify the
-    station ID in the 'select_station' argument.")
+    multiple stations if present in folder supplied in file_path. To only return
+    data from one station ID, specify the station ID in the 'select_station'
+            argument.")
   } else{return(list(station_norm =s, pattern = paste0(s,"_")))}
+
+}
+
+#' Normalise a user-supplied year as character string to file matching pattern
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to
+#' standardise the \code{year} argument.  Accepts 4 digit number and returns
+#' regex pattern for file name
+#'
+#' @param year Either \code{"all"} (default) or 4 digit character string
+#' designating year of data to filter data files (format = YYYY).
+#'
+#' @return A normalized numeric year and regex pattern.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+normalise_year <- function(year) {
+  if (length(year) > 1L) {
+    stop("`year` must be a non-NULL, single value.", call. = FALSE)
+  }
+  # remove whitespace
+  y <- trimws(year)
+  y <- gsub("\\s+", "", y)
+
+  if (y == "all") {
+    return(NULL)
+    warning("`year = 'all'` will return a data file that may contain
+    multiple years if present in folder supplied in file_path. To only return
+    data from one year, specify the year in the 'year' argument.")
+  } else{return(y)}
 
 }
 
