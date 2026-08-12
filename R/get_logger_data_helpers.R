@@ -226,9 +226,8 @@ normalise_year <- function(year) {
 #' to find versioned CSV files on disk.
 #'
 #' @param data_processing Character scalar.  User-supplied version label.
-#'   Recognised values (case-insensitive, whitespace-stripped):
+#'   Recognized values (case-insensitive, whitespace-stripped):
 #'   \describe{
-#'     \item{\code{"raw"}}{Matches any \code{.csv} file.}
 #'     \item{\code{"v0.1"}}{Also \code{"v01"}, \code{"0.1"}.  Matches
 #'       \code{*v0.1.csv}.}
 #'     \item{\code{"v0.2"}}{Also \code{"v02"}, \code{"0.2"}.  Matches
@@ -264,9 +263,7 @@ resolve_data_processing_pattern <- function(data_processing) {
   dp <- gsub("\\s+", "", dp)
 
   # explicit mappings
-  if (dp %in% c("raw")) {
-    dp <- "raw"
-  } else if (dp %in% c("v0.1", "v01", "0.1")) {
+  if(dp %in% c("v0.1", "v01", "0.1")) {
     dp <- "v0.1"
   } else if (dp %in% c("v0.2", "v02", "0.2")) {
     dp <- "v0.2"
@@ -276,8 +273,7 @@ resolve_data_processing_pattern <- function(data_processing) {
     dp <- "v1.0"
   } else {
     # partial / fuzzy mappings as backup
-    if (grepl("^raw", dp))           dp <- "raw" #starts with raw
-    else if (grepl("0\\.1$", dp))    dp <- "v0.1" #ends with 0.1
+    if (grepl("0\\.1$", dp))    dp <- "v0.1" #ends with 0.1
     else if (grepl("0\\.2$", dp))    dp <- "v0.2" #ends with 0.2
     else if (grepl("0\\.3$", dp))    dp <- "v0.3" #ends with 0.3
     else if (grepl("^v1$", dp))       dp <- "v1.0"
@@ -286,7 +282,6 @@ resolve_data_processing_pattern <- function(data_processing) {
      else {
       stop(
         "`data_processing` expecting one of:\n",
-        "  - 'raw': raw data file from logger, no suffix applied \n",
         "  - 'v0.1': data bound and trimmed from bind_hobo_files function \n",
         "  - 'v0.2': data joined with barometric data from add_nearest_baro function \n",
         "  - 'v0.3': data converted to new metric from convert_.... functions \n",
@@ -301,7 +296,6 @@ resolve_data_processing_pattern <- function(data_processing) {
   pattern <-
     switch(
     dp,
-    "raw"  = "\\.csv$",      # any csv
     "v0.1" = "v0.1\\.csv$",
     "v0.2" = "v0.2\\.csv$",
     "v0.3" = "v0.3\\.csv$",

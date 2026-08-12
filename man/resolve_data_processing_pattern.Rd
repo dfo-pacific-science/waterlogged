@@ -8,9 +8,8 @@ resolve_data_processing_pattern(data_processing)
 }
 \arguments{
 \item{data_processing}{Character scalar.  User-supplied version label.
-Recognised values (case-insensitive, whitespace-stripped):
+Recognized values (case-insensitive, whitespace-stripped):
 \describe{
-\item{\code{"raw"}}{Matches any \code{.csv} file.}
 \item{\code{"v0.1"}}{Also \code{"v01"}, \code{"0.1"}.  Matches
 \code{*v0.1.csv}.}
 \item{\code{"v0.2"}}{Also \code{"v02"}, \code{"0.2"}.  Matches

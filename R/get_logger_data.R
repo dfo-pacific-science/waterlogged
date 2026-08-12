@@ -7,11 +7,9 @@
 #'
 #' @param path_to_data Path to the folder containing the CSV files. The function
 #'   will search this folder and its subfolders recursively.
-#' @param data_processing One of \code{"raw"}, \code{"v0.1"}, \code{"v0.2"},
+#' @param data_processing One of \code{"v0.1"}, \code{"v0.2"},
 #'   \code{"v0.3"}, \code{"v1.0"}, \code{"clean"}. The value is used to select
 #'   files by version suffix. \code{"clean"} is treated as \code{"v1.0"}.
-#'   Summarisation (i.e., \code{temporal_scale != "none"}) is only allowed for
-#'   v1.0/clean data.
 #' @param metric Optional  character string indicating which logger file type to
 #'   search for. If \code{NULL} (default), all logger type files loaded.
 #'   Accepted values (case and spaces ignored) are mapped to:
@@ -36,7 +34,6 @@
 #'   \itemize{
 #'     \item A data frame of combined logger data.
 #'       }
-#'   }
 #'
 #' @seealso \code{\link{write_clean_data}} (produces the v1.0 files this
 #'   function reads), \code{\link{bind_hobo_files}} (produces v0.1),
@@ -94,6 +91,20 @@ get_logger_data <- function(path_to_data = NULL,
       )
     }
     dat <- input_data
+
+    if (!inherits(dat$timestamp, "POSIXct")) {
+      # parse timestamp column (utils.R)
+      dat$timestamp <- parse_dt(dat$timestamp)
+
+      if (any(is.na(dat$timestamp))) {
+        warning(
+          "read_logger_file(): some timestamps failed to parse in '",
+          input_data, "'. ",
+          "Check that the timestamp column uses a YYYY-MM-DD HH:MM:SS format.",
+          call. = FALSE
+        )
+      }
+    }
   } else {
     if (is.null(path_to_data)) {
       stop("Must provide either 'path_to_data' or 'input_data' as a data frame.", call. = FALSE)
@@ -106,6 +117,7 @@ get_logger_data <- function(path_to_data = NULL,
       full.names = TRUE,
       recursive  = TRUE
     )
+
 
     if (length(file_paths) == 0L) {
       stop(
@@ -122,15 +134,15 @@ get_logger_data <- function(path_to_data = NULL,
     dat <- purrr::map(file_paths, read_logger_file) |> dplyr::bind_rows()
   }
 
-  # optional station filter
-  if (!identical(station_norm, "all")) {
-    dat <- dat |> dplyr::filter(site_station_code %in% station_norm)
-  }
+   # optional station filter
+    if (!identical(station_norm, "all")) {
+      dat <- dat |> dplyr::filter(site_station_code %in% station_norm)
+    }
 
-  # optional year filter
-  if (!is.null(year_norm)) {
-    dat <- dat |> dplyr::filter(timestamp %in% year_norm)
-  }
+    # optional year filter
+    if (!is.null(year_norm)) {
+      dat <- dat |> dplyr::filter(lubridate::year(timestamp) %in% year_norm)
+    }
 
     return(dat)
 

@@ -2,15 +2,14 @@
 % Please edit documentation in R/get_logger_data.R
 \name{get_logger_data}
 \alias{get_logger_data}
-\title{Retrieve and summarise logger data}
+\title{Retrieve logger data}
 \usage{
 get_logger_data(
   path_to_data = NULL,
   data_processing = "v1.0",
   metric = NULL,
+  year = "all",
   select_station = "all",
-  temporal_scale = "none",
-  return_plots = TRUE,
   input_data = NULL
 )
 }
@@ -18,15 +17,13 @@ get_logger_data(
 \item{path_to_data}{Path to the folder containing the CSV files. The function
 will search this folder and its subfolders recursively.}
 
-\item{data_processing}{One of \code{"raw"}, \code{"v0.1"}, \code{"v0.2"},
+\item{data_processing}{One of \code{"v0.1"}, \code{"v0.2"},
 \code{"v0.3"}, \code{"v1.0"}, \code{"clean"}. The value is used to select
-files by version suffix. \code{"clean"} is treated as \code{"v1.0"}.
-Summarisation (i.e., \code{temporal_scale != "none"}) is only allowed for
-v1.0/clean data.}
+files by version suffix. \code{"clean"} is treated as \code{"v1.0"}.}
 
-\item{metric}{A character string indicating which metric group to summarise.
-Used only when \code{temporal_scale != "none"}. Accepted values (case and
-spaces ignored) are mapped to:
+\item{metric}{Optional  character string indicating which logger file type to
+search for. If \code{NULL} (default), all logger type files loaded.
+Accepted values (case and spaces ignored) are mapped to:
 \itemize{
 \item \code{"waterlevel"}: water level + water temperature
 \item \code{"dissolvedoxygen"}: DO (mg/L, \%sat) + water temperature
@@ -36,18 +33,11 @@ spaces ignored) are mapped to:
 \item \code{"watertemp"}: water temperature (e.g., TidbiT)
 }}
 
+\item{year}{Either \code{"all"} (default) or 4 digit numeric value
+designating year of data to filter data files (format = YYYY).}
+
 \item{select_station}{Either \code{"all"} (default) or one or more
 \code{site_station_code} values to filter on.}
-
-\item{temporal_scale}{Temporal aggregation. Case and spaces ignored and
-normalised to one of: \code{"none"}, \code{"hourly"}, \code{"daily"},
-\code{"weekly"}, \code{"monthly"}, \code{"yearly"}. Use \code{"none"} to
-return raw timestamps with no summarisation. "Hourly" aggregates to
-average-by-hour (using \code{floor_date}).}
-
-\item{return_plots}{Logical; if \code{TRUE} and \code{temporal_scale != "none"},
-returns a list with data and ggplot objects. If \code{FALSE}, returns just
-the data frame.}
 
 \item{input_data}{A data frame of logger observations (alternative to
 \code{path_to_data} for Shiny mode). When supplied, file discovery is
@@ -56,25 +46,15 @@ skipped and this data frame is used directly. Exactly one of
 }
 \value{
 \itemize{
-\item If \code{temporal_scale == "none"}: a data frame of combined logger data.
-\item Otherwise, if \code{return_plots = FALSE}: a summarised data frame.
-\item Otherwise, a list with elements:
-\itemize{
-\item \code{data}: summarised data frame
-\item \code{plot1}, \code{plot2}, \code{plot3}: ggplot objects
-(some may be \code{NULL} depending on \code{metric}).
-}
+\item A data frame of combined logger data.
 }
 }
 \description{
-High-level helper to load logger data from disk, optionally filter by station,
-optionally summarise to a temporal scale, and optionally return plots.
+High-level helper to load logger data from disk, optionally filter by station
 }
 \details{
 This function works with the original wide-format processed files
 (e.g. columns like \code{waterlevel_m_U20_adj}, \code{do_mgl_U26_adj}).
-Summarisation is only performed for clean data (v1.0), and only for the
-measurement variables corresponding to the chosen \code{metric}.
 }
 \seealso{
 \code{\link{write_clean_data}} (produces the v1.0 files this
