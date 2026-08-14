@@ -13,10 +13,8 @@
 #'   \code{"weekly"}, \code{"monthly"}, \code{"yearly"}. "Hourly" aggregates to
 #'   average-by-hour (using \code{floor_date}), will produce error if provided
 #'   with hourly input data. Week start date is Monday by default.
-#' @param input_data A data frame of logger observations (alternative to
-#'   \code{path_to_data} for Shiny mode). When supplied, file discovery is
-#'   skipped and this data frame is used directly. Exactly one of
-#'   \code{path_to_data} or \code{input_data} must be provided.
+#' @param input_data A data frame of clean logger observations, produced by
+#' \code{\link{write_clean_data}}.
 #' @param path_to_output_folder Character scalar. Optional root directory for
 #'   csv file output. If \code{NULL} (default), no files are written
 #'   (Shiny mode).
@@ -95,52 +93,6 @@ summarize_clean_data <- function(input_data,
     station_norm<-unique(dat$site_station_code)
   }
 
-
-  # get metric header from columns -------------------------------------
-  metric_config <- list(
-    dissolvedoxygen = list(
-      header   = "DO",
-      column_name = c(
-        "do_mgl",
-        "do_mgl_adj"
-      )
-    ),
-    barometric = list(
-      header   = "BARO",
-      column_name = c(
-        "airpress_kPa",
-        "airpress_kPa_adj"
-      )
-    ),
-    waterlevel = list(
-      header   = "WL",
-      column_name = c(
-        "waterlevel_m",
-        "waterlevel_m_adj"
-      )
-    ),
-    watertemp = list(
-      header   = "WT",
-      column_name = c(
-        "watertemp_C",
-        "watertemp_C_adj"
-      )
-    ),
-    airtemp = list(
-      header   = "AT",
-      column_name = c(
-        "airtemp_C",
-        "airtemp_C_adj"
-      )
-    ),
-    conductivity = list(
-      header   = "CO",
-      column_name = c(
-        "conduct_uScm",
-        "conduct_uScm_adj"
-      )
-    )
-  )
 
   # if any dat columns are found in the sublists, get the associated header for those matches
   # any, if at least one value is true

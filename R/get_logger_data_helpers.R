@@ -548,105 +548,69 @@ factor_cols <- c(
   "sn", "baro_qaqc_code"
 )
 
-#' Build summary plots for get_logger_data
-#'
-#' Internal helper called by \code{\link{get_logger_data}} to create
-#' ggplot time series panels for the summarised data.  Each metric
-#' defines its own set of panels (up to three).
-#'
-#' @param dat_sum Data frame produced by \code{summarise_clean_data()}.
-#'   Must contain \code{site_station_code}, \code{time_group}, and the
-#'   metric-specific mean/min/max columns.
-#' @param metric_norm Character scalar.  Canonical metric name.
-#' @param temporal_scale Character scalar.  The temporal resolution
-#'   label used in the plot title.
-#'
-#' @return A named list with elements \code{plot1}, \code{plot2},
-#'   \code{plot3} (some may be \code{NULL}).
-#'
-#' @seealso \code{\link{get_logger_data}} (sole caller)
-#'
-#' @keywords internal
-build_plots <- function(dat_sum, metric_norm, temporal_scale) {
+# get metric header from columns -------------------------------------
+metric_config <- list(
+  dissolvedoxygen = list(
+    header   = "DO",
+    column_name = c(
+      "do_mgl",
+      "do_mgl_adj"
+    )
+  ),
+  barometric = list(
+    header   = "BARO",
+    column_name = c(
+      "airpress_kPa",
+      "airpress_kPa_adj"
+    )
+  ),
+  waterlevel = list(
+    header   = "WL",
+    column_name = c(
+      "waterlevel_m",
+      "waterlevel_m_adj"
+    )
+  ),
+  watertemp = list(
+    header   = "WT",
+    column_name = c(
+      "watertemp_C",
+      "watertemp_C_adj"
+    )
+  ),
+  airtemp = list(
+    header   = "AT",
+    column_name = c(
+      "airtemp_C",
+      "airtemp_C_adj"
+    )
+  ),
+  conductivity = list(
+    header   = "CO",
+    column_name = c(
+      "conduct_uScm",
+      "conduct_uScm_adj"
+    )
+  )
+)
 
-  make_ribbon_plot <- function(data, mean_col, min_col, max_col,
-                               y_lab, title, colour = "#233d4d") {
-    ggplot2::ggplot(data, ggplot2::aes(x = time_group)) +
-      ggplot2::geom_ribbon(
-        ggplot2::aes(
-          ymin = .data[[min_col]],
-          ymax = .data[[max_col]]
-        ),
-        alpha = 0.25,
-        fill  = colour
-      ) +
-      ggplot2::geom_line(
-        ggplot2::aes(y = .data[[mean_col]]),
-        colour = colour
-      ) +
-      ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
-      ggplot2::labs(title = title, x = "Date", y = y_lab) +
-      ggplot2::theme_classic()
-  }
 
-  label <- paste0("(", temporal_scale, ")")
-
-  if (metric_norm == "waterlevel") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_waterlevel_m", "min_waterlevel_m",
-                           "max_waterlevel_m", "Water Level (m)",
-                           paste("Water Level", label), "#233d4d")
-    p2 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
-
-  } else if (metric_norm == "dissolvedoxygen") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_do_mgl", "min_do_mgl",
-                           "max_do_mgl", "DO (mg/L)",
-                           paste("Dissolved Oxygen", label), "#a1c181")
-    p2 <- make_ribbon_plot(dat_sum, "mean_do_percsat", "min_do_percsat",
-                           "max_do_percsat", "DO (% sat)",
-                           paste("DO % Saturation", label), "#a1c181")
-    p3 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = p2, plot3 = p3))
-
-  } else if (metric_norm == "barometric") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_airpress_kPa", "min_airpress_kPa",
-                           "max_airpress_kPa", "Air Pressure (kPa)",
-                           paste("Barometric Pressure", label), "#915e3d")
-    p2 <- make_ribbon_plot(dat_sum, "mean_airtemp_C", "min_airtemp_C",
-                           "max_airtemp_C", "Air Temp (\u00b0C)",
-                           paste("Air Temperature", label), "#FDB840")
-    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
-
-  } else if (metric_norm == "conductivity") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_spc_uScm", "min_spc_uScm",
-                           "max_spc_uScm", "Specific Conductance (\u00b5S/cm)",
-                           paste("Specific Conductance", label), "#4682B4")
-    p2 <- make_ribbon_plot(dat_sum, "mean_conduct_uScm", "min_conduct_uScm",
-                           "max_conduct_uScm", "Conductivity (\u00b5S/cm)",
-                           paste("Conductivity", label), "#000000")
-    p3 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
-
-  } else if (metric_norm == "airtemp") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_airtemp_C", "min_airtemp_C",
-                           "max_airtemp_C", "Air Temp (\u00b0C)",
-                           paste("Air Temperature", label), "#FDB840")
-    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
-
-  } else if (metric_norm == "watertemp") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
-
-  } else {
-    return(list(plot1 = NULL, plot2 = NULL, plot3 = NULL))
-  }
+make_ribbon_plot <- function(data, mean_col, q5_col, q95_col,
+                             y_lab, title, colour = "#233d4d") {
+  ggplot2::ggplot(data, ggplot2::aes(x = time_group)) +
+    ggplot2::geom_ribbon(
+      ggplot2::aes(
+        ymin = .data[[q5_col]],
+        ymax = .data[[q95_col]]
+      ),
+      alpha = 0.25,
+      fill  = colour
+    ) +
+    ggplot2::geom_line(
+      ggplot2::aes(y = .data[[mean_col]]),
+      colour = colour
+    ) +
+    ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
+    ggplot2::labs(title = title, x = "Date", y = y_lab) +
+    ggplot2::theme_classic()
 }
-
