@@ -2,7 +2,7 @@
 
 #' Normalise a user-supplied temporal scale string
 #'
-#' Internal helper called by \code{\link{get_logger_data}} to validate
+#' Internal helper called by \code{\link{get_logger_data}} and \code{\link{summarize_clean_data}} to validate
 #' and standardise the \code{temporal_scale} argument.
 #'
 #' @param temporal_scale Character scalar.  Recognised values
@@ -15,7 +15,7 @@
 #'
 #' @return A single canonical temporal-scale string.
 #'
-#' @seealso \code{\link{get_logger_data}} (sole caller)
+#' @seealso \code{\link{get_logger_data}} \code{\link{summarize_clean_data}}
 #'
 #' @keywords internal
 normalise_temporal_scale <- function(temporal_scale) {
@@ -26,7 +26,6 @@ normalise_temporal_scale <- function(temporal_scale) {
   ts <- tolower(trimws(temporal_scale))
   ts <- gsub("\\s+", "", ts)
 
-  if (ts %in% c("none", "raw", "original"))          return("none")
   if (ts %in% c("hourly", "hour", "hr"))             return("hourly")
   if (ts %in% c("daily", "day"))                     return("daily")
   if (ts %in% c("weekly", "week", "wk"))             return("weekly")
@@ -35,7 +34,7 @@ normalise_temporal_scale <- function(temporal_scale) {
 
   stop(
     "Unknown `temporal_scale`. Expected one of: ",
-    "'none', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'",
+    "'hourly', 'daily', 'weekly', 'monthly', 'yearly'",
     " (case and spaces ignored). You gave: '", temporal_scale, "'.",
     call. = FALSE
   )
@@ -179,12 +178,13 @@ normalise_station <- function(select_station) {
   s <- gsub("\\s+", "", s)
 
   if (s == "all") {
+
     return(list(station_norm ="all", pattern = ".*_"))
     warning("`select_station = 'all'` will return a data file that may contain
     multiple stations if present in folder supplied in file_path. To only return
     data from one station ID, specify the station ID in the 'select_station'
             argument.")
-  } else{return(list(station_norm =s, pattern = paste0(s,"_")))}
+  } else{return(list(station_norm = s, pattern = paste0(s,"_")))}
 
 }
 
@@ -544,11 +544,9 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   out
 }
 
-
 factor_cols <- c(
   "sn", "baro_qaqc_code"
 )
-
 
 #' Build summary plots for get_logger_data
 #'
