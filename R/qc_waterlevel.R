@@ -1,4 +1,4 @@
-#' Automatic QAQC for water level logger data
+#' Automatic QC for water level logger data
 #'
 #' Applies a suite of automated quality-control rules to water level and
 #' water temperature time series for a single station. Raw values are never
@@ -28,6 +28,10 @@
 #'   \code{\link{add_nearest_baro}}.
 #' @param select_station Character scalar. The \code{site_station_code} to
 #'   process. Only rows matching this station are retained.
+#' @param temp_low_limit_C Lower bound (C) for plausible water temperature. Default \code{-1}.
+#'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
+#' @param temp_high_limit_C Upper bound (C) for plausible water temperature. Default \code{50}.
+#'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
 #' @param temp_ice_flag_C Upper bound of water temperature (C) for
 #'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 #'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
@@ -39,11 +43,11 @@
 #'   consecutive water level readings above which a spike is flagged.
 #'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
 #'   Default is 0.1 (m).
-#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#' @param log_root Character scalar or \code{NULL}. Root directory for QC
 #'   log files. When non-\code{NULL}, a log CSV is written via
 #'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 #'   mode), no file is written.
-#' @param user Character scalar. User name recorded in the QAQC log.
+#' @param user Character scalar. User name recorded in the QC log.
 #'   Defaults to \code{NULL}, which resolves to
 #'   \code{Sys.info()[["user"]]} (the local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
@@ -58,10 +62,10 @@
 #'       \code{OUTLIER_WT}, \code{FLAG_ICE},
 #'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
-#'       of QAQC log rows summarising every rule that fired.
+#'       of qc log rows summarising every rule that fired.
 #'   }
 #'
-#' @seealso \code{\link{qc_dissox}} (analogous QAQC for dissolved oxygen),
+#' @seealso \code{\link{qc_dissox}} (analogous QC for dissolved oxygen),
 #'   \code{\link{qc_conductivity}} (analogous for conductivity),
 #'   \code{\link{adjust_waterlevel_spike}} (downstream spike removal),
 #'   \code{\link{adjust_logger_NA}} (downstream manual adjustment),
@@ -71,8 +75,10 @@
 
 qc_waterlevel <- function(input_data,
                             select_station,
+                            temp_high_limit_C = 50,
+                            temp_low_limit_C = -1,
                             temp_ice_flag_C  = 0.3,
-                            temp_dry_flag_C       = 19,
+                            temp_dry_flag_C  = 25,
                             wl_spike_flag_m = 0.1,
                             log_root = NULL,
                             user = NULL) {
@@ -123,7 +129,7 @@ qc_waterlevel <- function(input_data,
     units = "secs"
   )
 
-  # 3. Apply QA/QC rules (WL + WT) --------------------------------------------
+  # 3. Apply QC rules (WL + WT) --------------------------------------------
   output_data <- output_data |>
     dplyr::mutate(
       # --- spike detection (lag-based: flags the first disturbed row) ---
@@ -136,16 +142,17 @@ qc_waterlevel <- function(input_data,
         wl_diff_abs > wl_spike_flag_m,
 
       # --- water temperature helpers (from old qc_watertemp) ---
+      wt_high_limit = !is.na(watertemp_C) & watertemp_C > temp_high_limit_C,
       wt_high_dry   = !is.na(watertemp_C) & watertemp_C > temp_dry_flag_C,
       FLAG_ICE      = !is.na(watertemp_C) & watertemp_C < temp_ice_flag_C,
-      neg_lt_minus1 = !is.na(watertemp_C) & watertemp_C < -1,
+      neg_lt_minus1 = !is.na(watertemp_C) & watertemp_C < temp_low_limit_C,
       neg_between   = !is.na(watertemp_C) & watertemp_C < 0 & watertemp_C >= -1,
 
       # combine temperature-based ice flags
 
-      OUTLIER_WT = neg_lt_minus1 | neg_between,
+      OUTLIER_WT = neg_lt_minus1 | neg_between | wt_high_limit,
 
-      # old WL-based dry rule, updated to 19 deg C to match qc_watertemp doc
+      # dry rule
       flag_dry_wl = !is.na(waterlevel_m) & !is.na(watertemp_C) &
         !is.na(waterpress_kPa) & !is.na(airpress_kPa) &
         (watertemp_C > temp_dry_flag_C | waterpress_kPa <= airpress_kPa),
@@ -158,33 +165,31 @@ qc_waterlevel <- function(input_data,
 
       # adjust temperature based on negatives
       watertemp_C_adj = dplyr::case_when(
-        neg_lt_minus1 ~ NA_real_,  # remove clearly impossible temps
-        neg_between   ~ 0,         # small negatives corrected to 0 deg C
+        wt_high_limit | neg_lt_minus1 ~ NA_real_,
         TRUE          ~ watertemp_C_adj
       )
-    ) |>
-    # drop only internal helpers we don't want in the output
-    dplyr::select(
-      -wl_diff_abs, -wl_dt_secs,
-      -wt_high_dry,
-      -neg_lt_minus1, -neg_between,
-      -flag_dry_wl, -flag_dry_temp
     )
 
   # 4. Build QA/QC log rows from flags ----------------------------------------
   metric      <- "WL"
-  action      <- "AUTO_QAQC"
+  action      <- "AUTO_QC"
   fun_name    <- "qc_waterlevel"
-  manual_note <- "Automatic water level & water temperature QA/QC; no manual note provided."
+  manual_note <- "Automatic water level & water temperature QC; no manual note provided."
   run_time    <- Sys.time()
 
   rules <- list(
     # temperature-related rules (watertemp_C_adj field)
     list(
-      flag        = output_data$OUTLIER_WT,
+      flag        = output_data$wt_high_limit,
       field       = "watertemp_C_adj",
       code        = "OUTLIER_WT",
-      action_note = "Negative water temperature detected; removed (< -1 C) or corrected to 0C (-1 to 0 C)."
+      action_note = paste("Outlier in high water temperature detected; removed values above", temp_high_limit_C, "C")
+    ),
+    list(
+      flag        = output_data$neg_lt_minus1,
+      field       = "watertemp_C_adj",
+      code        = "OUTLIER_WT",
+      action_note = paste("Negative water temperature detected; removed values below", temp_low_limit_C, "C")
     ),
     list(
       flag        = output_data$FLAG_ICE %in% TRUE,
@@ -226,7 +231,7 @@ qc_waterlevel <- function(input_data,
 
   log_this <- dplyr::bind_rows(logs_list)
 
-  # 5. If nothing flagged, still log that QAQC ran -----------------------------
+  # 5. If nothing flagged, still log that QC ran -----------------------------
   if (nrow(log_this) == 0) {
     log_this <- dplyr::tibble(
       station        = select_station,
@@ -234,7 +239,7 @@ qc_waterlevel <- function(input_data,
       field          = "waterlevel_m_adj",
       action         = action,
       code           = NA_character_,
-      action_note    = "Automatic water level & water temperature QA/QC ran; no flags applied.",
+      action_note    = "Automatic water level & water temperature QC ran; no flags applied.",
       manual_note    = manual_note,
       ts_start       = as.POSIXct(NA_real_, tz = "UTC"),
       ts_end         = as.POSIXct(NA_real_, tz = "UTC"),
@@ -249,5 +254,10 @@ qc_waterlevel <- function(input_data,
   qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
   attr(output_data, "qaqc_log") <- log_this
+
+  # drop only internal helpers we don't want in the output
+ output_data <- output_data |> dplyr::select(-dplyr::any_of(c("wl_dt_secs", "flag_dry_wl", "flag_dry_temp",  "wl_diff_abs", "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit",  "wt_high_dry", "air_watertemp_diff")))
+
+
   return(output_data)
 }
