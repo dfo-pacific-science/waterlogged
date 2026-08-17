@@ -96,7 +96,7 @@ plot_clean_timeseries <- function(input_data,
     matched_val <- unlist(lapply(Filter(function(x) any(names(dat) %in% x$column_name), metric_config), `[[`, "header"))
   }
   # if multiple headers match, only take the non-temperature headers
-  if(length(matched_val>1)){
+  if(length(matched_val)>1){
     metric_header <- matched_val[matched_val != "AT" & matched_val != "WT"]
   }else{metric_header <- matched_val}
 
@@ -113,15 +113,19 @@ plot_clean_timeseries <- function(input_data,
     label <- paste0("(", temporal_scale, ")")
 
     if (metric_header == "WL") {
+
       p1 <- make_ribbon_plot(dat, "waterlevel_m_adj_mean", "waterlevel_m_adj_q5",
                              "waterlevel_m_adj_q95", "Water Level (m)",
                              paste("Water Level", label), "#233d4d")
-      p2 <- make_ribbon_plot(dat, "watertemp_C", "watertemp_C_adj_q5",
+
+
+      p2 <- make_ribbon_plot(dat, "watertemp_C_adj_mean", "watertemp_C_adj_q5",
                              "watertemp_C_adj_q95", "Water Temperature (\u00b0C)",
                              paste("Water Temperature", label), "#619b8a")
       return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
 
     } else if (metric_header == "DO") {
+
       p1 <- make_ribbon_plot(dat, "do_mgl_adj_mean", "do_mgl_adj_q5",
                              "do_mgl_adj_q95", "DO (mg/L)",
                              paste("Dissolved Oxygen", label), "#a1c181")
@@ -138,6 +142,7 @@ plot_clean_timeseries <- function(input_data,
       }
 
     } else if (metric_header == "BARO") {
+
       p1 <- make_ribbon_plot(dat, "airpress_kPa_adj_mean", "airpress_kPa_adj_q5",
                              "airpress_kPa_adj_q95", "Air Pressure (kPa)",
                              paste("Barometric Pressure", label), "#915e3d")
@@ -147,7 +152,8 @@ plot_clean_timeseries <- function(input_data,
       return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
 
     } else if (metric_header=="CO") {
-        p1 <- make_ribbon_plot(dat, "conduct_uScm_mean", "conduct_uScm_q5",
+
+      p1 <- make_ribbon_plot(dat, "conduct_uScm_mean", "conduct_uScm_q5",
                              "conduct_uScm_q95", "Conductivity (\u00b5S/cm)",
                              paste("Conductivity", label), "#000000")
       p2 <- make_ribbon_plot(dat, "watertemp_C_adj_mean", "watertemp_C_adj_q5",
@@ -165,12 +171,14 @@ plot_clean_timeseries <- function(input_data,
       }
 
     } else if (metric_header=="AT") {
+
       p1 <- make_ribbon_plot(dat, "airtemp_C_adj_mean", "airtemp_C_adj_q5",
                              "airtemp_C_adj_q95", "Air Temperature (\u00b0C)",
                              paste("Air Temperature", label), "#FDB840")
       return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
 
     } else if (metric_header=="WT") {
+
       p1 <- make_ribbon_plot(dat, "watertemp_C_adj_mean", "watertemp_C_adj_q5",
                              "watertemp_C_adj_q95", "Water Temperature (\u00b0C)",
                              paste("Water Temperature", label), "#619b8a")
@@ -181,10 +189,71 @@ plot_clean_timeseries <- function(input_data,
     }
   }
 
-  # TODO clean timeseries plot ####
+  #  if no time_group, column, make clean timeseries plot -------------------
   if("timestamp" %in% names(dat)){
 
-  }
+  if (metric_header == "WL") {
 
+    p1 <- make_clean_plot(dat, "waterlevel_m_adj", "Water Level (m)",
+                           "Water Level", "#233d4d")
+    p2 <- make_clean_plot(dat, "watertemp_C_adj", "Water Temperature (\u00b0C)",
+                           "#619b8a")
+    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+
+  } else if (metric_header == "DO") {
+
+    p1 <- make_clean_plot(dat, "do_mgl_adj","DO (mg/L)",
+                           "#a1c181")
+    p2 <- make_clean_plot(dat, "watertemp_C_adj", "Water Temperature (\u00b0C)",
+                          "#619b8a")
+    if("do_percsat_adj_mean" %in% names(dat)){
+      p3 <- make_clean_plot(dat, "do_percsat_adj", "DO (% air sat.)",
+                              "#a1c181")
+      return(list(plot1 = p1, plot2 = p2, plot3 = p3))
+    }else{
+      return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+    }
+
+  } else if (metric_header == "BARO") {
+
+    p1 <- make_clean_plot(dat, "airpress_kPa_adj", "Air Pressure (kPa)",
+                           "#915e3d")
+    p2 <- make_clean_plot(dat, "airtemp_C_adj", "Air Temperature (\u00b0C)",
+                          "#FDB840")
+    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+
+  } else if (metric_header=="CO") {
+
+    p1 <- make_clean_plot(dat, "conduct_uScm",  "Conductivity (\u00b5S/cm)",
+                          "#000000")
+    p2 <- make_clean_plot(dat, "watertemp_C_adj", "Water Temperature (\u00b0C)",
+                          "#619b8a")
+    if("spc_uScm_adj_mean" %in% names(dat)){
+      p3 <- make_clean_plot(dat, "spc_uScm_adj", "Specific Conductance (\u00b5S/cm)",
+                            "#4682B4")
+      return(list(plot1 = p1, plot2 = p2, plot3 = p3))
+
+    }else {
+      return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
+
+    }
+
+  } else if (metric_header=="AT") {
+
+    p1 <- make_clean_plot(dat, "airtemp_C_adj", "Air Temperature (\u00b0C)","#FDB840")
+    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
+
+  } else if (metric_header=="WT") {
+
+    req_cols <- c("watertemp_C_adj")
+
+    p1 <- make_clean_plot(dat, "watertemp_C_adj", "Water Temperature (\u00b0C)",
+                         "#619b8a")
+    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
+
+  } else {
+    return(list(plot1 = NULL, plot2 = NULL, plot3 = NULL))
+    }
+  }
 }
 

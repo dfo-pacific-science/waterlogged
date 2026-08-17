@@ -597,20 +597,57 @@ metric_config <- list(
 
 make_ribbon_plot <- function(data, mean_col, q5_col, q95_col,
                              y_lab, title, colour = "#233d4d") {
-  ggplot2::ggplot(data, ggplot2::aes(x = time_group)) +
-    ggplot2::geom_ribbon(
-      ggplot2::aes(
-        ymin = .data[[q5_col]],
-        ymax = .data[[q95_col]]
-      ),
-      alpha = 0.25,
-      fill  = colour
-    ) +
-    ggplot2::geom_line(
-      ggplot2::aes(y = .data[[mean_col]]),
-      colour = colour
-    ) +
-    ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
-    ggplot2::labs(title = title, x = "Date", y = y_lab) +
-    ggplot2::theme_classic()
+  req_cols <- c(mean_col, q5_col, q95_col)
+  miss <- setdiff(req_cols, names(data))
+  if (length(miss) > 0) {
+    warning(
+      "plot_clean_timeseries(): input_data is missing required column(s): ",
+      paste(miss, collapse = ", "),
+      call. = FALSE
+    )
+  }else{
+    ggplot2::ggplot(data, ggplot2::aes(x = time_group)) +
+      ggplot2::geom_ribbon(
+        ggplot2::aes(
+          ymin = .data[[q5_col]],
+          ymax = .data[[q95_col]]
+        ),
+        alpha = 0.25,
+        fill  = colour
+      ) +
+      ggplot2::geom_line(
+        ggplot2::aes(y = .data[[mean_col]]),
+        colour = colour
+      ) +
+      ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
+      ggplot2::labs(title = title, x = "Date", y = y_lab) +
+      ggplot2::theme_classic()
+  }
+
+}
+
+
+
+make_clean_plot <- function(data, metric_col,
+                             y_lab, colour = "#233d4d") {
+
+  req_cols <- c(metric_col)
+  miss <- setdiff(req_cols, names(data))
+  if (length(miss) > 0) {
+    warning(
+      "plot_clean_timeseries(): input_data is missing required column(s): ",
+      paste(miss, collapse = ", "),
+      call. = FALSE
+    )
+  }else{
+    ggplot2::ggplot(data, ggplot2::aes(x = timestamp)) +
+      ggplot2::geom_line(
+        ggplot2::aes(y = .data[[metric_col]]),
+        colour = colour
+      ) +
+      ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
+      ggplot2::labs( x = "Date", y = y_lab) +
+      ggplot2::theme_classic()
+  }
+
 }

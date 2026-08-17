@@ -66,22 +66,3 @@ make_logger_df <- function(metric_cols) {
 
  })
 
-# move to plot_clean_data
- # test_that("#53 - summarize_clean_data returns plots when requested", {
- #   df <- make_logger_df(list(
- #     waterlevel_m_adj = runif(24, 0.5, 1.5),
- #     watertemp_C_adj  = runif(24, 10, 20)
- #   ))
- #   result <- summarize_clean_data(
- #     input_data      = df,
- #     data_processing = "v1.0",
- #     metric          = "waterlevel",
- #     temporal_scale  = "daily",
- #     return_plots    = TRUE
- #   )
- #   expect_true(is.list(result))
- #   expect_true(inherits(result$plot1, "ggplot"))
- #   expect_true(inherits(result$plot2, "ggplot"))
- #   expect_null(result$plot3)
- # })
-
