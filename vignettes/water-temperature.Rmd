@@ -1,8 +1,8 @@
 ---
-title: "Air/Water Temperature Pipeline"
+title: "Water Temperature Pipeline"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Air/Water Temperature Pipeline}
+  %\VignetteIndexEntry{Water Temperature Pipeline}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

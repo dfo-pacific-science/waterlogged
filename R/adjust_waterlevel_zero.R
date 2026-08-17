@@ -47,12 +47,12 @@
 #' In all cases, `edit_zero` is set to `TRUE` for rows where the adjusted
 #' series was shifted, preserving any existing `TRUE` values from prior calls.
 #'
-#' @seealso [adjust_WL_offset()], [adjust_waterlevel_spike()],
+#' @seealso [adjust_waterlevel_offset()], [adjust_waterlevel_spike()],
 #'   [adjust_logger_NA()], [make_qaqc_log_row()], [qaqc_log_path()],
 #'   [qaqc_log_append()]
 #'
 #' @export
-adjust_WL_zero <- function(input_data,
+adjust_waterlevel_zero <- function(input_data,
                            select_station,
                            change_value    = NULL,
                            timestamp_start = NULL,
@@ -63,7 +63,7 @@ adjust_WL_zero <- function(input_data,
   if (is.null(user)) user <- Sys.info()[["user"]]
   # --- Basic input checks -----------------------------------------------------
   if (missing(manual_note) || trimws(manual_note) == "") {
-    stop("adjust_WL_zero(): 'manual_note' must be a non-empty string.",
+    stop("adjust_waterlevel_zero(): 'manual_note' must be a non-empty string.",
          call. = FALSE)
   }
 
@@ -81,14 +81,14 @@ adjust_WL_zero <- function(input_data,
   missing_cols <- setdiff(required_cols, names(waterlevel_data))
   if (length(missing_cols) > 0) {
     stop(
-      "adjust_WL_zero(): Missing required column(s): ",
+      "adjust_waterlevel_zero(): Missing required column(s): ",
       paste(missing_cols, collapse = ", "),
       call. = FALSE
     )
   }
 
   if (nrow(waterlevel_data) == 0) {
-    stop("adjust_WL_zero(): no rows found for station '", select_station, "'.",
+    stop("adjust_waterlevel_zero(): no rows found for station '", select_station, "'.",
          call. = FALSE)
   }
 
@@ -119,7 +119,7 @@ adjust_WL_zero <- function(input_data,
   # Case 1: change_value explicitly supplied
   if (!is.null(change_value)) {
     if (!is.numeric(change_value) || length(change_value) != 1L || is.na(change_value)) {
-      stop("adjust_WL_zero(): 'change_value' must be a single numeric value (m).",
+      stop("adjust_waterlevel_zero(): 'change_value' must be a single numeric value (m).",
            call. = FALSE)
     }
     offset_m    <- change_value
@@ -133,7 +133,7 @@ adjust_WL_zero <- function(input_data,
     # Case 2: change_value == NULL → compute from window
     if (!has_window) {
       stop(
-        "adjust_WL_zero(): When 'change_value' is NULL, both ",
+        "adjust_waterlevel_zero(): When 'change_value' is NULL, both ",
         "'timestamp_start' and 'timestamp_end' must be supplied.",
         call. = FALSE
       )
@@ -144,7 +144,7 @@ adjust_WL_zero <- function(input_data,
 
     if (nrow(window_data) == 0) {
       stop(
-        "adjust_WL_zero(): No rows found between timestamp_start and timestamp_end ",
+        "adjust_waterlevel_zero(): No rows found between timestamp_start and timestamp_end ",
         "for station ", select_station, ".",
         call. = FALSE
       )
@@ -154,7 +154,7 @@ adjust_WL_zero <- function(input_data,
 
     if (is.na(mean_wl)) {
       stop(
-        "adjust_WL_zero(): All waterlevel_m_adj values in the specified window are NA; ",
+        "adjust_waterlevel_zero(): All waterlevel_m_adj values in the specified window are NA; ",
         "cannot compute automatic zero shift.",
         call. = FALSE
       )
@@ -193,7 +193,7 @@ adjust_WL_zero <- function(input_data,
   metric   <- "WL"
   field    <- "waterlevel_m_adj"
   action   <- "ZERO_SHIFT"
-  fun_name <- "adjust_WL_zero"
+  fun_name <- "adjust_waterlevel_zero"
   run_time <- Sys.time()
   code     <- "SHIFT_CORRECTION"
 
