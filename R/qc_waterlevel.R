@@ -83,6 +83,9 @@ qc_waterlevel <- function(input_data,
                             log_root = NULL,
                             user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
+  # define global vars
+  wt_high_limit <- NULL
+
 
   # 1. Basic checks ------------------------------------------------------------
   required_cols <- c(

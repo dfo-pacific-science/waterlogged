@@ -2,13 +2,15 @@
 % Please edit documentation in R/qc_waterlevel.R
 \name{qc_waterlevel}
 \alias{qc_waterlevel}
-\title{Automatic QAQC for water level logger data}
+\title{Automatic QC for water level logger data}
 \usage{
 qc_waterlevel(
   input_data,
   select_station,
+  temp_high_limit_C = 50,
+  temp_low_limit_C = -1,
   temp_ice_flag_C = 0.3,
-  temp_dry_flag_C = 19,
+  temp_dry_flag_C = 25,
   wl_spike_flag_m = 0.1,
   log_root = NULL,
   user = NULL
@@ -26,6 +28,12 @@ parseable by \code{lubridate::ymd_hms()}), \code{waterlevel_m},
 \item{select_station}{Character scalar. The \code{site_station_code} to
 process. Only rows matching this station are retained.}
 
+\item{temp_high_limit_C}{Upper bound (C) for plausible water temperature. Default \code{50}.
+Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
+
+\item{temp_low_limit_C}{Lower bound (C) for plausible water temperature. Default \code{-1}.
+Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
+
 \item{temp_ice_flag_C}{Upper bound of water temperature (C) for
 flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 and \code{temp_ice_flag_C} are flagged. Must be positive and greater
@@ -40,12 +48,12 @@ consecutive water level readings above which a spike is flagged.
 Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
 Default is 0.1 (m).}
 
-\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QC
 log files. When non-\code{NULL}, a log CSV is written via
 \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
-\item{user}{Character scalar. User name recorded in the QAQC log.
+\item{user}{Character scalar. User name recorded in the QC log.
 Defaults to \code{NULL}, which resolves to
 \code{Sys.info()[["user"]]} (the local OS user).
 In Shiny apps, pass the logged-in user explicitly
@@ -61,7 +69,7 @@ The filtered data frame for \code{select_station}, sorted by
 \code{OUTLIER_WT}, \code{FLAG_ICE},
 \code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
-of QAQC log rows summarising every rule that fired.
+of qc log rows summarising every rule that fired.
 }
 }
 \description{
@@ -86,7 +94,7 @@ for possible ice conditions.}
 }
 }
 \seealso{
-\code{\link{qc_dissox}} (analogous QAQC for dissolved oxygen),
+\code{\link{qc_dissox}} (analogous QC for dissolved oxygen),
 \code{\link{qc_conductivity}} (analogous for conductivity),
 \code{\link{adjust_waterlevel_spike}} (downstream spike removal),
 \code{\link{adjust_logger_NA}} (downstream manual adjustment),

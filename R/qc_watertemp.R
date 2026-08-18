@@ -218,8 +218,8 @@ qc_watertemp <- function(input_data,
       field          = "watertemp_C_adj",
       action         = "AUTO_QAQC",
       code           = NA_character_,
-      action_note    = "Water temperature QA/QC ran; no flags applied.",
-      manual_note    = "Automatic water temperature QA/QC; no manual note provided.",
+      action_note    = "Water temperature QC ran; no flags applied.",
+      manual_note    = "Automatic water temperature QC; no manual note provided.",
       ts_start       = NA_character_,
       ts_end         = NA_character_,
       duration_hours = NA_real_,
@@ -231,7 +231,7 @@ qc_watertemp <- function(input_data,
 
   qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
-  message("Water temperature QAQC completed for: ", select_station)
+  message("Water temperature QC completed for: ", select_station)
 
   attr(df, "qaqc_log") <- log_this
 
