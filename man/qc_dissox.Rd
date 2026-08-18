@@ -22,8 +22,8 @@ qc_dissox(
 \arguments{
 \item{input_data}{A data frame containing dissolved oxygen observations.
 Must include the columns: \code{site_station_code}, \code{timestamp}
-(POSIXct or parseable by \code{lubridate::ymd_hms()}), \code{do_mgl},
-\code{do_percsat}, \code{watertemp_C}, and \code{airtemp_C}. Typically
+(POSIXct or parseable by \code{lubridate::ymd_hms()}), \code{do_mgl}, and
+\code{watertemp_C}. Optional columns are  \code{do_percsat} and \code{airtemp_C}. Typically
 the output of \code{\link{convert_do_mgl_percsat}} or
 \code{\link{add_nearest_baro}}.}
 

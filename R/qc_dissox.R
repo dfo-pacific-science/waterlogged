@@ -101,14 +101,16 @@ qc_dissox <- function(input_data,
                         log_root = NULL,
                         user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
+  # define global vars
+  do_dry_flag <- do_low_flag <- wt_high_limit <- NULL
 
-  # ---- 0. Validate inputs ---------------------------------------------------
+   # ---- 0. Validate inputs ---------------------------------------------------
   required_cols <- c(
     "site_station_code",
     "timestamp",
     "do_mgl",
    # "do_percsat",
-    "watertemp_C",
+    "watertemp_C"
   #  "airtemp_C"
   )
 
@@ -292,11 +294,19 @@ qc_dissox <- function(input_data,
     ),
     # temperature-driven rules
     list(
-      flag        = output_data$OUTLIER_WT %in% TRUE,
+      flag        = output_data$temp_neg_leq_minus1 %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "OUTLIER_WT",
-      action_note = paste0("WT greater than ", temp_high_limit_C, " removed. WT < ", temp_low_limit_C, " removed.")
+      action_note = paste0("WT < ", temp_low_limit_C, " removed.")
     ),
+    # temperature-driven rules
+    list(
+      flag        = output_data$wt_high_limit %in% TRUE,
+      field       = "watertemp_C_do_adj",
+      code        = "OUTLIER_WT",
+      action_note = paste0("WT greater than ", temp_high_limit_C, " removed.")
+    ),
+
     list(
       flag        = output_data$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_do_adj",
