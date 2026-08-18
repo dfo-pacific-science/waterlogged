@@ -46,7 +46,7 @@
 #'   (e.g. \code{session$user}).
 #' @param temp_low_limit_C Lower bound (C) for plausible water temperatures.
 #'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
-#'   Default is -2 C.
+#'   Default is -1 C.
 #' @param temp_high_limit_C Upper bound (C) for plausible water temperature.
 #'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
 #'   Default is 50 C.
@@ -96,7 +96,7 @@ qc_conductivity <- function(
     user                       = NULL,
     cond_low_limit_uScm        = 0,
     cond_high_limit_uScm       = 2500,
-    temp_low_limit_C           = -2,
+    temp_low_limit_C           = -1,
     temp_high_limit_C          = 50,
     temp_ice_flag_C            = 0.3,
     spike_flag_uScm            = 200,
