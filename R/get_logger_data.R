@@ -1,25 +1,18 @@
-
-
-#' Retrieve and summarise logger data
+#' Retrieve logger data
 #'
-#' High-level helper to load logger data from disk, optionally filter by station,
-#' optionally summarise to a temporal scale, and optionally return plots.
+#' High-level helper to load logger data from disk, optionally filter by station
 #'
 #' This function works with the original wide-format processed files
 #' (e.g. columns like \code{waterlevel_m_U20_adj}, \code{do_mgl_U26_adj}).
-#' Summarisation is only performed for clean data (v1.0), and only for the
-#' measurement variables corresponding to the chosen \code{metric}.
 #'
 #' @param path_to_data Path to the folder containing the CSV files. The function
 #'   will search this folder and its subfolders recursively.
-#' @param data_processing One of \code{"raw"}, \code{"v0.1"}, \code{"v0.2"},
+#' @param data_processing One of \code{"v0.1"}, \code{"v0.2"},
 #'   \code{"v0.3"}, \code{"v1.0"}, \code{"clean"}. The value is used to select
 #'   files by version suffix. \code{"clean"} is treated as \code{"v1.0"}.
-#'   Summarisation (i.e., \code{temporal_scale != "none"}) is only allowed for
-#'   v1.0/clean data.
-#' @param metric A character string indicating which metric group to summarise.
-#'   Used only when \code{temporal_scale != "none"}. Accepted values (case and
-#'   spaces ignored) are mapped to:
+#' @param metric Optional  character string indicating which logger file type to
+#'   search for. If \code{NULL} (default), all logger type files loaded.
+#'   Accepted values (case and spaces ignored) are mapped to:
 #'   \itemize{
 #'     \item \code{"waterlevel"}: water level + water temperature
 #'     \item \code{"dissolvedoxygen"}: DO (mg/L, %sat) + water temperature
@@ -30,14 +23,8 @@
 #'   }
 #' @param select_station Either \code{"all"} (default) or one or more
 #'   \code{site_station_code} values to filter on.
-#' @param temporal_scale Temporal aggregation. Case and spaces ignored and
-#'   normalised to one of: \code{"none"}, \code{"hourly"}, \code{"daily"},
-#'   \code{"weekly"}, \code{"monthly"}, \code{"yearly"}. Use \code{"none"} to
-#'   return raw timestamps with no summarisation. "Hourly" aggregates to
-#'   average-by-hour (using \code{floor_date}).
-#' @param return_plots Logical; if \code{TRUE} and \code{temporal_scale != "none"},
-#'   returns a list with data and ggplot objects. If \code{FALSE}, returns just
-#'   the data frame.
+#' @param year Either \code{"all"} (default) or 4 digit numeric value
+#' designating year of data to filter data files (format = YYYY).
 #' @param input_data A data frame of logger observations (alternative to
 #'   \code{path_to_data} for Shiny mode). When supplied, file discovery is
 #'   skipped and this data frame is used directly. Exactly one of
@@ -45,15 +32,8 @@
 #'
 #' @return
 #'   \itemize{
-#'     \item If \code{temporal_scale == "none"}: a data frame of combined logger data.
-#'     \item Otherwise, if \code{return_plots = FALSE}: a summarised data frame.
-#'     \item Otherwise, a list with elements:
-#'       \itemize{
-#'         \item \code{data}: summarised data frame
-#'         \item \code{plot1}, \code{plot2}, \code{plot3}: ggplot objects
-#'           (some may be \code{NULL} depending on \code{metric}).
+#'     \item A data frame of combined logger data.
 #'       }
-#'   }
 #'
 #' @seealso \code{\link{write_clean_data}} (produces the v1.0 files this
 #'   function reads), \code{\link{bind_hobo_files}} (produces v0.1),
@@ -64,25 +44,33 @@
 get_logger_data <- function(path_to_data = NULL,
                             data_processing = "v1.0",
                             metric          = NULL,
+                            year = "all",
                             select_station  = "all",
-                            temporal_scale  = "none",
-                            return_plots    = TRUE,
                             input_data      = NULL) {
 
-  temporal_scale <- normalise_temporal_scale(temporal_scale)
   dp_info        <- resolve_data_processing_pattern(data_processing)
   data_processing <- dp_info$data_processing
-  pattern         <- dp_info$pattern
 
-  # ---- Handle metric for temporal_scale = "none" -------------------------------
-  if (temporal_scale == "none") {
-    if (!missing(metric) && !is.null(metric)) {
-      message(
-        "Note: `metric` was provided (\"", metric, "\"), ",
-        "but is ignored when `temporal_scale = 'none'`."
-      )
+  # if either metric, year or station are provided
+  if(!is.null(metric) | select_station!="all" | year != "all"){
+    station_info  <- normalise_station(select_station)
+    station_norm <- station_info$station_norm
+
+    metric_info <- normalise_metric(metric)
+    metric_norm <- metric_info$metric_norm
+
+    year_norm <- normalise_year(year)
+
+    # look for files containing site or metric first, and the suffix of the data processing stage
+    pattern         <- paste0("(^", station_info$pattern, metric_info$pattern, year_norm, "|^", metric_info$pattern, station_info$pattern, year_norm, ").*", dp_info$pattern)
+
+  }else{
+    # otherwise just look for the matching data processing suffix
+    pattern <- dp_info$pattern
     }
-  }
+
+
+  # ---- stop messages  -------------------------------
 
   # Dual input: in-memory data frame OR file path (mutually exclusive)
   if (!is.null(input_data) && !is.null(path_to_data)) {
@@ -103,6 +91,20 @@ get_logger_data <- function(path_to_data = NULL,
       )
     }
     dat <- input_data
+
+    if (!inherits(dat$timestamp, "POSIXct")) {
+      # parse timestamp column (utils.R)
+      dat$timestamp <- parse_dt(dat$timestamp)
+
+      if (any(is.na(dat$timestamp))) {
+        warning(
+          "read_logger_file(): some timestamps failed to parse in '",
+          input_data, "'. ",
+          "Check that the timestamp column uses a YYYY-MM-DD HH:MM:SS format.",
+          call. = FALSE
+        )
+      }
+    }
   } else {
     if (is.null(path_to_data)) {
       stop("Must provide either 'path_to_data' or 'input_data' as a data frame.", call. = FALSE)
@@ -116,6 +118,7 @@ get_logger_data <- function(path_to_data = NULL,
       recursive  = TRUE
     )
 
+
     if (length(file_paths) == 0L) {
       stop(
         "No files found in `path_to_data` (recursively) matching pattern '", pattern, "'. ",
@@ -125,45 +128,28 @@ get_logger_data <- function(path_to_data = NULL,
     }
 
     # read and combine
+    # TODO allow for multi metric, extra columns, join by site_station_code and timestamp
+    # allows for easy merge of different logger types by site
+
     dat <- purrr::map(file_paths, read_logger_file) |> dplyr::bind_rows()
   }
 
-  # optional station filter
-  if (!identical(select_station, "all")) {
-    dat <- dat |> dplyr::filter(site_station_code %in% select_station)
-  }
+   # optional station filter
+    if (!identical(station_norm, "all")) {
+      dat <- dat |> dplyr::filter(site_station_code %in% station_norm)
+    }
 
-  # if no summarisation requested, return combined wide data
-  if (temporal_scale == "none") {
+    # optional year filter
+    if (!is.null(year_norm)) {
+      dat <- dat |> dplyr::filter(lubridate::year(timestamp) %in% year_norm)
+    }
+
     return(dat)
-  }
 
-  # summarisation: only allowed for v1.0/clean
-  if (!identical(data_processing, "v1.0")) {
-    stop(
-      "Summarisation (hourly/daily/weekly/monthly/yearly) is only allowed for ",
-      "clean data (v1.0). Use `data_processing = \"clean\"` or set ",
-      "`temporal_scale = \"none\"` for raw/intermediate data.",
-      call. = FALSE
-    )
-  }
+  if(is.null(input_data))
+  message(paste("Returning all data from", station_norm, "station(s) found in", path_to_data))
 
-  metric_norm <- normalise_metric(metric)
+  if(is.null(path_to_data))
+    message(paste("Returning all data from", station_norm, "station(s) found in", input_data))
 
-  dat_sum <- summarise_clean_data(dat, metric_norm, temporal_scale)
-
-  if (!isTRUE(return_plots)) {
-    return(dat_sum)
-  }
-
-  plots <- build_plots(dat_sum, metric_norm, temporal_scale)
-
-  message("Returning list: $data, $plot1, $plot2, $plot3 (some plots may be NULL).")
-
-  list(
-    data  = dat_sum,
-    plot1 = plots$plot1,
-    plot2 = plots$plot2,
-    plot3 = plots$plot3
-  )
 }

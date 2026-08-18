@@ -2,7 +2,7 @@
 
 #' Normalise a user-supplied temporal scale string
 #'
-#' Internal helper called by \code{\link{get_logger_data}} to validate
+#' Internal helper called by \code{\link{get_logger_data}} and \code{\link{summarize_clean_data}} to validate
 #' and standardise the \code{temporal_scale} argument.
 #'
 #' @param temporal_scale Character scalar.  Recognised values
@@ -15,7 +15,7 @@
 #'
 #' @return A single canonical temporal-scale string.
 #'
-#' @seealso \code{\link{get_logger_data}} (sole caller)
+#' @seealso \code{\link{get_logger_data}} \code{\link{summarize_clean_data}}
 #'
 #' @keywords internal
 normalise_temporal_scale <- function(temporal_scale) {
@@ -26,7 +26,6 @@ normalise_temporal_scale <- function(temporal_scale) {
   ts <- tolower(trimws(temporal_scale))
   ts <- gsub("\\s+", "", ts)
 
-  if (ts %in% c("none", "raw", "original"))          return("none")
   if (ts %in% c("hourly", "hour", "hr"))             return("hourly")
   if (ts %in% c("daily", "day"))                     return("daily")
   if (ts %in% c("weekly", "week", "wk"))             return("weekly")
@@ -35,7 +34,7 @@ normalise_temporal_scale <- function(temporal_scale) {
 
   stop(
     "Unknown `temporal_scale`. Expected one of: ",
-    "'none', 'hourly', 'daily', 'weekly', 'monthly', 'yearly'",
+    "'hourly', 'daily', 'weekly', 'monthly', 'yearly'",
     " (case and spaces ignored). You gave: '", temporal_scale, "'.",
     call. = FALSE
   )
@@ -77,12 +76,12 @@ read_logger_file <- function(file_path) {
   }
 
   if (!inherits(dat$timestamp, "POSIXct")) {
-    dat$timestamp <- suppressWarnings(
-      lubridate::ymd_hms(dat$timestamp, tz = "UTC")
-    )
-    if (all(is.na(dat$timestamp))) {
+      # parse timestamp column (utils.R)
+      dat$timestamp <- parse_dt(dat$timestamp)
+
+    if (any(is.na(dat$timestamp))) {
       warning(
-        "read_logger_file(): all timestamps failed to parse in '",
+        "read_logger_file(): some timestamps failed to parse in '",
         basename(file_path), "'. ",
         "Check that the timestamp column uses a YYYY-MM-DD HH:MM:SS format.",
         call. = FALSE
@@ -117,42 +116,108 @@ read_logger_file <- function(file_path) {
 #'     \item{\code{"watertemp"}}{Also \code{"watertemperature"}.}
 #'     \item{\code{"airtemp"}}{Also \code{"airtemperature"}.}
 #'   }
-#' @param allow_all Logical.  When \code{TRUE}, the special value
-#'   \code{"all"} is accepted and returned as-is.  Default \code{FALSE}.
 #'
 #' @return A single canonical metric string.
 #'
 #' @seealso \code{\link{get_logger_data}} (sole caller)
 #'
 #' @keywords internal
-normalise_metric <- function(metric, allow_all = FALSE) {
-  if (is.null(metric) || length(metric) != 1L) {
-    stop("`metric` must be a single, non-NULL value.", call. = FALSE)
+normalise_metric <- function(metric) {
+  if (length(metric) > 1L) {
+    stop("`metric` must be a single value.", call. = FALSE)
+  }
+  if (is.null(metric)) {
+    return(list(metric_norm =NULL, pattern = ".*_"))
+    warning("No metric supplied by default. If specific metric is required, ensure that
+    folder mapped by 'file_path' only contains one type of logger, or 'metric'
+    is supplied, else logger files of multiple metrics will be returned.")
+  }else{
+
+    m <- tolower(trimws(metric))
+    m <- gsub("\\s+", "", m)
+
+    if (m %in% c("waterlevel", "stage", "wl", "depth"))               return(list(metric_norm ="waterlevel", pattern = "WL_"))
+    if (m %in% c("do", "dissolvedoxygen", "oxygen", "dissox"))   return(list(metric_norm ="dissolvedoxygen", pattern = "DO_"))
+    if (m %in% c("baro", "barometric", "airpressure", "ap", "airpress")) return(list(metric_norm ="barometric", pattern = "BARO_"))
+    if (m %in% c("watertemp", "watertemperature", "wt"))     return(list(metric_norm ="watertemp", pattern = "WT_"))
+    if (m %in% c("airtemp", "airtemperature", "at"))         return(list(metric_norm ="airtemp",pattern = "AT_"))
+    if (m %in% c("conductivity", "cond", "spc", "co"))       return(list(metric_norm ="conductivity", pattern = "CO_"))
+
+    stop(
+      "Unknown `metric`. Expected one of: ",
+      "'waterlevel', 'dissolvedoxygen', 'barometric', 'conductivity', 'watertemp', 'airtemp'",
+      " (case and spaces ignored). You gave: '", metric, "'.",
+      call. = FALSE
+    )
   }
 
-  m <- tolower(trimws(metric))
-  m <- gsub("\\s+", "", m)
-
-  if (m == "all") {
-    if (allow_all) return("all")
-    stop("`metric = 'all'` is only allowed when explicitly permitted.", call. = FALSE)
-  }
-
-  if (m %in% c("waterlevel", "stage"))               return("waterlevel")
-  if (m %in% c("do", "dissolvedoxygen", "oxygen"))   return("dissolvedoxygen")
-  if (m %in% c("baro", "barometric", "airpressure")) return("barometric")
-  if (m %in% c("watertemp", "watertemperature"))     return("watertemp")
-  if (m %in% c("airtemp", "airtemperature"))         return("airtemp")
-  if (m %in% c("conductivity", "cond", "spc"))       return("conductivity")
-
-  stop(
-    "Unknown `metric`. Expected one of: ",
-    "'waterlevel', 'dissolvedoxygen', 'barometric', 'conductivity', 'watertemp', 'airtemp'",
-    " (case and spaces ignored). You gave: '", metric, "'.",
-    call. = FALSE
-  )
 }
 
+#' Normalise a user-supplied station identifier string to file matching pattern
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to
+#' standardise the \code{select_station} argument.  Accepts character string
+#' (case-sensitive, whitespace-stripped) and returns regex pattern for file
+#' name
+#'
+#' @param select_station Either \code{"all"} (default) or one or more
+#'   \code{site_station_code} values to filter on. Must be exact match to
+#'   pattern in file name, case-sensitive.
+#'
+#' @return A normalized character string and regex pattern.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+normalise_station <- function(select_station) {
+  if (length(select_station) > 1L) {
+    stop("`select_station` must be a non-NULL, single value.", call. = FALSE)
+  }
+  # remove whitespace
+  s <- trimws(select_station)
+  s <- gsub("\\s+", "", s)
+
+  if (s == "all") {
+
+    return(list(station_norm ="all", pattern = ".*_"))
+    warning("`select_station = 'all'` will return a data file that may contain
+    multiple stations if present in folder supplied in file_path. To only return
+    data from one station ID, specify the station ID in the 'select_station'
+            argument.")
+  } else{return(list(station_norm = s, pattern = paste0(s,"_")))}
+
+}
+
+#' Normalise a user-supplied year as character string to file matching pattern
+#'
+#' Internal helper called by \code{\link{get_logger_data}} to
+#' standardise the \code{year} argument.  Accepts 4 digit number and returns
+#' regex pattern for file name
+#'
+#' @param year Either \code{"all"} (default) or 4 digit character string
+#' designating year of data to filter data files (format = YYYY).
+#'
+#' @return A normalized numeric year and regex pattern.
+#'
+#' @seealso \code{\link{get_logger_data}} (sole caller)
+#'
+#' @keywords internal
+normalise_year <- function(year) {
+  if (length(year) > 1L) {
+    stop("`year` must be a non-NULL, single value.", call. = FALSE)
+  }
+  # remove whitespace
+  y <- trimws(year)
+  y <- gsub("\\s+", "", y)
+
+  if (y == "all") {
+    return(NULL)
+    warning("`year = 'all'` will return a data file that may contain
+    multiple years if present in folder supplied in file_path. To only return
+    data from one year, specify the year in the 'year' argument.")
+  } else{return(y)}
+
+}
 
 #' Resolve a data-processing version string to a file-matching pattern
 #'
@@ -161,9 +226,8 @@ normalise_metric <- function(metric, allow_all = FALSE) {
 #' to find versioned CSV files on disk.
 #'
 #' @param data_processing Character scalar.  User-supplied version label.
-#'   Recognised values (case-insensitive, whitespace-stripped):
+#'   Recognized values (case-insensitive, whitespace-stripped):
 #'   \describe{
-#'     \item{\code{"raw"}}{Matches any \code{.csv} file.}
 #'     \item{\code{"v0.1"}}{Also \code{"v01"}, \code{"0.1"}.  Matches
 #'       \code{*v0.1.csv}.}
 #'     \item{\code{"v0.2"}}{Also \code{"v02"}, \code{"0.2"}.  Matches
@@ -191,52 +255,52 @@ normalise_metric <- function(metric, allow_all = FALSE) {
 resolve_data_processing_pattern <- function(data_processing) {
 
   if (is.null(data_processing) || length(data_processing) != 1L) {
-    stop("`data_processing` must be a single value.", call. = FALSE)
+    stop("`data_processing` must be a non-NULL, single value.", call. = FALSE)
   }
 
   dp <- tolower(trimws(data_processing))
+  # remove whitespace
   dp <- gsub("\\s+", "", dp)
 
   # explicit mappings
-  if (dp %in% c("raw")) {
-    dp <- "raw"
-  } else if (dp %in% c("v0.1", "v01", "0.1")) {
+  if(dp %in% c("v0.1", "v01", "0.1")) {
     dp <- "v0.1"
   } else if (dp %in% c("v0.2", "v02", "0.2")) {
     dp <- "v0.2"
   } else if (dp %in% c("v0.3", "v03", "0.3")) {
     dp <- "v0.3"
-  } else if (dp %in% c("v1.0", "v10", "1.0", "1", "final", "processed", "clean")) {
+  } else if (dp %in% c("v1.0", "v10", "1.0", "v1", "1", "final", "processed", "clean")) {
     dp <- "v1.0"
   } else {
     # partial / fuzzy mappings as backup
-    if (grepl("^raw", dp))           dp <- "raw"
-    else if (grepl("0\\.1$", dp))    dp <- "v0.1"
-    else if (grepl("0\\.2$", dp))    dp <- "v0.2"
-    else if (grepl("0\\.3$", dp))    dp <- "v0.3"
-    else if (grepl("^v1", dp))       dp <- "v1.0"
-    else {
+    if (grepl("0\\.1$", dp))    dp <- "v0.1" #ends with 0.1
+    else if (grepl("0\\.2$", dp))    dp <- "v0.2" #ends with 0.2
+    else if (grepl("0\\.3$", dp))    dp <- "v0.3" #ends with 0.3
+    else if (grepl("^v1$", dp))       dp <- "v1.0"
+    # starts with v, any digit, ., ends with any digit
+    else if (grepl("^v\\d*\\.\\d*$", dp))     dp <- dp
+     else {
       stop(
-        "`data_processing` must be one of:\n",
-        "  - 'raw'\n",
-        "  - 'v0.1'\n",
-        "  - 'v0.2'\n",
-        "  - 'v0.3'\n",
-        "  - 'v1.0' / 'clean' (final version)\n\n",
+        "`data_processing` expecting one of:\n",
+        "  - 'v0.1': data bound and trimmed from bind_hobo_files function \n",
+        "  - 'v0.2': data joined with barometric data from add_nearest_baro function \n",
+        "  - 'v0.3': data converted to new metric from convert_.... functions \n",
+        "  - 'v1.#' / 'clean' data exported from write_clean_data function \n\n",
+        "  - 'v#.#' / user specified version suffix \n\n",
         "You gave: '", data_processing, "'.",
         call. = FALSE
       )
     }
   }
 
-  pattern <- switch(
+  pattern <-
+    switch(
     dp,
-    "raw"  = "\\.csv$",      # any csv
     "v0.1" = "v0.1\\.csv$",
     "v0.2" = "v0.2\\.csv$",
     "v0.3" = "v0.3\\.csv$",
     "v1.0" = "v1.0\\.csv$",
-    stop("Unexpected `data_processing` value after QC: ", dp, call. = FALSE)
+    paste0(dp,"\\.csv$") # user specified version suffix
   )
 
   list(data_processing = dp, pattern = pattern)
@@ -480,40 +544,73 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
   out
 }
 
-
 factor_cols <- c(
   "sn", "baro_qaqc_code"
 )
 
+# get metric header from columns -------------------------------------
+metric_config <- list(
+  dissolvedoxygen = list(
+    header   = "DO",
+    column_name = c(
+      "do_mgl",
+      "do_mgl_adj"
+    )
+  ),
+  barometric = list(
+    header   = "BARO",
+    column_name = c(
+      "airpress_kPa",
+      "airpress_kPa_adj"
+    )
+  ),
+  waterlevel = list(
+    header   = "WL",
+    column_name = c(
+      "waterlevel_m",
+      "waterlevel_m_adj"
+    )
+  ),
+  watertemp = list(
+    header   = "WT",
+    column_name = c(
+      "watertemp_C",
+      "watertemp_C_adj"
+    )
+  ),
+  airtemp = list(
+    header   = "AT",
+    column_name = c(
+      "airtemp_C",
+      "airtemp_C_adj"
+    )
+  ),
+  conductivity = list(
+    header   = "CO",
+    column_name = c(
+      "conduct_uScm",
+      "conduct_uScm_adj"
+    )
+  )
+)
 
-#' Build summary plots for get_logger_data
-#'
-#' Internal helper called by \code{\link{get_logger_data}} to create
-#' ggplot time series panels for the summarised data.  Each metric
-#' defines its own set of panels (up to three).
-#'
-#' @param dat_sum Data frame produced by \code{summarise_clean_data()}.
-#'   Must contain \code{site_station_code}, \code{time_group}, and the
-#'   metric-specific mean/min/max columns.
-#' @param metric_norm Character scalar.  Canonical metric name.
-#' @param temporal_scale Character scalar.  The temporal resolution
-#'   label used in the plot title.
-#'
-#' @return A named list with elements \code{plot1}, \code{plot2},
-#'   \code{plot3} (some may be \code{NULL}).
-#'
-#' @seealso \code{\link{get_logger_data}} (sole caller)
-#'
-#' @keywords internal
-build_plots <- function(dat_sum, metric_norm, temporal_scale) {
 
-  make_ribbon_plot <- function(data, mean_col, min_col, max_col,
-                               y_lab, title, colour = "#233d4d") {
+make_ribbon_plot <- function(data, mean_col, q5_col, q95_col,
+                             y_lab, title, colour = "#233d4d") {
+  req_cols <- c(mean_col, q5_col, q95_col)
+  miss <- setdiff(req_cols, names(data))
+  if (length(miss) > 0) {
+    warning(
+      "plot_clean_timeseries(): input_data is missing required column(s): ",
+      paste(miss, collapse = ", "),
+      call. = FALSE
+    )
+  }else{
     ggplot2::ggplot(data, ggplot2::aes(x = time_group)) +
       ggplot2::geom_ribbon(
         ggplot2::aes(
-          ymin = .data[[min_col]],
-          ymax = .data[[max_col]]
+          ymin = .data[[q5_col]],
+          ymax = .data[[q95_col]]
         ),
         alpha = 0.25,
         fill  = colour
@@ -527,64 +624,30 @@ build_plots <- function(dat_sum, metric_norm, temporal_scale) {
       ggplot2::theme_classic()
   }
 
-  label <- paste0("(", temporal_scale, ")")
-
-  if (metric_norm == "waterlevel") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_waterlevel_m", "min_waterlevel_m",
-                           "max_waterlevel_m", "Water Level (m)",
-                           paste("Water Level", label), "#233d4d")
-    p2 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
-
-  } else if (metric_norm == "dissolvedoxygen") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_do_mgl", "min_do_mgl",
-                           "max_do_mgl", "DO (mg/L)",
-                           paste("Dissolved Oxygen", label), "#a1c181")
-    p2 <- make_ribbon_plot(dat_sum, "mean_do_percsat", "min_do_percsat",
-                           "max_do_percsat", "DO (% sat)",
-                           paste("DO % Saturation", label), "#a1c181")
-    p3 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = p2, plot3 = p3))
-
-  } else if (metric_norm == "barometric") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_airpress_kPa", "min_airpress_kPa",
-                           "max_airpress_kPa", "Air Pressure (kPa)",
-                           paste("Barometric Pressure", label), "#915e3d")
-    p2 <- make_ribbon_plot(dat_sum, "mean_airtemp_C", "min_airtemp_C",
-                           "max_airtemp_C", "Air Temp (\u00b0C)",
-                           paste("Air Temperature", label), "#FDB840")
-    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
-
-  } else if (metric_norm == "conductivity") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_spc_uScm", "min_spc_uScm",
-                           "max_spc_uScm", "Specific Conductance (\u00b5S/cm)",
-                           paste("Specific Conductance", label), "#4682B4")
-    p2 <- make_ribbon_plot(dat_sum, "mean_conduct_uScm", "min_conduct_uScm",
-                           "max_conduct_uScm", "Conductivity (\u00b5S/cm)",
-                           paste("Conductivity", label), "#000000")
-    p3 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
-
-  } else if (metric_norm == "airtemp") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_airtemp_C", "min_airtemp_C",
-                           "max_airtemp_C", "Air Temp (\u00b0C)",
-                           paste("Air Temperature", label), "#FDB840")
-    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
-
-  } else if (metric_norm == "watertemp") {
-    p1 <- make_ribbon_plot(dat_sum, "mean_watertemp_C", "min_watertemp_C",
-                           "max_watertemp_C", "Water Temp (\u00b0C)",
-                           paste("Water Temperature", label), "#619b8a")
-    return(list(plot1 = p1, plot2 = NULL, plot3 = NULL))
-
-  } else {
-    return(list(plot1 = NULL, plot2 = NULL, plot3 = NULL))
-  }
 }
 
+
+
+make_clean_plot <- function(data, metric_col,
+                             y_lab, colour = "#233d4d") {
+
+  req_cols <- c(metric_col)
+  miss <- setdiff(req_cols, names(data))
+  if (length(miss) > 0) {
+    warning(
+      "plot_clean_timeseries(): input_data is missing required column(s): ",
+      paste(miss, collapse = ", "),
+      call. = FALSE
+    )
+  }else{
+    ggplot2::ggplot(data, ggplot2::aes(x = timestamp)) +
+      ggplot2::geom_line(
+        ggplot2::aes(y = .data[[metric_col]]),
+        colour = colour
+      ) +
+      ggplot2::facet_wrap(~ site_station_code, scales = "free_y") +
+      ggplot2::labs( x = "Date", y = y_lab) +
+      ggplot2::theme_classic()
+  }
+
+}

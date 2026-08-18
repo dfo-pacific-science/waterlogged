@@ -4,7 +4,7 @@
 \alias{normalise_metric}
 \title{Normalise a user-supplied metric string to a canonical name}
 \usage{
-normalise_metric(metric, allow_all = FALSE)
+normalise_metric(metric)
 }
 \arguments{
 \item{metric}{Character scalar.  The user-supplied metric string.
@@ -18,9 +18,6 @@ Recognised aliases:
 \item{\code{"watertemp"}}{Also \code{"watertemperature"}.}
 \item{\code{"airtemp"}}{Also \code{"airtemperature"}.}
 }}
-
-\item{allow_all}{Logical.  When \code{TRUE}, the special value
-\code{"all"} is accepted and returned as-is.  Default \code{FALSE}.}
 }
 \value{
 A single canonical metric string.

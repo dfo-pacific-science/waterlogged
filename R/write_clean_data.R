@@ -82,13 +82,13 @@ write_clean_data <- function(
         "site_station_code",
         "timestamp",
         "do_mgl",
-        "do_mgl_adj",
-        "do_percsat",
-        "do_percsat_adj"
+        "do_mgl_adj"
       ),
       optional = c(
         "watertemp_C_do",
-        "watertemp_C_do_adj"
+        "watertemp_C_do_adj",
+        "do_percsat",
+        "do_percsat_adj"
       )
     ),
     barometric = list(
@@ -133,19 +133,19 @@ write_clean_data <- function(
       required = c(
         "site_station_code",
         "timestamp",
-        "airtemp_C"
-      ),
-      optional = c("airtemp_C_adj")
+        "airtemp_C",
+        "airtemp_C_adj"
+      )
     ),
     conductivity = list(
       header   = "CO",
       required = c(
         "site_station_code",
         "timestamp",
-        "conduct_uScm"
+        "conduct_uScm",
+        "conduct_uScm_adj"
       ),
       optional = c(
-        "conduct_uScm_adj",
         "spc_uScm_adj",
         "watertemp_C",
         "watertemp_C_adj"
