@@ -73,7 +73,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     needed_baro_cols <- c("airpress_kPa", "airpress_kPa_adj")
     if (all(needed_baro_cols %in% names(wl_df))) {
       extra_cols <- intersect(
-        c("airtemp_C", "airtemp_C_adj", "baro_qaqc_code",
+        c("airtemp_C", "airtemp_C_adj", "edit_baro_offset",
           "edit_press_high", "edit_press_low", "edit_flatline",
           "edit_spike", "edit_temp_range"),
         names(wl_df)
@@ -676,7 +676,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     baro_flags     <- build_flag_long(baro_df, baro_bool_cols)
     use_code_col   <- FALSE
     if (is.null(baro_flags)) {
-      baro_flags   <- build_qaqc_code_points(baro_df, "baro_qaqc_code")
+      baro_flags   <- build_qaqc_code_points(baro_df, "edit_baro_offset")
       use_code_col <- !is.null(baro_flags)
     }
 

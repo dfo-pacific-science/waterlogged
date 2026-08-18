@@ -545,7 +545,7 @@ summarise_clean_data <- function(dat, metric_norm, temporal_scale) {
 }
 
 factor_cols <- c(
-  "sn", "baro_qaqc_code"
+  "sn"
 )
 
 # get metric header from columns -------------------------------------

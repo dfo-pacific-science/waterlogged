@@ -66,8 +66,7 @@
 #'   \describe{
 #'     \item{\code{[[1]]}}{A data frame: the input rows augmented with columns
 #'       \code{airpress_kPa}, \code{airtemp_C}, \code{baro_site_stn_code},
-#'       \code{baro_qaqc_adj}, \code{baro_qaqc_note}, and
-#'       \code{baro_qaqc_code}.}
+#'       \code{edit_baro_offset}
 #'     \item{\code{[[2]]}}{A \code{ggplot2} object: faceted time series of
 #'       barometric pressure coloured by contributing baro station, for visual
 #'       QC of the stitch.}
@@ -236,10 +235,6 @@ add_nearest_baro <- function(input_data,
       dplyr::arrange(timestamp) |>
       dplyr::mutate(
         baro_site_stn_code = baro_stn
-        #,
-        #baro_qaqc_adj      = NA_character_,
-        #baro_qaqc_note     = "manual barometric selection",
-        #baro_qaqc_code     = "MANUAL_BARO"
       )
 
     # ---- Left-join to input data ----
@@ -249,7 +244,6 @@ add_nearest_baro <- function(input_data,
           dplyr::select(
             timestamp, airpress_kPa, airtemp_C,
             baro_site_stn_code
-            #, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
           ),
         by = "timestamp"
       ) |>
@@ -412,6 +406,12 @@ add_nearest_baro <- function(input_data,
         }
       )
 
+      # make column to identify rows with offset values
+      wide_baro_df_site$edit_baro_offset <- FALSE
+      wide_baro_df_site <- wide_baro_df_site |> dplyr::mutate(edit_baro_offset = dplyr::case_when(wide_baro_df_site$baro_site_stn_code!=ref_col~TRUE,
+                                                                                                  .default = edit_baro_offset))
+
+
       # ---- Coalesce temperature (nearest-first, no calibration) ----
       # Note: temperature is not calibrated between stations. If secondary
       # stations have systematic offsets (e.g. different elevations), the
@@ -422,12 +422,7 @@ add_nearest_baro <- function(input_data,
 
       # ---- Attach metadata columns and join temperature ----
       wide_baro_df_site <- wide_baro_df_site |>
-     #   dplyr::mutate(
-    #      baro_qaqc_adj  = NA_character_,
-     #     baro_qaqc_note = NA_character_,
-      #    baro_qaqc_code = NA_character_
-       # ) |>
-        dplyr::left_join(baro_temp_df_site, by = "timestamp")
+          dplyr::left_join(baro_temp_df_site, by = "timestamp")
 
       # Warn if composite baro has gaps
       pct <- pct_missing(wide_baro_df_site$airpress_kPa)
@@ -441,8 +436,8 @@ add_nearest_baro <- function(input_data,
           wide_baro_df_site |>
             dplyr::select(
               timestamp, airpress_kPa, airtemp_C,
-              baro_site_stn_code
-              #, baro_qaqc_adj, baro_qaqc_note, baro_qaqc_code
+              baro_site_stn_code,
+              edit_baro_offset
             ),
           by = "timestamp"
         ) |>
