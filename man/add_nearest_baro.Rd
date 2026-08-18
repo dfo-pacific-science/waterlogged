@@ -72,8 +72,7 @@ A two-element list:
 \describe{
 \item{\code{[[1]]}}{A data frame: the input rows augmented with columns
 \code{airpress_kPa}, \code{airtemp_C}, \code{baro_site_stn_code},
-\code{baro_qaqc_adj}, \code{baro_qaqc_note}, and
-\code{baro_qaqc_code}.}
+\code{edit_baro_offset}
 \item{\code{[[2]]}}{A \code{ggplot2} object: faceted time series of
 barometric pressure coloured by contributing baro station, for visual
 QC of the stitch.}

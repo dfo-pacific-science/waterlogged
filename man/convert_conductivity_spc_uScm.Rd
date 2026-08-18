@@ -4,7 +4,11 @@
 \alias{convert_conductivity_spc_uScm}
 \title{Temperature-compensate conductivity to specific conductance}
 \usage{
-convert_conductivity_spc_uScm(input_data)
+convert_conductivity_spc_uScm(
+  input_data,
+  path_to_output_folder = NULL,
+  version_label = "v0.3"
+)
 }
 \arguments{
 \item{input_data}{A data frame of conductivity observations.
@@ -12,6 +16,12 @@ Must contain at least one of \code{conduct_uScm_adj} or
 \code{conduct_uScm} (electrical conductivity in uS/cm) and at
 least one of \code{watertemp_C_adj} or \code{watertemp_C}
 (water temperature in degrees C).}
+
+\item{path_to_output_folder}{Character scalar. Root folder where per-year,
+per-site output files will be written. Must already exist.}
+
+\item{version_label}{Character version string appended to output filenames
+(e.g., \code{"v0.3"}).}
 }
 \value{
 \code{input_data} with one column added:

@@ -16,6 +16,10 @@
 #'   \code{conduct_uScm} (electrical conductivity in uS/cm) and at
 #'   least one of \code{watertemp_C_adj} or \code{watertemp_C}
 #'   (water temperature in degrees C).
+#' @param path_to_output_folder Character scalar. Root folder where per-year,
+#'   per-site output files will be written. Must already exist.
+#' @param version_label Character version string appended to output filenames
+#'   (e.g., \code{"v0.3"}).
 #'
 #' @return \code{input_data} with one column added:
 #'   \describe{
@@ -39,7 +43,20 @@
 #'   (optional drift correction for conductivity)
 #'
 #' @export
-convert_conductivity_spc_uScm <- function(input_data) {
+convert_conductivity_spc_uScm <- function(input_data,
+                                          path_to_output_folder = NULL,
+                                          version_label = "v0.3") {
+
+  # ---- path_to_output_folder validation (optional for Shiny) ----
+  if (!is.null(path_to_output_folder)) {
+    if (!is.character(path_to_output_folder) || length(path_to_output_folder) != 1L) {
+      stop("`path_to_output_folder` must be a single character string path.")
+    }
+    if (!dir.exists(path_to_output_folder)) {
+      stop("`path_to_output_folder` does not exist: ", path_to_output_folder)
+    }
+  }
+
 
   # ---- Resolve input columns (prefer _adj, fall back to raw) -----------------
   has_cond_adj <- "conduct_uScm_adj" %in% names(input_data)
@@ -185,6 +202,61 @@ convert_conductivity_spc_uScm <- function(input_data) {
       ),
       "specific conductance could not be computed for those timestamps."
     )
+  }
+
+  # ---- write outputs: per year x site (guarded for Shiny) -------------------
+  if (!is.null(path_to_output_folder)) {
+    df_write <- out |>
+      dplyr::arrange(site_station_code, timestamp) |>
+      dplyr::mutate(
+        year = lubridate::year(timestamp),
+        date = lubridate::date(timestamp)
+      )
+
+    # unique year-site combinations
+    key_df <- df_write |>
+      dplyr::distinct(year, site_station_code) |>
+      dplyr::filter(!is.na(year), !is.na(site_station_code))
+
+    if (nrow(key_df) == 0) {
+      warning("No valid year/site_station_code combinations found -- no files written.")
+    }
+
+    for (i in seq_len(nrow(key_df))) {
+      year_j <- key_df$year[i]
+      site_k <- key_df$site_station_code[i]
+
+      dat <- df_write |>
+        dplyr::filter(year == year_j, site_station_code == site_k)
+
+      if (!nrow(dat)) next
+
+      start_k <- gsub("\\D", "", as.character(min(dat$date)))
+      end_k   <- gsub("\\D", "", as.character(max(dat$date)))
+
+      year_dir <- file.path(path_to_output_folder, year_j)
+      proc_dir <- file.path(year_dir, "processed")
+
+      if (!dir.exists(year_dir)) dir.create(year_dir, recursive = TRUE)
+      if (!dir.exists(proc_dir)) dir.create(proc_dir, recursive = TRUE)
+
+      dat_to_write <- dat |>
+        dplyr::select(-year, -date) |>
+        dplyr::mutate(timestamp = as.character(timestamp))
+
+      out_name <- sprintf(
+        "%s_CO_%s_%s_%s.csv",
+        site_k, start_k, end_k, version_label
+      )
+      out_path <- file.path(proc_dir, out_name)
+
+      utils::write.csv(dat_to_write, out_path, row.names = FALSE)
+
+      message(sprintf(
+        "CO conversion (%s) written for %s -> %s/processed",
+        version_label, site_k, year_j
+      ))
+    }
   }
 
   return(out)
