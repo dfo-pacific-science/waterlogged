@@ -4,7 +4,12 @@
 \alias{write_clean_data}
 \title{Write final clean data files (v1.0)}
 \usage{
-write_clean_data(input_data, path_to_output_folder = NULL, metric)
+write_clean_data(
+  input_data,
+  path_to_output_folder = NULL,
+  metric,
+  version_label = "v1.0"
+)
 }
 \arguments{
 \item{input_data}{A data frame of QAQC'd logger observations.
@@ -25,6 +30,11 @@ of \code{"dissolvedoxygen"}, \code{"barometric"},
 \code{"conductivity"}.
 Controls which columns are required and the file-name prefix (see
 \strong{Details}).}
+
+\item{version_label}{Character version string appended to output filenames.
+Default \code{"v1.0"}. The clean version label is recommended to be at least
+1.0 or greater (e.g. 1.1, 2.0) to prevent confusion with versioning of prior
+data processing stages.}
 }
 \value{
 \code{input_data} returned invisibly (unmodified), allowing
