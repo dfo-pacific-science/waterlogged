@@ -86,6 +86,7 @@ conductivity_qaqc_all <- function(
     temp_high_limit_C       = 50,
     spike_flag_uScm         = 200,
     dry_flag_uScm           = 10,
+    temp_ice_flag_C            = 0.3,
     temp_air_water_diff_C   = 2,
     file_suffix             = "COND",
     user                    = NULL,
@@ -187,6 +188,7 @@ conductivity_qaqc_all <- function(
       cond_high_limit_uScm     = cond_high_limit_uScm,
       spike_flag_uScm          = spike_flag_uScm,
       dry_flag_uScm            = dry_flag_uScm,
+      temp_ice_flag_C = temp_ice_flag_C,
       temp_air_water_diff_C    = temp_air_water_diff_C
     )
 

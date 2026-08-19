@@ -15,6 +15,7 @@ conductivity_qaqc_all(
   temp_high_limit_C = 50,
   spike_flag_uScm = 200,
   dry_flag_uScm = 10,
+  temp_ice_flag_C = 0.3,
   temp_air_water_diff_C = 2,
   file_suffix = "COND",
   user = NULL,
@@ -64,6 +65,11 @@ Default is 200 uScm.}
 \item{dry_flag_uScm}{Numeric. Conductivity below this value is
 considered a probable dry sensor. Default \code{10}.}
 
+\item{temp_ice_flag_C}{Upper bound of water temperature (\code{°C}) for
+flagging ice conditions. Temperatures between \code{temp_low_limit_C}
+and \code{temp_ice_flag_C} are flagged. Must be positive and greater
+than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
+
 \item{temp_air_water_diff_C}{Numeric. Maximum absolute air--water
 temperature difference to support the dry-sensor inference (requires
 \code{airtemp_C} column). Default \code{2}.}
@@ -87,11 +93,6 @@ to \code{cond_data_path} for Shiny mode). Must contain
 \code{site_station_code}, \code{timestamp}, \code{conduct_uScm}, and
 \code{watertemp_C}. Exactly one of \code{cond_data_path} or
 \code{cond_data} must be supplied.}
-
-\item{temp_ice_flag_C}{Upper bound of water temperature (\code{°C}) for
-flagging ice conditions. Temperatures between \code{temp_low_limit_C}
-and \code{temp_ice_flag_C} are flagged. Must be positive and greater
-than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
 }
 \value{
 A single long-format data frame created by binding the QAQC'd

@@ -194,8 +194,7 @@ plot_clean_timeseries <- function(input_data,
 
   if (metric_header == "WL") {
 
-    p1 <- make_clean_plot(dat, "waterlevel_m_adj", "Water Level (m)",
-                           "Water Level", "#233d4d")
+    p1 <- make_clean_plot(dat, "waterlevel_m_adj", "Water Level (m)", "#233d4d")
     p2 <- make_clean_plot(dat, "watertemp_C_adj", "Water Temperature (\u00b0C)",
                            "#619b8a")
     return(list(plot1 = p1, plot2 = p2, plot3 = NULL))
