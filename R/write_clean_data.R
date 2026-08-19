@@ -17,6 +17,10 @@
 #'   \code{NULL} (default, Shiny mode), no files are written; the
 #'   function still validates columns and returns \code{input_data}
 #'   invisibly.
+#' @param version_label Character version string appended to output filenames.
+#' Default \code{"v1.0"}. The clean version label is recommended to be at least
+#'  1.0 or greater (e.g. 1.1, 2.0) to prevent confusion with versioning of prior
+#'   data processing stages.
 #' @param metric Character scalar identifying the data type.  Must be one
 #'   of \code{"dissolvedoxygen"}, \code{"barometric"},
 #'   \code{"waterlevel"}, \code{"watertemp"}, \code{"airtemp"}, or
@@ -71,7 +75,8 @@
 write_clean_data <- function(
     input_data,
     path_to_output_folder = NULL,
-    metric
+    metric,
+    version_label = "v1.0"
 ) {
 
   # ---- config by metric ----
@@ -171,6 +176,11 @@ write_clean_data <- function(
               "') does not match metric column in data ('",
               metric_in_data, "'). Using argument.")
     }
+  }
+
+  # if version label is 0.#, produce warning, recommend 1.# or greater
+  if(as.numeric(regmatches(version_label, gregexpr("\\d*\\.\\d*", version_label)))<1){
+    warning("The clean version label (",version_label,") is recommended to be at least 1.0 or greater (e.g. 1.1, 2.0) to prevent confusion with versioning of prior data processing stages (e.g. files produced from add_nearest_baro have a default versioning of v0.2).")
   }
 
   # ---- required columns must exist ------------------------------------------
@@ -315,13 +325,32 @@ write_clean_data <- function(
         clean_path,
         paste0(
           site_i, "_", cfg$header, "_",
-          start_j, "_", end_j, "_v1.0.csv"
+          start_j, "_", end_j, "_", version_label, ".csv"
         )
       )
 
+      #prevent overwritting
+      if(file.exists(file_out)){
+        version_label <- as.numeric(regmatches(version_label,
+                                               gregexpr("\\d*\\.\\d*",
+                                                        version_label)))+0.1
+        #rewrite file path with new version
+        file_out <- file.path(
+          clean_path,
+          paste0(
+            site_i, "_", cfg$header, "_",
+            start_j, "_", end_j, "_", version_label, ".csv"
+          )
+        )
+
+        message("A clean file for", year_i, site_i, cfg$header,
+                "already exists in", path_to_output_folder,
+                ". New version label created:", version_label)
+      }
+
       utils::write.csv(df_write, file_out, row.names = FALSE)
 
-      message("Clean data (v1.0) from ", site_i,
+      message("Clean data (", version_label,") from ", site_i,
               " written to ", year_i,
               " (", basename(file_out), ")")
     }
