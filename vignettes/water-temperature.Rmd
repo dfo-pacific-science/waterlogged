@@ -64,13 +64,13 @@ watertemp_folder    <- system.file("extdata/water_temperature/watertemp/raw", pa
 log_root_folder <- tempdir()
 ```
 
-The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
+The function **bind_logger_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
 
 To save bound files, specify the path to the desired output folder with the optional variable *path_to_output_folder*.
 
 ```{r at-baro}
 
-at_bound <- bind_hobo_files(
+at_bound <- bind_logger_files(
   path_to_raw_folder = airtemp_folder,
   metadata_path  = metadata_file,
 )
@@ -110,7 +110,7 @@ at_qc <- qc_airtemp(
   select_station = unique(at_data$site_station_code)[1]
 )
 
-cat("AT QAQC complete:", nrow(at_qc), "rows\n")
+cat("AT QC complete:", nrow(at_qc), "rows\n")
 cat("  Air Temp. outliers:      ", sum(at_qc$OUTLIER_AT, na.rm = TRUE), "\n")
 cat("  Air Temp. flags:      ", sum(at_qc$FLAG_RANGE, na.rm = TRUE), "\n")
 head(at_qc, 3)
@@ -134,13 +134,13 @@ Creates an interactive multi-panel plot for reviewing the data and either accept
 How to read the plot:
 
 - Light traces = raw values (original, unmodified)
-- Dark traces = adjusted values (after auto QAQC)
+- Dark traces = adjusted values (after auto QC)
 - Black symbols = flagged data (ice, dry, error)
 - Use the range slider at the bottom to zoom into specific periods
 - Hover over points for exact values and timestamps
 
 ```{r visual-review, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   airtemp_data      = at_qc,
   select_station = unique(at_data$site_station_code)[1],
   static = TRUE
@@ -174,7 +174,7 @@ These changes can be reviewed by re-running the plot function. Zoom in on the di
 
 
 ```{r visual-review2, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   airtemp_data      = at_qc2,
   select_station = unique(at_data$site_station_code)[1],
     static=TRUE
@@ -218,7 +218,7 @@ write_clean_data(
 
 ```{r wt-bound}
 
-wt_bound <- bind_hobo_files(
+wt_bound <- bind_logger_files(
   path_to_raw_folder = watertemp_folder,
   metadata_path  = metadata_file,
 )
@@ -262,7 +262,7 @@ wt_qc <- qc_watertemp(
    select_station = unique(wt_data$site_station_code)[1]
 )
 
-cat("WT QAQC complete:", nrow(wt_qc), "rows\n")
+cat("WT QC complete:", nrow(wt_qc), "rows\n")
 cat("  Water Temp. outliers:      ", sum(wt_qc$OUTLIER_WT, na.rm = TRUE), "\n")
 cat("  Water Temp. corrected to 0:      ", sum(wt_qc$FLAG_RANGE, na.rm = TRUE), "\n")
 cat("  Water Temp. FLAG_ICE:      ", sum(wt_qc$FLAG_ICE, na.rm = TRUE), "\n")
@@ -275,7 +275,7 @@ head(wt_qc, 3)
 If you have two different logger types at the same station, you can plot both to help identify data errors.We can add the air temp data from previously to the water temp data for the station FROG_WE_02. 
 
 ```{r visual-review3, fig.height=10, fig.width=7}
-plot_qaqc_timeseries( watertemp_data = wt_qc,
+plot_qc_timeseries( watertemp_data = wt_qc,
   select_station = unique(at_data$site_station_code)[1],
   static = TRUE
 )
@@ -313,7 +313,7 @@ wt_qc2 <- adjust_logger_NA(
 Review the changes by re-plotting the adjusted data. You should see that the time period we specified previously as ice should be removed in watertemp_adj. 
 
 ```{r visual-review4, fig.height=10, fig.width=7}
-plot_qaqc_timeseries( watertemp_data = wt_qc2,
+plot_qc_timeseries( watertemp_data = wt_qc2,
   select_station = unique(at_data$site_station_code)[1],
   static=TRUE
 )
@@ -344,7 +344,7 @@ wt_qc3 <- adjust_logger_NA(
 ```
 
 ```{r visual-review5, fig.height=10, fig.width=7}
-plot_qaqc_timeseries( watertemp_data = wt_qc3,
+plot_qc_timeseries( watertemp_data = wt_qc3,
   select_station = unique(at_data$site_station_code)[1],
   static=TRUE
 )

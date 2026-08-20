@@ -63,13 +63,13 @@ baro_folder    <- system.file("extdata/barometric_pressure/raw", package = "wate
 log_root_folder <- tempdir()
 ```
 
-The function **bind_hobo_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
+The function **bind_logger_files** will load all .csv files in the *path_to_raw_folder*, match loggers with the *metadata* file, trim logger data by to only those timestamps within install/remove dates, and bind data from loggers by each station/location and year. The raw folder must ONLY contain raw logger CSV files of the same metric (ie. all logger files are from barometric pressure loggers). 
 
 To save bound files, specify the path to the desired output folder with the optional variable *path_to_output_folder*.
 
 ```{r bind-baro}
 
-baro_bound <- bind_hobo_files(
+baro_bound <- bind_logger_files(
   path_to_raw_folder = baro_folder,
   metadata_path      = metadata_file,
 )
@@ -109,7 +109,7 @@ baro_qc <- qc_barometric(
   select_station = unique(baro_data$site_station_code)[1]
 )
 
-cat("Baro QAQC complete:", nrow(baro_qc), "rows\n")
+cat("Baro QC complete:", nrow(baro_qc), "rows\n")
 cat("  Air Press. outliers:     ", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "\n")
 cat("  Air Temp. outliers:      ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "\n")
 cat("  Disturbances:            ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
@@ -134,13 +134,13 @@ Creates an interactive multi-panel plot for reviewing the data and either accept
 How to read the plot:
 
 - Light traces = raw values (original, unmodified)
-- Dark traces = adjusted values (after auto QAQC)
+- Dark traces = adjusted values (after auto QC)
 - Black symbols = flagged data (ice, dry, error)
 - Use the range slider at the bottom to zoom into specific periods
 - Hover over points for exact values and timestamps
 
 ```{r visual-review, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   baro_data      = baro_qc,
   select_station = unique(baro_data$site_station_code)[1],
     static=TRUE
@@ -172,7 +172,7 @@ baro_qc <- adjust_logger_NA(
 Re-plot the data after all corrections to verify the final result. The adjusted traces should look reasonable with no obvious artifacts. Compare raw (light) vs adjusted (dark) to see exactly what changed.
 
 ```{r final-review, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   baro_data      = baro_qc,
   select_station = unique(baro_data$site_station_code)[1],
   static=TRUE
