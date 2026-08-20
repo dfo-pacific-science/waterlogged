@@ -83,6 +83,7 @@ test_that("Test dissox QAQC", {
 #   )
 # })
 
+<<<<<<< HEAD
 # test_that("Test dissox QAQC missing conversion", {
 #   # If DO data has baro attached but convert_do_mgl_percsat() was never
 #   # called, qc_dissox should error about the missing do_percsat column.
@@ -93,3 +94,35 @@ test_that("Test dissox QAQC", {
 #     "input_data is missing required columns: do_percsat"
 #   )
 # })
+=======
+  path_to_raw_folder    <- test_path("fixtures/DO")
+  path_to_output_folder <- withr::local_tempdir()
+  metadata_path         <- test_path("fixtures/testing_metadata_FP.csv")
+
+  DO_bound <- bind_logger_files(
+    path_to_raw_folder    = path_to_raw_folder,
+    path_to_output_folder = path_to_output_folder,
+    metadata_path         = metadata_path
+  )
+
+  sites_compiled <- DO_bound[[1]]
+
+  # Without baro data, qc_dissox should error because it needs
+  # do_percsat (from conversion) and airtemp_C (from baro).
+  expect_error(
+    qc_dissox(sites_compiled),
+    "input_data is missing required columns: do_percsat, airtemp_C"
+  )
+})
+
+test_that("Test dissox QAQC missing conversion", {
+  # If DO data has baro attached but convert_do_mgl_percsat() was never
+  # called, qc_dissox should error about the missing do_percsat column.
+  do_with_baro_df <- get_do_with_baro_df()
+
+  expect_error(
+    qc_dissox(do_with_baro_df),
+    "input_data is missing required columns: do_percsat"
+  )
+})
+>>>>>>> fd5e8d1 (update tests with name changes. All pass.)

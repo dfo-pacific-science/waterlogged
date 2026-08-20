@@ -91,7 +91,7 @@ test_that("test write clean data for conductivity", {
 
   # Bind raw conductivity logger files
   cond_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder    = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path         = metadata_path
@@ -145,7 +145,7 @@ test_that("test write clean data for wrong metric", {
   metadata_path         <- test_path("fixtures/testing_metadata_FP.csv")
 
   cond_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder    = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path         = metadata_path

@@ -5,7 +5,7 @@ test_that("Test snap logger timestamps", {
   metadata_path = test_path("fixtures/metadata/test_cond_dry.csv")
 
   cond_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path = metadata_path
@@ -13,7 +13,7 @@ test_that("Test snap logger timestamps", {
   )
 
   baro_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = test_path("fixtures/test_cond_dry/baro"),
       path_to_output_folder = path_to_output_folder,
       metadata_path = test_path("fixtures/metadata/test_cond_dry.csv")

@@ -34,7 +34,7 @@ test_that("test adjust wl zero", {
   )
 
   # Verify the plot still works after adjustment
-  plot_qaqc_timeseries(adjusted_wl, select_station = "ALBR_ST_30")
+  plot_qc_timeseries(adjusted_wl, select_station = "ALBR_ST_30")
 
   # Calculate the actual adjustment applied (difference between adj and raw)
   adjusted_wl <- adjusted_wl %>%

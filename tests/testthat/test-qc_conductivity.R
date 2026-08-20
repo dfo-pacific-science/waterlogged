@@ -4,7 +4,7 @@ test_that("multiplication works", {
   path_to_output_folder = withr::local_tempdir()
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
-  cond_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+  cond_bound <- bind_logger_files(path_to_raw_folder = path_to_raw_folder,
                                 path_to_output_folder = path_to_output_folder,
                                 metadata_path = metadata_path)
 

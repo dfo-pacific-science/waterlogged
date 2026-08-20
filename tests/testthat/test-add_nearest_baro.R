@@ -3,7 +3,7 @@ test_that("Test no usable barometric files", {
   path_to_output_folder = withr::local_tempdir()
 
   DO_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = test_path("fixtures/no_usable_baro/DO"),
       path_to_output_folder = path_to_output_folder,
       metadata_path = test_path("fixtures/metadata/test_no_usable_barometric_files.csv")
@@ -11,7 +11,7 @@ test_that("Test no usable barometric files", {
   )
 
   baro_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = test_path("fixtures/no_usable_baro/baro"),
       path_to_output_folder = path_to_output_folder,
       metadata_path = test_path("fixtures/metadata/test_no_usable_barometric_files.csv")
@@ -39,7 +39,7 @@ test_that("Test add nearest baro", {
   path_to_output_folder = withr::local_tempdir()
 
   DO_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = test_path("fixtures/test_add_nearest_baro/DO"),
       path_to_output_folder = path_to_output_folder,
       metadata_path = test_path("fixtures/metadata/test_add_nearest_baro.csv")
@@ -47,7 +47,7 @@ test_that("Test add nearest baro", {
   )
 
   baro_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = test_path("fixtures/test_add_nearest_baro/baro"),
       path_to_output_folder = path_to_output_folder,
       metadata_path = test_path("fixtures/metadata/test_add_nearest_baro.csv")
@@ -80,7 +80,7 @@ test_that("Test offset baro data", {
   metadata_path = test_path("fixtures/metadata/test_cond_dry.csv")
 
   cond_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path = metadata_path
@@ -88,7 +88,7 @@ test_that("Test offset baro data", {
   )
 
   baro_bound <- suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = test_path("fixtures/test_cond_dry/baro"),
       path_to_output_folder = path_to_output_folder,
       metadata_path = test_path("fixtures/metadata/test_cond_dry.csv")
