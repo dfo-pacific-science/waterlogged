@@ -77,8 +77,8 @@ level_runs_file <- file.path(data_dir, "benchmarks.csv")
 #   [[2]] = a quick-look plot (ggplot) to visually check the data
 # -----------------------------------------------------------------------------
 
-# ?bind_hobo_files
-baro_bound <- bind_hobo_files(
+# ?bind_logger_files
+baro_bound <- bind_logger_files(
   path_to_raw_folder = baro_folder,
   metadata_path      = metadata_file
 )
@@ -132,9 +132,9 @@ print(baro_plot)
 #          with the new _adj and edit_ columns added.
 # -----------------------------------------------------------------------------
 
-?barometric_qaqc_all
+?qc_barometric_all
 
-baro_qc <- barometric_qaqc_all(
+baro_qc <- qc_barometric_all(
   baro_data         = baro_data,       # pass the data frame directly
   metadata_path     = metadata_file,   # metadata for station lookup
   pressure_low_kpa  = 85,              # flag if pressure below this
@@ -177,7 +177,7 @@ cat("  Adjusted NAs in airpress_kPa_adj:",
 #       it from the baro logger's "airpress_kPa".
 # -----------------------------------------------------------------------------
 
-level_bound <- bind_hobo_files(
+level_bound <- bind_logger_files(
   path_to_raw_folder = level_folder,
   metadata_path      = metadata_file
 )
@@ -410,10 +410,10 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 #   5. Repeat until satisfied
 # -----------------------------------------------------------------------------
 
-?plot_qaqc_timeseries
+?plot_qc_timeseries
 
 # Show water level and baro data side by side
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,        # water level data (with QAQC flags)
   baro_data      = baro_qc,      # barometric data (for context)
   select_station = "ALBR_ST_30"
@@ -492,7 +492,7 @@ wl_qc <- adjust_waterlevel_spike(
 )
 
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,        # water level data (with QAQC flags)
   #baro_data      = baro_qc,      # barometric data (for context)
   select_station = "ALBR_ST_30"
@@ -557,7 +557,7 @@ drift_pts <- tibble::tibble(
 
 # ---- After any manual adjustments, always re-plot to verify ----
 
-# plot_qaqc_timeseries(
+# plot_qc_timeseries(
 #   wl_data        = wl_qc,
 #   baro_data      = baro_qc,
 #   select_station = "ALBR_ST_30"
@@ -584,7 +584,7 @@ drift_pts <- tibble::tibble(
 
 # Uncomment if you have level run data:
 
-wl_datum <- wl_set_datum(
+wl_datum <- adjust_waterlevel_datum(
   input_data      = wl_qc,
   level_runs_path = level_runs_file,
   select_station  = "ALBR_ST_30"
@@ -636,15 +636,15 @@ head(wl_datum$wl_elev_m)
 # RECAP: What Happened at Each Step
 # =============================================================================
 #
-#   Step 1:  bind_hobo_files() on baro CSVs    -> baro_data  (raw baro)
-#   Step 2:  barometric_qaqc_all()             -> baro_qc   (cleaned baro)
-#   Step 3:  bind_hobo_files() on level CSVs   -> level_data (raw WL)
+#   Step 1:  bind_logger_files() on baro CSVs    -> baro_data  (raw baro)
+#   Step 2:  qc_barometric_all()             -> baro_qc   (cleaned baro)
+#   Step 3:  bind_logger_files() on level CSVs   -> level_data (raw WL)
 #   Step 4:  add_nearest_baro()                -> wl_data   (WL + baro attached)
 #   Step 5:  convert_waterlevel_kPa_m()        -> site_wl   (kPa -> metres)
 #   Step 6:  qc_waterlevel()                 -> wl_qc     (auto QAQC'd)
-#   Step 7:  plot_qaqc_timeseries()            -> (visual review)
+#   Step 7:  plot_qc_timeseries()            -> (visual review)
 #   Step 8:  Manual adjustments (as needed)    -> wl_qc     (updated)
-#   Step 9:  wl_set_datum() (optional)         -> (adds elevation)
+#   Step 9:  adjust_waterlevel_datum() (optional)         -> (adds elevation)
 #   Step 10: write_clean_data()                -> CSV files on disk
 #
 # KEY COLUMNS TO UNDERSTAND:

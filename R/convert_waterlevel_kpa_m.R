@@ -98,7 +98,7 @@
 #'
 #' @seealso \code{\link{add_nearest_baro}} (upstream, attaches barometric
 #'   data), \code{\link{QAQC_reference_data}} (validates reference
-#'   measurements), \code{\link{wl_set_datum}} (downstream, sets
+#'   measurements), \code{\link{adjust_waterlevel_datum}} (downstream, sets
 #'   arbitrary datum), \code{\link{qc_waterlevel}} (downstream QAQC)
 #'
 #' @export

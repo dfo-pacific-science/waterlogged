@@ -69,7 +69,7 @@ stopifnot(
 
 
 # =============================================================================
-# STEP 1: Bind and QAQC Barometric Data
+# STEP 1: Bind and QC Barometric Data
 # =============================================================================
 #
 # WHAT: Reads all barometric logger CSVs, combines them, and runs quality
@@ -82,10 +82,10 @@ stopifnot(
 # is the foundation for both.
 # -----------------------------------------------------------------------------
 
-?waterlogged::bind_hobo_files
+?waterlogged::bind_logger_files
 
 # 1a. Bind raw baro files
-baro_bound <- bind_hobo_files(
+baro_bound <- bind_logger_files(
   path_to_raw_folder = baro_folder,
   metadata_path      = metadata_file
 )
@@ -95,10 +95,10 @@ baro_data <- baro_bound[[1]]
 cat("Baro data:", nrow(baro_data), "rows,",
     length(unique(baro_data$site_station_code)), "stations\n")
 
-# 1b. Run automatic QAQC on all baro stations
-?barometric_qaqc_all
+# 1b. Run automatic QC on all baro stations
+?qc_barometric_all
 
-baro_qc <- barometric_qaqc_all(
+baro_qc <- qc_barometric_all(
   baro_data         = baro_data,
   metadata_path     = metadata_file,
   pressure_low_kpa  = 85,
@@ -109,7 +109,7 @@ baro_qc <- barometric_qaqc_all(
   flatline_n        = 6
 )
 
-cat("Baro QAQC complete:", nrow(baro_qc), "rows\n")
+cat("Baro QC complete:", nrow(baro_qc), "rows\n")
 cat("  Spikes flagged: ", sum(baro_qc$FLAG_DISTURBANCE, na.rm = TRUE), "\n")
 cat("  Flatlines:      ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "\n")
 
@@ -133,7 +133,7 @@ cat("  Flatlines:      ", sum(baro_qc$FLAG_FLATLINE, na.rm = TRUE), "\n")
 # -----------------------------------------------------------------------------
 
 
-do_bound <- bind_hobo_files(
+do_bound <- bind_logger_files(
   path_to_raw_folder = do_folder,
   metadata_path      = metadata_file
 )
@@ -237,7 +237,7 @@ head(do_data[, c("timestamp", "do_mgl", "watertemp_C",
 
 
 # =============================================================================
-# STEP 5: Automatic DO QAQC
+# STEP 5: Automatic DO QC
 # =============================================================================
 #
 # WHAT: Runs automatic quality checks on the dissolved oxygen data and
@@ -275,7 +275,7 @@ do_qc <- qc_dissox(
 )
 
 # Summarize the flags
-cat("QAQC results for COOK_WE_40:\n")
+cat("QC results for COOK_WE_40:\n")
 cat("  Total rows:       ", nrow(do_qc), "\n")
 cat("  Logger errors:    ", sum(do_qc$ERROR_DO, na.rm = TRUE), "\n")
 cat("  DO outliers:      ", sum(do_qc$OUTLIER_DO, na.rm = TRUE), "\n")
@@ -284,10 +284,10 @@ cat("  Ice flagged:      ", sum(do_qc$FLAG_ICE, na.rm = TRUE), "\n")
 cat("  Dry flagged:      ", sum(do_qc$FLAG_DRY, na.rm = TRUE), "\n")
 cat("  Range flagged:    ", sum(do_qc$FLAG_RANGE, na.rm = TRUE), "\n")
 
-# Show the QAQC log
+# Show the QC log
 qaqc_log <- attr(do_qc, "qaqc_log")
 if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
-  cat("\nQAQC log entries:\n")
+  cat("\nQC log entries:\n")
   print(qaqc_log[, c("field", "action", "code", "ts_start", "ts_end")])
 }
 
@@ -304,7 +304,7 @@ if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
 #
 # HOW TO READ THE PLOT:
 #   - Light traces  = raw values (original, unmodified)
-#   - Dark traces   = adjusted values (after auto QAQC)
+#   - Dark traces   = adjusted values (after auto QC)
 #   - Colored dots  = flag locations (ice, dry, error)
 #   - Use the range slider at the bottom to zoom into specific periods
 #   - Hover over points for exact values
@@ -510,7 +510,7 @@ plot_qaqc_timeseries(
 #   - All flag_* and edit_* columns (the full audit trail)
 #
 # For analysis, always use the *_adj columns (do_percsat_adj, do_mgl_adj).
-# Compare raw vs _adj to see what the QAQC process changed.
+# Compare raw vs _adj to see what the QC process changed.
 # -----------------------------------------------------------------------------
 
 
@@ -540,11 +540,11 @@ print(summary(do_qc$do_mgl_adj))
 # RECAP: What Happened at Each Step
 # =============================================================================
 #
-#   Step 1:  barometric_qaqc_all()       -> baro_qc    (cleaned baro)
-#   Step 2:  bind_hobo_files() on DO     -> do_data     (raw DO)
+#   Step 1:  qc_barometric_all()       -> baro_qc    (cleaned baro)
+#   Step 2:  bind_logger_files() on DO     -> do_data     (raw DO)
 #   Step 3:  add_nearest_baro()          -> do_data     (DO + baro attached)
 #   Step 4:  convert_do_mgl_percsat()    -> do_data     (adds %sat)
-#   Step 5:  qc_dissox()               -> do_qc       (auto QAQC'd)
+#   Step 5:  qc_dissox()               -> do_qc       (auto QC'd)
 #   Step 6:  plot_qaqc_timeseries()      -> (visual review)
 #   Step 7:  wq_drift_correction()       -> do_qc       (drift corrected)
 #   Step 8:  Manual adjustments          -> do_qc       (updated)
