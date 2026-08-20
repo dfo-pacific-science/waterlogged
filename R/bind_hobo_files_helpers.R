@@ -2,7 +2,7 @@
 #'
 #' Reads (from file or in-memory data frame) and validates a table of
 #' logger deployment metadata used throughout the \pkg{waterlogged}
-#' pipeline.  Called internally by \code{\link{bind_hobo_files}},
+#' pipeline.  Called internally by \code{\link{bind_logger_files}},
 #' \code{\link{add_nearest_baro}}, \code{\link{barometric_qaqc_all}},
 #' and \code{\link{conductivity_qaqc_all}}.
 #'
@@ -52,7 +52,7 @@
 #'
 #' @seealso \code{\link{QAQC_reference_data}} (analogous validation for
 #'   manual stage/depth reference data),
-#'   \code{\link{bind_hobo_files}} (primary consumer of the validated
+#'   \code{\link{bind_logger_files}} (primary consumer of the validated
 #'   metadata)
 #'
 #' @export
@@ -208,7 +208,7 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL, tz = "UTC") {
 
 #' Parse a single raw HOBO CSV export
 #'
-#' Internal helper called by \code{\link{bind_hobo_files}} (via
+#' Internal helper called by \code{\link{bind_logger_files}} (via
 #' \code{purrr::map_df()}) to read one HOBO-exported CSV file, extract
 #' the logger serial number and channel metadata from row 2, build
 #' standardised column names, coerce measurements to numeric, and attach
@@ -225,7 +225,7 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL, tz = "UTC") {
 #'     \item{\code{sn}}{Logger serial number (8-digit character).}
 #'     \item{\code{timestamp}}{Raw timestamp string (not yet parsed to
 #'       POSIXct; parsing happens downstream in
-#'       \code{\link{bind_hobo_files}}).}
+#'       \code{\link{bind_logger_files}}).}
 #'     \item{\emph{<measurement channels>}}{One numeric column per data
 #'       channel, named \code{"<Type> <Unit>"} (e.g.
 #'       \code{"Temp \u00b0C"}, \code{"Abs Pres kPa"}).}
@@ -239,7 +239,7 @@ QAQC_metadata <- function(metadata_path = NULL, metadata = NULL, tz = "UTC") {
 #'   }
 #'   Rows where all measurement columns are \code{NA} are dropped.
 #'
-#' @seealso \code{\link{bind_hobo_files}} (sole caller)
+#' @seealso \code{\link{bind_logger_files}} (sole caller)
 #'
 #' @keywords internal
 extract_alldata_from_file <- function(file) {
@@ -441,7 +441,7 @@ resolve_metric_by_overlap <- function(metadat_link, hobo_data_raw,
 
   if (nrow(filtered) == 0) {
     stop(
-      "bind_hobo_files(): No metadata deployment windows overlap with the ",
+      "bind_logger_files(): No metadata deployment windows overlap with the ",
       "raw data timestamps. Check that the metadata file matches the raw ",
       "HOBO files being processed."
     )

@@ -58,6 +58,6 @@ This function works with the original wide-format processed files
 }
 \seealso{
 \code{\link{write_clean_data}} (produces the v1.0 files this
-function reads), \code{\link{bind_hobo_files}} (produces v0.1),
-\code{\link{plot_qaqc_timeseries}} (interactive QC plotting)
+function reads), \code{\link{bind_logger_files}} (produces v0.1),
+\code{\link{plot_qc_timeseries}} (interactive QC plotting)
 }

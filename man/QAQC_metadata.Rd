@@ -33,7 +33,7 @@ decimal degrees.
 \description{
 Reads (from file or in-memory data frame) and validates a table of
 logger deployment metadata used throughout the \pkg{waterlogged}
-pipeline.  Called internally by \code{\link{bind_hobo_files}},
+pipeline.  Called internally by \code{\link{bind_logger_files}},
 \code{\link{add_nearest_baro}}, \code{\link{barometric_qaqc_all}},
 and \code{\link{conductivity_qaqc_all}}.
 }
@@ -64,6 +64,6 @@ and validated against the allowed set: \code{"waterlevel"},
 \seealso{
 \code{\link{QAQC_reference_data}} (analogous validation for
 manual stage/depth reference data),
-\code{\link{bind_hobo_files}} (primary consumer of the validated
+\code{\link{bind_logger_files}} (primary consumer of the validated
 metadata)
 }

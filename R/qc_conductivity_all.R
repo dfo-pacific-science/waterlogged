@@ -1,9 +1,9 @@
-#' Run conductivity QAQC for all conductivity stations in metadata
+#' Run conductivity QC for all conductivity stations in metadata
 #'
 #' Reads conductivity logger data for every station listed in the metadata
 #' (where \code{metric == "conductivity"}), applies
 #' \code{\link{qc_conductivity}} to each station, optionally writes
-#' per-year v0.1 CSVs, and returns a combined data frame of all QAQC'd
+#' per-year v0.1 CSVs, and returns a combined data frame of all QC'd
 #' conductivity data.
 #'
 #' When reading from disk, files are expected to match the pattern
@@ -21,7 +21,7 @@
 #'   directory where per-year v0.1 COND CSVs will be written. When
 #'   \code{NULL} (default, Shiny mode), no files are written.
 #' @param log_root Character scalar or \code{NULL}. Root directory for
-#'   QAQC log files, passed through to \code{\link{qc_conductivity}}.
+#'   QC log files, passed through to \code{\link{qc_conductivity}}.
 #'   When \code{NULL} (default), no log files are written.
 #' @param temp_low_limit_C Lower bound (C) for plausible water temperatures.
 #'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
@@ -51,7 +51,7 @@
 #' @param file_suffix Character scalar. Suffix used when building the
 #'   filename search pattern (e.g. \code{"COND"} matches
 #'   \code{STATION_COND_*.csv}). Default \code{"COND"}.
-#' @param user Character scalar. User name recorded in QAQC logs.
+#' @param user Character scalar. User name recorded in QC logs.
 #'   Defaults to \code{NULL}, which resolves to
 #'   \code{Sys.info()[["user"]]} (the local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
@@ -65,17 +65,17 @@
 #'   \code{watertemp_C}. Exactly one of \code{cond_data_path} or
 #'   \code{cond_data} must be supplied.
 #'
-#' @return A single long-format data frame created by binding the QAQC'd
+#' @return A single long-format data frame created by binding the QC'd
 #'   conductivity data for all stations. If no stations are processed
 #'   successfully, an empty tibble is returned with a warning.
 #'
-#' @seealso \code{\link{qc_conductivity}} (per-station QAQC called
+#' @seealso \code{\link{qc_conductivity}} (per-station QC called
 #'   internally), \code{\link{barometric_qaqc_all}} (analogous batch
 #'   wrapper for barometric data),
-#'   \code{\link{bind_hobo_files}} (upstream data ingestion)
+#'   \code{\link{bind_logger_files}} (upstream data ingestion)
 #'
 #' @export
-conductivity_qaqc_all <- function(
+qc_conductivity_all <- function(
     cond_data_path          = NULL,
     metadata_path           = NULL,
     path_to_output_folder   = NULL,
@@ -103,13 +103,13 @@ conductivity_qaqc_all <- function(
     unique()
 
   if (!length(cond_sites)) {
-    stop("conductivity_qaqc_all(): No conductivity stations found in metadata (metric == 'conductivity').")
+    stop("qc_conductivity_all(): No conductivity stations found in metadata (metric == 'conductivity').")
   }
 
   all_cond_list <- list()
 
   for (stn in cond_sites) {
-    message("\n--- Conductivity QA/QC for station: ", stn, " ---")
+    message("\n--- Conductivity QC for station: ", stn, " ---")
 
     if (!is.null(cond_data) && is.data.frame(cond_data)) {
       raw_cond <- cond_data |>
@@ -176,7 +176,7 @@ conductivity_qaqc_all <- function(
       next
     }
 
-    # Run single-station QA/QC
+    # Run single-station QC
     checked <- qc_conductivity(
       input_data               = raw_cond,
       select_station           = stn,
@@ -245,14 +245,14 @@ conductivity_qaqc_all <- function(
         out_path <- file.path(proc_dir, out_name)
 
         utils::write.csv(sub_write, out_path, row.names = FALSE)
-        message("  QA/QC ", file_suffix, " written: ", basename(out_path))
+        message("  QC ", file_suffix, " written: ", basename(out_path))
       }
     }
   }
 
   # ---- Combined return ------------------------------------------------------
   if (!length(all_cond_list)) {
-    warning("conductivity_qaqc_all(): No stations processed successfully; returning empty tibble.")
+    warning("qc_conductivity_all(): No stations processed successfully; returning empty tibble.")
     return(tibble::tibble())
   }
 

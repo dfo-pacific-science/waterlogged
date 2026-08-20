@@ -11,25 +11,25 @@
 #' @noRd
 normalize_qaqc_df <- function(df, station) {
   if (is.null(df)) return(NULL)
-  
+
   req_cols <- c("site_station_code", "timestamp")
   missing  <- setdiff(req_cols, names(df))
   if (length(missing) > 0) {
     stop(
-      "plot_qaqc_timeseries(): input data is missing required column(s): ",
+      "plot_qc_timeseries(): input data is missing required column(s): ",
       paste(missing, collapse = ", ")
     )
   }
-  
+
   if (!inherits(df$timestamp, "POSIXt")) {
     df <- df |>
       dplyr::mutate(timestamp = lubridate::ymd_hms(.data$timestamp))
   }
-  
+
   df <- df |>
     dplyr::filter(.data$site_station_code == station) |>
     dplyr::arrange(.data$timestamp)
-  
+
   if (nrow(df) == 0) return(NULL)
   df
 }
@@ -45,9 +45,9 @@ normalize_qaqc_df <- function(df, station) {
 #' @noRd
 build_qaqc_code_points <- function(df, code_col) {
   if (is.null(df) || !code_col %in% names(df)) return(NULL)
-  
+
   code_sym <- rlang::sym(code_col)
-  
+
   out <- df |>
     dplyr::select("timestamp", !!code_sym) |>
     dplyr::filter(
@@ -56,7 +56,7 @@ build_qaqc_code_points <- function(df, code_col) {
     ) |>
     dplyr::mutate(code = factor(!!code_sym)) |>
     dplyr::select("timestamp", "code")
-  
+
   if (nrow(out) == 0) return(NULL)
   out
 }
@@ -74,7 +74,7 @@ build_flag_long <- function(df, flag_cols) {
   if (is.null(df)) return(NULL)
   flag_cols <- intersect(flag_cols, names(df))
   if (length(flag_cols) == 0) return(NULL)
-  
+
   out <- df |>
     dplyr::select("timestamp", dplyr::all_of(flag_cols)) |>
     tidyr::pivot_longer(
@@ -86,7 +86,7 @@ build_flag_long <- function(df, flag_cols) {
     dplyr::filter(!is.na(.data$flag_value) & .data$flag_value) |>
     dplyr::mutate(flag_type = factor(.data$flag_type)) |>
     dplyr::select("timestamp", "flag_type")
-  
+
   if (nrow(out) == 0) return(NULL)
   out
 }
