@@ -2,11 +2,11 @@ test_that("test watertemp qaqc", {
 
   path_to_output_folder = withr::local_tempdir()
 
-  DO_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_convert_do/DO"),
+  DO_bound <- bind_logger_files(path_to_raw_folder = test_path("fixtures/test_convert_do/DO"),
                               path_to_output_folder = path_to_output_folder,
                               metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
-  baro_bound <- bind_hobo_files(path_to_raw_folder = test_path("fixtures/test_convert_do/baro"),
+  baro_bound <- bind_logger_files(path_to_raw_folder = test_path("fixtures/test_convert_do/baro"),
                                 path_to_output_folder = path_to_output_folder,
                                 metadata_path = test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv"))
 
@@ -47,7 +47,7 @@ test_that("test watertemp qaqc without airtemp_C succeeds", {
   path_to_output_folder = withr::local_tempdir()
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
-  DO_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+  DO_bound <- bind_logger_files(path_to_raw_folder = path_to_raw_folder,
                               path_to_output_folder = path_to_output_folder,
                               metadata_path = metadata_path)
 

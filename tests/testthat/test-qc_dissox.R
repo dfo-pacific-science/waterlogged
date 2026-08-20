@@ -64,7 +64,7 @@ test_that("Test dissox QAQC missing baro data", {
   path_to_output_folder <- withr::local_tempdir()
   metadata_path         <- test_path("fixtures/testing_metadata_FP.csv")
 
-  DO_bound <- bind_hobo_files(
+  DO_bound <- bind_logger_files(
     path_to_raw_folder    = path_to_raw_folder,
     path_to_output_folder = path_to_output_folder,
     metadata_path         = metadata_path

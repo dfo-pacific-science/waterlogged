@@ -1,5 +1,5 @@
 # ============================================================================
-# Tests for plot_qaqc_timeseries()
+# Tests for plot_qc_timeseries()
 #
 # These tests verify that the QAQC review plot can be generated in both
 # interactive (plotly) and static (patchwork) modes.
@@ -16,7 +16,7 @@ test_that("test plot qaqc water level", {
   waterlevel_complete_QAQC <- get_wl_qaqc_data()
 
   # Generate an interactive plotly review plot for station ALBR_ST_30
-  plots <- plot_qaqc_timeseries(
+  plots <- plot_qc_timeseries(
     wl_data        = waterlevel_complete_QAQC,
     do_data        = NULL,
     baro_data      = NULL,
@@ -27,13 +27,13 @@ test_that("test plot qaqc water level", {
   expect_s3_class(plots, "plotly")
 })
 
-test_that("plot_qaqc_timeseries static mode returns patchwork object", {
+test_that("plot_qc_timeseries static mode returns patchwork object", {
   skip_if_not_installed("patchwork")
 
   # Same cached data, but request a static (non-interactive) plot
   waterlevel_complete_QAQC <- get_wl_qaqc_data()
 
-  static_plot <- plot_qaqc_timeseries(
+  static_plot <- plot_qc_timeseries(
     wl_data        = waterlevel_complete_QAQC,
     do_data        = NULL,
     baro_data      = NULL,

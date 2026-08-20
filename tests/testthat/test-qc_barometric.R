@@ -4,7 +4,7 @@ test_that("test barometric qaqc", {
   path_to_raw_folder = test_path("fixtures/baro")
   path_to_output_folder = withr::local_tempdir()
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
-  baro_bound <- bind_hobo_files(path_to_raw_folder = path_to_raw_folder,
+  baro_bound <- bind_logger_files(path_to_raw_folder = path_to_raw_folder,
                                 path_to_output_folder = path_to_output_folder,
                                 metadata_path = metadata_path)
   sites_compiled = baro_bound[[1]]

@@ -6,7 +6,7 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   reference_file <- system.file("extdata/dissolved_oxygen/field_references.csv", package = "waterlogged")
 
   # Step 1: Bind and QAQC baro
-  baro_bound <- bind_hobo_files(
+  baro_bound <- bind_logger_files(
     path_to_raw_folder = baro_folder,
     metadata_path      = metadata_file
   )
@@ -16,7 +16,7 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   expect_gt(nrow(baro_data), 0)
   expect_true(all(c("timestamp", "airpress_kPa", "site_station_code") %in% names(baro_data)))
 
-  baro_qc <- barometric_qaqc_all(
+  baro_qc <- qc_barometric_all(
     baro_data         = baro_data,
     metadata_path     = metadata_file,
     pressure_low_limit_kpa  = 85,
@@ -31,7 +31,7 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   expect_true("airpress_kPa_adj" %in% names(baro_qc))
 
   # Step 2: Bind DO files
-  do_bound <- bind_hobo_files(
+  do_bound <- bind_logger_files(
     path_to_raw_folder = do_folder,
     metadata_path      = metadata_file
   )
@@ -79,7 +79,7 @@ test_that("dissolved oxygen workflow runs end-to-end", {
   expect_false(is.null(attr(do_qc, "qaqc_log")))
 
   # Step 6: Plot
-  p <- plot_qaqc_timeseries(
+  p <- plot_qc_timeseries(
     do_data        = do_qc,
     select_station = "COOK_WE_40"
   )

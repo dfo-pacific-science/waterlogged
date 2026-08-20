@@ -91,7 +91,7 @@ test_that("water level workflow runs end-to-end", {
   expect_false(is.null(attr(wl_qc, "qaqc_log")))
 
   # Step 7: Plot (just check it doesn't error)
-  p <- plot_qaqc_timeseries(
+  p <- plot_qc_timeseries(
     wl_data        = wl_qc,
     select_station = "ALBR_ST_30"
   )
