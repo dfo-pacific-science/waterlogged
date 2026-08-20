@@ -19,7 +19,7 @@ A tibble with columns:
 \item{\code{sn}}{Logger serial number (8-digit character).}
 \item{\code{timestamp}}{Raw timestamp string (not yet parsed to
 POSIXct; parsing happens downstream in
-\code{\link{bind_hobo_files}}).}
+\code{\link{bind_logger_files}}).}
 \item{\emph{\if{html}{\out{<measurement channels>}}}}{One numeric column per data
 channel, named \code{"<Type> <Unit>"} (e.g.
 \code{"Temp \u00b0C"}, \code{"Abs Pres kPa"}).}
@@ -34,13 +34,13 @@ second data channel.}
 Rows where all measurement columns are \code{NA} are dropped.
 }
 \description{
-Internal helper called by \code{\link{bind_hobo_files}} (via
+Internal helper called by \code{\link{bind_logger_files}} (via
 \code{purrr::map_df()}) to read one HOBO-exported CSV file, extract
 the logger serial number and channel metadata from row 2, build
 standardised column names, coerce measurements to numeric, and attach
 file-level metadata.
 }
 \seealso{
-\code{\link{bind_hobo_files}} (sole caller)
+\code{\link{bind_logger_files}} (sole caller)
 }
 \keyword{internal}

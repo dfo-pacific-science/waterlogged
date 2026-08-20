@@ -282,7 +282,7 @@ resolve_data_processing_pattern <- function(data_processing) {
      else {
       stop(
         "`data_processing` expecting one of:\n",
-        "  - 'v0.1': data bound and trimmed from bind_hobo_files function \n",
+        "  - 'v0.1': data bound and trimmed from bind_logger_files function \n",
         "  - 'v0.2': data joined with barometric data from add_nearest_baro function \n",
         "  - 'v0.3': data converted to new metric from convert_.... functions \n",
         "  - 'v1.#' / 'clean' data exported from write_clean_data function \n\n",

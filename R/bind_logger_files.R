@@ -1,12 +1,13 @@
-#' Bind HOBO logger CSVs and attach site metadata
+#' Bind logger CSVs and attach site metadata
 #'
-#' Reads all HOBO CSV files in a folder (or from explicit file paths), links
+#' Reads all CSV files in a folder (or from explicit file paths), links
 #' each logger serial number to deployment metadata, trims records to
 #' deployment/removal windows, standardises core column names by metric
 #' (barometric, waterlevel, dissolved oxygen, air temperature, water temperature, conductivity), optionally
 #' writes per-station/year v0.1 CSVs, and returns a compiled long data frame
 #' plus a quick QC plot.
 #'
+#' @param logger Character scalar. Manufacturer of logger for raw data. For Onset Hobo data loggers, set logger = 'HOBO'. This package currently only supports logger_type = 'HOBO'.
 #' @param path_to_raw_folder Character scalar. Path to the folder containing
 #'   raw HOBO CSV files (one or more loggers, all of the same metric). For
 #'   example \code{"data/raw/level"} or \code{"data/testing/raw/COND"}.
@@ -68,12 +69,13 @@
 #' }
 #'
 #' @seealso \code{\link{add_nearest_baro}} (downstream, attaches baro data
-#'   to produce v0.2), \code{\link{barometric_qaqc_all}} (QAQC baro data
+#'   to produce v0.2), \code{\link{qc_barometric_all}} (QC baro data
 #'   produced by this function),
 #'   \code{\link{QAQC_metadata}} (metadata validation)
 #'
 #' @export
-bind_hobo_files <- function(path_to_raw_folder = NULL,
+bind_logger_files <- function(logger = "HOBO",
+                              path_to_raw_folder = NULL,
                             path_to_output_folder = NULL,
                             metadata_path = NULL,
                             timestamp_timezone = "UTC",
@@ -112,10 +114,12 @@ bind_hobo_files <- function(path_to_raw_folder = NULL,
     stop("No CSV files found in input folder. Please check the path to the folder containing raw HOBO CSV files and the folder itself.")
   }
 
-  # extract data from hobo file(s)
-  hobo_data_raw <- purrr::map(path_to_files, extract_alldata_from_file) |> dplyr::bind_rows()
+  if(logger=="HOBO"){
+    # extract data from hobo file(s)
+    hobo_data_raw <- purrr::map(path_to_files, extract_alldata_from_file) |> dplyr::bind_rows()
+  }else{stop("Logger type not recognized. This package currently supports the following logger types: 'HOBO'")}
 
-  # Error messages for file binding — suppress for conductivity (Low/Full Range
+ # Error messages for file binding — suppress for conductivity (Low/Full Range
 
   # is expected and handled downstream)
   is_conductivity_folder <- any(grepl("conduct|Range",
