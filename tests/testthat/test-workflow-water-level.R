@@ -7,7 +7,7 @@ test_that("water level workflow runs end-to-end", {
   level_runs_file <- system.file("extdata/water_level/benchmarks.csv", package = "waterlogged")
 
   # Step 1: Bind baro files
-  baro_bound <- bind_hobo_files(
+  baro_bound <- bind_logger_files(
     path_to_raw_folder = baro_folder,
     metadata_path      = metadata_file
   )
@@ -37,7 +37,7 @@ test_that("water level workflow runs end-to-end", {
   expect_true(all(c("OUTLIER_AP", "FLAG_SPIKE", "FLAG_FLATLINE") %in% names(baro_qc)))
 
   # Step 3: Bind water level files
-  level_bound <- bind_hobo_files(
+  level_bound <- bind_logger_files(
     path_to_raw_folder = level_folder,
     metadata_path      = metadata_file
   )
@@ -98,7 +98,7 @@ test_that("water level workflow runs end-to-end", {
   expect_true(inherits(p, "plotly") || inherits(p, "htmlwidget"))
 
   # Step 8: Set datum
-  wl_datum <- wl_set_datum(
+  wl_datum <- adjust_waterlevel_datum(
     input_data      = wl_qc,
     level_runs_path = level_runs_file,
     select_station  = "ALBR_ST_30"

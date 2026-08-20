@@ -102,7 +102,7 @@ cat("Setup complete. All input files found.\n")
 #   which has a continuous deployment record in a wetland environment.
 # -----------------------------------------------------------------------------
 
-cond_bound <- bind_hobo_files(
+cond_bound <- bind_logger_files(
   path_to_raw_folder = cond_folder,
   metadata_path      = metadata_file
 )
@@ -136,7 +136,7 @@ print(cond_plot)
 
 
 # =============================================================================
-# STEP 2: Automatic Conductivity QAQC
+# STEP 2: Automatic Conductivity QC
 # =============================================================================
 #
 # WHAT: Runs automatic quality checks on the conductivity data and flags
@@ -186,17 +186,17 @@ cond_qc <- qc_conductivity(
 )
 
 # Summarize flags
-cat("QAQC results for BUGS_WE_01:\n")
+cat("QC results for BUGS_WE_01:\n")
 cat("  Total rows:       ", nrow(cond_qc), "\n")
 cat("  Spikes:           ", sum(cond_qc$FLAG_SPIKE, na.rm = TRUE), "\n")
 cat("  Ice flagged:      ", sum(cond_qc$FLAG_ICE, na.rm = TRUE), "\n")
 cat("  Temp outlier:     ", sum(cond_qc$OUTLIER_WT, na.rm = TRUE), "\n")
 cat("  Dry flagged:      ", sum(cond_qc$FLAG_DRY, na.rm = TRUE), "\n")
 
-# Show the QAQC log
+# Show the QC log
 qaqc_log <- attr(cond_qc, "qaqc_log")
 if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
-  cat("\nQAQC log entries:\n")
+  cat("\nQC log entries:\n")
   print(qaqc_log[, c("field", "action", "code", "ts_start", "ts_end")])
 }
 
@@ -256,20 +256,20 @@ cat("  Dry flagged:      ", sum(cond_qc_at$FLAG_DRY, na.rm = TRUE), "\n")
 #
 # HOW TO READ THE PLOT:
 #   - Light traces  = raw values (original, unmodified)
-#   - Dark traces   = adjusted values (after QAQC)
+#   - Dark traces   = adjusted values (after QC)
 #   - Black shapes  = flag locations
 #   - Use the range slider to zoom into specific time periods
 # -----------------------------------------------------------------------------
 
-?plot_qaqc_timeseries
+?plot_qc_timeseries
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   cond_data      = cond_qc,
   select_station = "BUGS_WE_01"
 )
 
 # Notice the difference in FLAG_DRY when qc is run on data containing air temp
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   cond_data      = cond_qc_at,
   select_station = "BUGS_WE_01"
 )
@@ -393,7 +393,7 @@ cond_qc_adj <- adjust_logger_NA(
 
 # ---- After adjustments, re-plot to verify ----
 
-# plot_qaqc_timeseries(
+# plot_qc_timeseries(
 #   cond_data      = cond_qc_adj,
 #   select_station = "BUGS_WE_01"
 # )
@@ -404,7 +404,7 @@ cond_qc_adj <- adjust_logger_NA(
 # =============================================================================
 
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   cond_data      = cond_qc_adj,
   select_station = "BUGS_WE_01"
 )
@@ -441,17 +441,17 @@ cat("Clean data written to:", output_folder, "\n")
 # RECAP: What Happened at Each Step
 # =============================================================================
 #
-#   Step 1:  bind_hobo_files() on COND    -> cond_data  (raw conductivity)
-#   Step 2:  qc_conductivity()          -> cond_qc    (auto QAQC'd)
-#   Step 3:  plot_qaqc_timeseries()       -> (visual review)
+#   Step 1:  bind_logger_files() on COND    -> cond_data  (raw conductivity)
+#   Step 2:  qc_conductivity()          -> cond_qc    (auto QC'd)
+#   Step 3:  plot_qc_timeseries()       -> (visual review)
 #   Step 4:  convert_conductivity_spc_uScm() -> cond_qc (adds SPC)
 #   Step 5:  Manual adjustments           -> cond_qc    (updated)
-#   Step 6:  plot_qaqc_timeseries()       -> (final review)
+#   Step 6:  plot_qc_timeseries()       -> (final review)
 #   Step 7:  write_clean_data()            -> CSV file (v1.0)
 #
 # KEY COLUMNS:
 #   conduct_uScm      = raw electrical conductivity (never modified)
-#   conduct_uScm_adj  = adjusted EC (QAQC + drift corrections applied)
+#   conduct_uScm_adj  = adjusted EC (QC + drift corrections applied)
 #   spc_uScm_adj      = specific conductance at 25 C (temp-compensated)
 #   watertemp_C       = raw water temperature (never modified)
 #   watertemp_C_adj   = adjusted water temperature

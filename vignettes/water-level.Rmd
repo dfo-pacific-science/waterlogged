@@ -74,7 +74,7 @@ How it works:
 Returns a list with two items: `[[1]]` = data frame of all combined readings, `[[2]]` = a quick-look plot.
 
 ```{r bind-baro}
-baro_bound <- bind_hobo_files(
+baro_bound <- bind_logger_files(
   path_to_raw_folder = baro_folder,
   metadata_path      = metadata_file
 )
@@ -111,7 +111,7 @@ What it checks:
 
 The function never modifies the raw data. Instead, it creates new `_adj` (adjusted) columns that start as copies of the raw values. Any values that fail a check are set to `NA` in the `_adj` column. Boolean flag columns (`OUTLIER_*`, `FLAG_*`) record exactly what was checked and changed.
 
-```{r baro-qaqc}
+```{r baro-QC}
 baro_qc <- qc_barometric(
   input_data         = baro_data,
   select_station = unique(baro_data$site_station_code)[1],
@@ -123,7 +123,7 @@ baro_qc <- qc_barometric(
   flatline_n        = 6
 )
 
-cat("Baro QAQC results:\n")
+cat("Baro QC results:\n")
 cat("  Total rows:      ", nrow(baro_qc), "\n")
 cat("  Pressure outliers:", sum(baro_qc$OUTLIER_AP, na.rm = TRUE), "flagged\n")
 cat("  Temp outliers:    ", sum(baro_qc$OUTLIER_AT, na.rm = TRUE), "flagged\n")
@@ -142,7 +142,7 @@ Same as Step 1, but for the water level loggers instead of baro. The ALBR_ST_30 
 The water level logger measures the same physical quantity as the baro logger (absolute pressure in kPa), but because it's submerged, its readings include the pressure of the water column above it. At this stage, the column is named `waterpress_kPa` to distinguish it from the baro logger's `airpress_kPa`.
 
 ```{r bind-level}
-level_bound <- bind_hobo_files(
+level_bound <- bind_logger_files(
   path_to_raw_folder = level_folder,
   metadata_path      = metadata_file
 )
@@ -175,7 +175,7 @@ How "auto" selection works:
 1. Calculates the geographic distance (Haversine formula) between each water level station and every barometric station in the metadata
 2. Selects up to 3 nearest baro stations (within 30 km by default)
 3. If multiple baro stations overlap in time, calibrates them against the closest one and combines them to fill gaps
-4. Prefers the QAQC-adjusted values (`airpress_kPa_adj`) when available
+4. Prefers the QC-adjusted values (`airpress_kPa_adj`) when available
 
 New columns added: `airpress_kPa`, `airtemp_C`, `baro_site_stn_code`.
 
@@ -257,7 +257,7 @@ head(site_wl[, c("timestamp", "waterpress_kPa", "airpress_kPa",
                   "watertemp_C", "waterlevel_m", "ref_m")])
 ```
 
-## Automatic Water Level QAQC
+## Automatic Water Level QC
 
 Runs automatic quality checks on the computed water level data and flags suspicious values. Even after a good conversion, the data may contain artifacts from ice formation, sensor drying out, or physical disturbances (e.g., a flood moving the logger).
 
@@ -273,13 +273,13 @@ What it checks:
 - `FLAG_*` columns = "we noticed something, please review" — the data is NOT changed.
 - `OUTLIER_*` columns = "we changed the data" — the `_adj` value was modified (usually set to `NA`).
 
-```{r wl-qaqc}
+```{r wl-QC}
 wl_qc <- qc_waterlevel(
   input_data     = site_wl,
   select_station = "ALBR_ST_30"
 )
 
-cat("QAQC results for ALBR_ST_30:\n")
+cat("QC results for ALBR_ST_30:\n")
 cat("  Total rows:        ", nrow(wl_qc), "\n")
 cat("  Ice flagged:       ", sum(wl_qc$FLAG_ICE, na.rm = TRUE), "readings\n")
 cat("  Disturbance flagged:", sum(wl_qc$FLAG_DISTURBANCE, na.rm = TRUE), "readings\n")
@@ -287,13 +287,13 @@ cat("  Dry flagged:       ", sum(wl_qc$FLAG_DRY, na.rm = TRUE), "readings\n")
 cat("  Temp outliers:     ", sum(wl_qc$OUTLIER_WT, na.rm = TRUE), "readings\n")
 ```
 
-The QAQC log is stored as an attribute on the result. It records every automated action taken.
+The QC log is stored as an attribute on the result. It records every automated action taken.
 
-```{r qaqc-log}
+```{r QC-log}
 qaqc_log <- attr(wl_qc, "qaqc_log")
 
 if (!is.null(qaqc_log) && nrow(qaqc_log) > 0) {
-  cat("QAQC log entries:\n")
+  cat("QC log entries:\n")
   print(qaqc_log[, c("field", "action", "code", "ts_start", "ts_end")])
 }
 ```
@@ -305,7 +305,7 @@ Creates an interactive multi-panel plot for reviewing the data. Before making ma
 How to use the plot:
 
 - Light traces = raw values (original, unmodified)
-- Dark traces = adjusted values (after QAQC corrections)
+- Dark traces = adjusted values (after QC corrections)
 - Colored markers = flag locations (ice, dry, disturbance)
 - Use the range slider at the bottom to zoom in on specific periods
 - Hover over points to see exact values and timestamps
@@ -313,7 +313,7 @@ How to use the plot:
 This is an iterative process: view the plot, identify a problem period, apply a correction, re-plot to verify, and repeat until satisfied.
 
 ```{r visual-review, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30",
@@ -347,7 +347,7 @@ wl_qc <- adjust_logger_NA(
 Review the timeseries to see the change.
 
 ```{r visual-review2, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30",
@@ -374,7 +374,7 @@ wl_qc <- adjust_waterlevel_spike(
 Review the timeseries to see the change.
 
 ```{r visual-review3, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30",
@@ -394,7 +394,7 @@ wl_qc <- wl_qc|> dplyr::mutate(waterlevel_m = dplyr::case_when(timestamp > as.PO
                                                      .default = waterlevel_m ))
 wl_qc$waterlevel_m_adj <- wl_qc$waterlevel_m
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30",
@@ -418,7 +418,7 @@ wl_qc <- adjust_WL_offset(
 Review the timeseries to see the change.
 
 ```{r visual-review4, fig.height=10, fig.width=7}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30",
@@ -448,7 +448,7 @@ wl_qc <- wl_multipoint_correction(
 After any manual adjustments, always re-plot to verify:
 
 ```{r manual-replot, eval=FALSE}
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   wl_data        = wl_qc,
   baro_data      = baro_qc,
   select_station = "ALBR_ST_30"
@@ -464,7 +464,7 @@ Staff gauge readings give you relative water level ("how high is the water on th
 Note: This function is marked as "still in testing" by the developers. It works for initial datum establishment but has limitations for multi-year reapplication.
 
 ```{r set-datum}
-wl_datum <- wl_set_datum(
+wl_datum <- adjust_waterlevel_datum(
   input_data      = wl_qc,
   level_runs_path = level_runs_file,
   select_station  = "ALBR_ST_30"
@@ -499,15 +499,15 @@ write_clean_data(
 
 | Step | Function | Result |
 |------|----------|--------|
-| 1 | `bind_hobo_files()` on baro CSVs | `baro_data` (raw baro) |
-| 2 | `barometric_qaqc_all()` | `baro_qc` (cleaned baro) |
-| 3 | `bind_hobo_files()` on level CSVs | `level_data` (raw WL) |
+| 1 | `bind_logger_files()` on baro CSVs | `baro_data` (raw baro) |
+| 2 | `qc_barometric_all()` | `baro_qc` (cleaned baro) |
+| 3 | `bind_logger_files()` on level CSVs | `level_data` (raw WL) |
 | 4 | `add_nearest_baro()` | `wl_data` (WL + baro attached) |
 | 5 | `convert_waterlevel_kPa_m()` | `site_wl` (kPa → metres) |
-| 6 | `qc_waterlevel()` | `wl_qc` (auto QAQC'd) |
-| 7 | `plot_qaqc_timeseries()` | (visual review) |
+| 6 | `qc_waterlevel()` | `wl_qc` (auto QC'd) |
+| 7 | `plot_qc_timeseries()` | (visual review) |
 | 8 | Manual adjustments (as needed) | `wl_qc` (updated) |
-| 9 | `wl_set_datum()` (optional) | (adds elevation) |
+| 9 | `adjust_waterlevel_datum()` (optional) | (adds elevation) |
 | 10 | `write_clean_data()` | CSV files on disk |
 
 **Key columns to understand:**
@@ -517,4 +517,4 @@ write_clean_data(
 - `FLAG_*` — "something looks off, please review" (data unchanged)
 - `OUTLIER_*` — "we changed the data" (data was set to NA or corrected)
 
-Always use `waterlevel_m_adj` for analysis. Compare it with `waterlevel_m` to see exactly what the QAQC process changed.
+Always use `waterlevel_m_adj` for analysis. Compare it with `waterlevel_m` to see exactly what the QC process changed.

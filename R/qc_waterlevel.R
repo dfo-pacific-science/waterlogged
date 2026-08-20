@@ -111,7 +111,7 @@ qc_waterlevel <- function(input_data,
     output_data$timestamp <- lubridate::ymd_hms(output_data$timestamp, tz = "UTC")
   }
 
-  # Create _adj columns if missing — preserves upstream corrections (e.g. wl_set_datum)
+  # Create _adj columns if missing — preserves upstream corrections (e.g. adjust_waterlevel_datum)
   if (!"waterlevel_m_adj" %in% names(output_data))
     output_data$waterlevel_m_adj <- output_data$waterlevel_m
   if (!"watertemp_C_adj" %in% names(output_data))
