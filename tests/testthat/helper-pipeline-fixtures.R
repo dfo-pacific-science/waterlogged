@@ -41,8 +41,8 @@
 # WATER LEVEL PIPELINE
 #
 # This pipeline processes raw HOBO U20 water-level logger data:
-#   1. bind_hobo_files()        — parse raw CSVs into a tidy data frame
-#   2. bind_hobo_files() (baro) — same for barometric pressure loggers
+#   1. bind_logger_files()        — parse raw CSVs into a tidy data frame
+#   2. bind_logger_files() (baro) — same for barometric pressure loggers
 #   3. add_nearest_baro()       — attach nearest baro station to each WL row
 #   4. convert_waterlevel_kPa_m() — convert pressure (kPa) to depth (metres)
 #   5. qc_waterlevel()        — flag ice, dry periods, disturbances, etc.
@@ -67,21 +67,21 @@ if (!is.null(.wl_cache$done)) return(invisible())
   dir.create(cache_dir, showWarnings = FALSE, recursive = TRUE)
 
   # -- Step 1: Bind raw water-level logger files into one data frame ---------
-  level_bound <- bind_hobo_files(
+  level_bound <- bind_logger_files(
     path_to_raw_folder    = test_path("fixtures/level"),
     path_to_output_folder = cache_dir,
     metadata_path         = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
   )
 
   # -- Step 2: Bind barometric pressure logger files -------------------------
-  baro_bound <- bind_hobo_files(
+  baro_bound <- bind_logger_files(
     path_to_raw_folder    = test_path("fixtures/baro"),
     path_to_output_folder = cache_dir,
     metadata_path         = test_path("fixtures/metadata/test_convert_wl_kpa_m.csv")
   )
 
   # -- Step 3: Attach nearest barometric station to each water-level row -----
-  #    add_nearest_baro() reads the baro CSVs that bind_hobo_files() wrote
+  #    add_nearest_baro() reads the baro CSVs that bind_logger_files() wrote
   #    to cache_dir, then joins the closest baro readings by timestamp.
   wl_data_with_baro <- add_nearest_baro(
     input_data            = level_bound[[1]],
@@ -165,8 +165,8 @@ get_wl_qaqc_data <- function() {
 # DISSOLVED OXYGEN PIPELINE
 #
 # This pipeline processes raw HOBO U26 dissolved-oxygen logger data:
-#   1. bind_hobo_files()          — parse raw DO CSVs
-#   2. bind_hobo_files() (baro)   — parse raw baro CSVs
+#   1. bind_logger_files()          — parse raw DO CSVs
+#   2. bind_logger_files() (baro)   — parse raw baro CSVs
 #   3. add_nearest_baro()         — attach nearest baro station
 #   4. convert_do_mgl_percsat()   — compute % saturation from mg/L + baro
 #
@@ -186,14 +186,14 @@ get_wl_qaqc_data <- function() {
   metadata <- test_path("fixtures/metadata/test_convert_do_mgl_percsat.csv")
 
   # -- Step 1: Bind raw dissolved oxygen logger files ------------------------
-  DO_bound <- bind_hobo_files(
+  DO_bound <- bind_logger_files(
     path_to_raw_folder    = test_path("fixtures/test_convert_do/DO"),
     path_to_output_folder = cache_dir,
     metadata_path         = metadata
   )
 
   # -- Step 2: Bind barometric logger files ----------------------------------
-  baro_bound <- bind_hobo_files(
+  baro_bound <- bind_logger_files(
     path_to_raw_folder    = test_path("fixtures/test_convert_do/baro"),
     path_to_output_folder = cache_dir,
     metadata_path         = metadata

@@ -1,6 +1,6 @@
 #source("../../R/utils.R")
 #source("../../R/bind_hobo_files_helpers.R")
-#source("../../R/bind_hobo_files.r")
+#source("../../R/bind_logger_files.r")
 library(ggplot2)
 
 #see https://r-pkgs.org/testing-design.html#storing-test-data for best practices for storing data
@@ -12,7 +12,7 @@ test_that("Test binding barometric files", {
 
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
-  baro_bound <- bind_hobo_files(
+  baro_bound <- bind_logger_files(
     path_to_raw_folder = path_to_raw_folder,
     path_to_output_folder = path_to_output_folder,
     metadata_path = metadata_path
@@ -33,7 +33,7 @@ test_that("Test binding DO files", {
 
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
-  DO_bound <- bind_hobo_files(
+  DO_bound <- bind_logger_files(
     path_to_raw_folder = path_to_raw_folder,
     path_to_output_folder = path_to_output_folder,
     metadata_path = metadata_path
@@ -52,7 +52,7 @@ test_that("Test binding COND files", {
   path_to_output_folder = withr::local_tempdir()
   metadata_path = test_path("fixtures/testing_metadata_FP.csv")
 
-  cond_bound <- bind_hobo_files(
+  cond_bound <- bind_logger_files(
     path_to_raw_folder = path_to_raw_folder,
     path_to_output_folder = path_to_output_folder,
     metadata_path = metadata_path
@@ -75,7 +75,7 @@ test_that("Test binding COND files", {
 #
 #
 #   expect_error(
-#     bind_hobo_files(
+#     bind_logger_files(
 #       path_to_raw_folder = path_to_raw_folder,
 #       path_to_output_folder = path_to_output_folder,
 #       metadata_path = metadata_path
@@ -96,7 +96,7 @@ test_that("Test multiple metric types", {
 
 
   expect_error(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path = metadata_path
@@ -112,7 +112,7 @@ test_that("Multi-metric SN resolved by deployment timestamp overlap (#49)",
 
             # at ALBR) and waterlevel (Jul-Sep 2021 at CANV). The baro files contain
             # data from 2023-2024, so only the barometric metadata row overlaps.
-            # bind_hobo_files() should filter out the non-overlapping waterlevel row and
+            # bind_logger_files() should filter out the non-overlapping waterlevel row and
             # succeed.
 
             issue_dir <- normalizePath(file.path(test_path(), "..", "..", "..", "issues", "02", "data"),
@@ -121,7 +121,7 @@ test_that("Multi-metric SN resolved by deployment timestamp overlap (#49)",
             # Skip if issue data not available (CI or other machines)
             skip_if_not(dir.exists(file.path(issue_dir, "baro")), "Issue 02 test data not available")
 
-            result <- suppressMessages(bind_hobo_files(
+            result <- suppressMessages(bind_logger_files(
               path_to_raw_folder = file.path(issue_dir, "baro"),
               metadata_path      = file.path(
                 issue_dir,
@@ -143,7 +143,7 @@ test_that("Multi-metric SN resolved by deployment timestamp overlap (#49)",
 
 test_that("Mixed Low/Full Range conductivity files merge correctly (#49)", {
   # Two conductivity files: BARR has Low Range, PYRA has Full Range.
-  # bind_hobo_files() should merge both into a single conduct_uScm column
+  # bind_logger_files() should merge both into a single conduct_uScm column
   # and drop the raw Low Range / Full Range columns.
 
   issue_dir <- normalizePath(file.path(test_path(), "..", "..", "..", "issues", "02", "data"),
@@ -154,7 +154,7 @@ test_that("Mixed Low/Full Range conductivity files merge correctly (#49)", {
   ),
   "Issue 02 conductivity test data not available")
 
-  result <- suppressWarnings(suppressMessages(bind_hobo_files(
+  result <- suppressWarnings(suppressMessages(bind_logger_files(
     file_paths    = c(
       file.path(issue_dir, "CO_BARR_WE_30_21245028_20251024.csv"),
       file.path(issue_dir, "CO_PYRA_WE_30_21245033_20251022.csv")
@@ -192,7 +192,7 @@ test_that("No csv files in input folder", {
   metadata_path = test_path("fixtures/metadata/no_csv_files_in_input_folder.csv")
 
   expect_error(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path = metadata_path
@@ -209,7 +209,7 @@ test_that("Test multiple date formats", {
 
   metadata_path = test_path("fixtures/metadata/test_multiple_date_formats.csv")
 
-  timestamp_wrong_format_bound = bind_hobo_files(
+  timestamp_wrong_format_bound = bind_logger_files(
     path_to_raw_folder = path_to_raw_folder,
     path_to_output_folder = path_to_output_folder,
     metadata_path = metadata_path
@@ -219,7 +219,7 @@ test_that("Test multiple date formats", {
 
   path_to_raw_folder = test_path("fixtures/test_multiple_date_formats/correct_format")
 
-  timestamp_correct_format_bound = bind_hobo_files(
+  timestamp_correct_format_bound = bind_logger_files(
     path_to_raw_folder = path_to_raw_folder,
     path_to_output_folder = path_to_output_folder,
     metadata_path = metadata_path
@@ -240,7 +240,7 @@ test_that("Test issue 70", {
   metadata_path = test_path("fixtures/metadata/NorthThompson_logger_deployments_20251105.csv")
 
   expect_no_warning(suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path = metadata_path
@@ -248,7 +248,7 @@ test_that("Test issue 70", {
   ), message = "Some files are in different units")
 
   at_bound = suppressWarnings(suppressMessages(
-    bind_hobo_files(
+    bind_logger_files(
       path_to_raw_folder = path_to_raw_folder,
       path_to_output_folder = path_to_output_folder,
       metadata_path = metadata_path

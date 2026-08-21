@@ -26,12 +26,12 @@
 #'   }
 #'
 #' @seealso \code{\link{write_clean_data}} (produces the v1.0 files this
-#'   function reads), \code{\link{bind_hobo_files}} (produces v0.1),
+#'   function reads), \code{\link{bind_logger_files}} (produces v0.1),
 #'   \code{\link{get_logger_data_helpers}} (helper files)
 #'
 #' @export
 
-summarize_clean_data <- function(input_data,
+summarise_clean_data <- function(input_data,
                             select_station  = "all",
                             temporal_scale  =  "daily",
                             path_to_output_folder = NULL
@@ -56,7 +56,7 @@ summarize_clean_data <- function(input_data,
     miss <- setdiff(req_cols, names(input_data))
     if (length(miss) > 0) {
       stop(
-        "summarize_clean_data(): input_data is missing required column(s): ",
+        "summarise_clean_data(): input_data is missing required column(s): ",
         paste(miss, collapse = ", "),
         call. = FALSE
       )
@@ -104,7 +104,7 @@ summarize_clean_data <- function(input_data,
 
 
   if (is.null(matched_val)) {
-    stop("summarize_clean_data(): Unsupported metric to summarize: ", metric,
+    stop("summarise_clean_data(): Unsupported metric to summarise: ", metric,
          "\nExpected metrics are: \"dissolvedoxygen\", \"barometric\", \"waterlevel\", \"watertemp\", \"airtemp\", \"conductivity\".",
          "\nExpected column headers:  \"do_mgl_adj\", \"airpress_kPa_adj\", \"waterlevel_m_adj\", \"watertemp_C_adj\", \"airtemp_C_adj\", \"conduct_uScm_adj\".")
   }

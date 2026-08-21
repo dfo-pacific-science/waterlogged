@@ -5,7 +5,7 @@ test_that("conductivity workflow runs end-to-end", {
   reference_file <- system.file("extdata/conductivity/field_references.csv", package = "waterlogged")
 
   # Step 1: Bind conductivity files
-  cond_bound <- bind_hobo_files(
+  cond_bound <- bind_logger_files(
     path_to_raw_folder = cond_folder,
     metadata_path      = metadata_file
   )
@@ -57,7 +57,7 @@ test_that("conductivity workflow runs end-to-end", {
   expect_true(max(cond_qc$spc_uScm_adj, na.rm = TRUE) < 500)
 
   # Step 5: Plot
-  p <- plot_qaqc_timeseries(
+  p <- plot_qc_timeseries(
     cond_data      = cond_qc,
     select_station = "TUMT_WE_40"
   )

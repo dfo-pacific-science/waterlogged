@@ -13,7 +13,7 @@
 #   1. Reads raw TidbiT logger files and links them to deployment metadata
 #   2. Runs automatic quality checks on water temperature
 #   3. Runs automatic quality checks on air temperature
-#   4. Shows how to visually review the QAQC results
+#   4. Shows how to visually review the QC results
 #   5. Demonstrates manual corrections (ice, dry sensor, disturbance)
 #   6. Exports the final clean datasets
 #
@@ -28,7 +28,7 @@
 #   - NO barometric pressure correction needed (unlike WL or DO)
 #   - NO unit conversion step (unlike kPa -> metres for WL)
 #   - The metric IS the temperature, so there's no "associated temp"
-#   - Simpler pipeline: bind -> QAQC -> manual adjustments -> export
+#   - Simpler pipeline: bind -> QC -> manual adjustments -> export
 #
 # DATA USED (all in water_temperature/):
 #   - metadata_wt.csv                            — deployment records
@@ -38,7 +38,7 @@
 #   - airtemp/                                   — air temp HOBO CSVs
 #     - WT_HAGG_ST_30_20764236_20230411.csv      — air temp
 #
-# IMPORTANT: bind_hobo_files() requires one metric type per folder. Water
+# IMPORTANT: bind_logger_files() requires one metric type per folder. Water
 # temperature and air temperature files must live in separate subfolders.
 #
 # =============================================================================
@@ -60,7 +60,7 @@ library(waterlogged)
 data_dir <- system.file("extdata", "water_temperature", package = "waterlogged")
 
 # Define paths to the key input files.
-# Raw HOBO files are in separate subfolders per metric — bind_hobo_files()
+# Raw HOBO files are in separate subfolders per metric — bind_logger_files()
 # requires all files in a folder to be the same metric type.
 metadata_file   <- file.path(data_dir, "metadata_wt.csv")
 watertemp_folder <- file.path(data_dir, "watertemp")
@@ -82,8 +82,8 @@ print(meta)
 #   - HAGG_ST_30 has metric = "airtemp"  (TidbiT measuring air temperature)
 #   - LEMI_ST_20 has metric = "watertemp" (TidbiT measuring water temperature)
 #   - LEMI_ST_20 has TWO deployment rows (same SN, different deploy timestamps)
-#     because the logger was redeployed — bind_hobo_files() handles this
-#   - The "model" column says "TidBit V2" — this tells bind_hobo_files()
+#     because the logger was redeployed — bind_logger_files() handles this
+#   - The "model" column says "TidBit V2" — this tells bind_logger_files()
 #     to expect a single "Temp" column instead of pressure channels
 
 
@@ -110,9 +110,9 @@ print(meta)
 #   [[2]] = a quick-look plot (ggplot) to visually check the data
 # -----------------------------------------------------------------------------
 
-# ?bind_hobo_files
+# ?bind_logger_files
 
-wt_bound <- bind_hobo_files(
+wt_bound <- bind_logger_files(
   path_to_raw_folder = watertemp_folder,
   metadata_path      = metadata_file
 )
@@ -144,12 +144,12 @@ print(wt_plot)
 #
 # WHAT: Same as Step 1a but for AIR temperature files.
 #
-# NOTE: bind_hobo_files() reads the metadata and sees metric = "airtemp"
+# NOTE: bind_logger_files() reads the metadata and sees metric = "airtemp"
 #       for the HAGG_ST_30 logger, so it names the column "airtemp_C"
 #       (not "watertemp_C").
 # -----------------------------------------------------------------------------
 
-at_bound <- bind_hobo_files(
+at_bound <- bind_logger_files(
   path_to_raw_folder = airtemp_folder,
   metadata_path      = metadata_file
 )
@@ -208,17 +208,17 @@ wt_qc <- qc_watertemp(
   temp_air_water_diff_C = 2       # air-water proximity threshold (if airtemp present)
 )
 
-cat("\n--- Water Temperature QAQC: LEMI_ST_20 ---\n")
+cat("\n--- Water Temperature QC: LEMI_ST_20 ---\n")
 cat("Total rows:          ", nrow(wt_qc), "\n")
 cat("Temp outlier:        ", sum(wt_qc$OUTLIER_WT, na.rm = TRUE), "\n")
 cat("Ice flagged:         ", sum(wt_qc$FLAG_ICE, na.rm = TRUE), "\n")
 cat("Dry flagged:         ", sum(wt_qc$FLAG_DRY, na.rm = TRUE), "\n")
 cat("Adjusted NAs:        ", sum(is.na(wt_qc$watertemp_C_adj)), "\n")
 
-# Show the QAQC log
+# Show the QC log
 qaqc_log_wt <- attr(wt_qc, "qaqc_log")
 if (!is.null(qaqc_log_wt) && nrow(qaqc_log_wt) > 0) {
-  cat("\nQAQC log entries:\n")
+  cat("\nQC log entries:\n")
   print(qaqc_log_wt[, c("field", "action", "code", "ts_start", "ts_end")])
 }
 
@@ -233,20 +233,20 @@ print(round(summary(wt_qc$watertemp_C_adj), 2))
 # STEP 3: Visual Review — Water Temperature
 # =============================================================================
 #
-# WHAT: Creates an interactive plot for reviewing the QAQC results.
+# WHAT: Creates an interactive plot for reviewing the QC results.
 #
 # HOW TO READ THE PLOT:
 #   - Light trace  = raw values (original, unmodified)
-#   - Dark trace   = adjusted values (after QAQC)
+#   - Dark trace   = adjusted values (after QC)
 #   - Colored dots = flag locations
 #
 # NOTE: For standalone temperature data, pass data via watertemp_data
 #       (not wl_data or do_data — those expect multi-metric loggers).
 # -----------------------------------------------------------------------------
 
-# ?plot_qaqc_timeseries
+# ?plot_qc_timeseries
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   watertemp_data = wt_qc,
   select_station = "LEMI_ST_20"
 )
@@ -261,7 +261,7 @@ plot_qaqc_timeseries(
 # STEP 4: QC Air Temperature — HAGG_ST_30
 # =============================================================================
 #
-# WHAT: Runs automatic range-check QAQC on air temperature data.
+# WHAT: Runs automatic range-check QC on air temperature data.
 #
 # WHY:  Air temperature loggers are simpler to QC — the main concern is
 #       values outside the physically plausible range for the region.
@@ -274,7 +274,7 @@ plot_qaqc_timeseries(
 # NOTE: The column name for air temperature is airtemp_C (not watertemp_C).
 #       qc_airtemp() expects this column and creates airtemp_C_adj.
 #
-# IMPORTANT: bind_hobo_files() names the column based on the metadata
+# IMPORTANT: bind_logger_files() names the column based on the metadata
 #            metric field. For metric = "airtemp", the column is airtemp_C.
 #            For metric = "watertemp", it's watertemp_C.
 # -----------------------------------------------------------------------------
@@ -291,15 +291,15 @@ at_qc <- qc_airtemp(
   temp_high_limit =  40     # upper bound for plausible air temp
 )
 
-cat("\n--- Air Temperature QAQC: HAGG_ST_30 ---\n")
+cat("\n--- Air Temperature QC: HAGG_ST_30 ---\n")
 cat("Total rows:        ", nrow(at_qc), "\n")
 cat("Out of range:      ", sum(at_qc$OUTLIER_AT, na.rm = TRUE), "\n")
 cat("Adjusted NAs:      ", sum(is.na(at_qc$airtemp_C_adj)), "\n")
 
-# Show the QAQC log
+# Show the QC log
 qaqc_log_at <- attr(at_qc, "qaqc_log")
 if (!is.null(qaqc_log_at) && nrow(qaqc_log_at) > 0) {
-  cat("\nQAQC log entries:\n")
+  cat("\nQC log entries:\n")
   print(qaqc_log_at[, c("field", "action", "code", "ts_start", "ts_end")])
 }
 
@@ -314,7 +314,7 @@ print(round(summary(at_qc$airtemp_C_adj), 2))
 # STEP 5: Visual Review — Air Temperature
 # =============================================================================
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   airtemp_data   = at_qc,
   select_station = "HAGG_ST_30"
 )
@@ -397,12 +397,12 @@ plot_qaqc_timeseries(
 
 # ---- After adjustments, re-plot to verify ----
 
-# plot_qaqc_timeseries(
+# plot_qc_timeseries(
 #   watertemp_data = wt_qc,
 #   select_station = "LEMI_ST_20"
 # )
 
-# plot_qaqc_timeseries(
+# plot_qc_timeseries(
 #   airtemp_data   = at_qc,
 #   select_station = "HAGG_ST_30"
 # )
@@ -412,12 +412,12 @@ plot_qaqc_timeseries(
 # STEP 7: Final Review
 # =============================================================================
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   watertemp_data = wt_qc,
   select_station = "LEMI_ST_20"
 )
 
-plot_qaqc_timeseries(
+plot_qc_timeseries(
   airtemp_data   = at_qc,
   select_station = "HAGG_ST_30"
 )
@@ -470,34 +470,34 @@ cat(paste(" ", exported, collapse = "\n"), "\n")
 # RECAP: What Happened at Each Step
 # =============================================================================
 #
-#   Step 1:  bind_hobo_files()         -> wt_data  (raw temps, all stations)
+#   Step 1:  bind_logger_files()         -> wt_data  (raw temps, all stations)
 #   Step 2:  qc_watertemp()            -> wt_qc    (LEMI_ST_20, water temp)
-#   Step 3:  plot_qaqc_timeseries()    -> (visual review, water temp)
+#   Step 3:  plot_qc_timeseries()    -> (visual review, water temp)
 #   Step 4:  qc_airtemp()              -> at_qc    (HAGG_ST_30, air temp)
-#   Step 5:  plot_qaqc_timeseries()    -> (visual review, air temp)
+#   Step 5:  plot_qc_timeseries()    -> (visual review, air temp)
 #   Step 6:  Manual adjustments        -> wt_qc / at_qc (updated)
-#   Step 7:  plot_qaqc_timeseries()    -> (final review)
+#   Step 7:  plot_qc_timeseries()    -> (final review)
 #   Step 8:  write_clean_data()        -> CSV files (v1.0)
 #
 # KEY COLUMNS:
 #
 #   Water temperature:
 #     watertemp_C       = raw water temperature (never modified)
-#     watertemp_C_adj   = adjusted water temperature (QAQC applied)
+#     watertemp_C_adj   = adjusted water temperature (QC applied)
 #     FLAG_ICE          = possible ice (data NOT changed, review needed)
 #     FLAG_DRY          = possible dry sensor (data NOT changed)
 #     OUTLIER_WT        = TRUE where temp was corrected (< -1 C -> NA, -1 to 0 -> 0)
 #
 #   Air temperature:
 #     airtemp_C         = raw air temperature (never modified)
-#     airtemp_C_adj     = adjusted air temperature (QAQC applied)
+#     airtemp_C_adj     = adjusted air temperature (QC applied)
 #     OUTLIER_AT        = TRUE where out-of-range values set to NA
 #
 # COMPARED TO OTHER PIPELINES:
 #   - No barometric pressure step (not needed for temperature)
 #   - No unit conversion step (already in deg C)
 #   - No drift correction step (temperature loggers don't drift)
-#   - Different QAQC function per metric (qc_watertemp vs qc_airtemp)
+#   - Different QC function per metric (qc_watertemp vs qc_airtemp)
 #   - adjust_logger_NA() for air temp only supports "disturbance"
 #
 # =============================================================================

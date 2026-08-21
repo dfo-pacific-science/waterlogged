@@ -26,25 +26,25 @@ make_logger_df <- function(metric_cols) {
    expect_error(normalise_temporal_scale(NULL), "non-NULL")
  })
 # --- summarisation path (uses summarise_clean_data + build_plots) ------------
- test_that("#53 - summarize_clean_data summarises waterlevel daily", {
+ test_that("#53 - summarise_clean_data summarises waterlevel daily", {
    df <- make_logger_df(list(
      waterlevel_m_adj = runif(24, 0.5, 1.5),
      watertemp_C_adj  = runif(24, 10, 20)
    ))
-   result <- summarize_clean_data(
+   result <- summarise_clean_data(
      input_data      = df
    )
    expect_equal(nrow(result), 3)
    expect_true("waterlevel_m_adj_mean" %in% names(result))
  })
 #
- test_that("#53 - summarize_clean_data summarises conductivity daily", {
+ test_that("#53 - summarise_clean_data summarises conductivity daily", {
    df <- make_logger_df(list(
      conduct_uScm_adj = runif(24, 100, 500),
      spc_uScm_adj     = runif(24, 100, 500),
      watertemp_C_adj  = runif(24, 10, 20)
    ))
-   result <- summarize_clean_data(
+   result <- summarise_clean_data(
      input_data      = df)
 
    expect_equal(nrow(result), 3)
@@ -54,13 +54,13 @@ make_logger_df <- function(metric_cols) {
  })
 
  #
- test_that("#53 - summarize_clean_data throws error if temporal scale same level as data", {
+ test_that("#53 - summarise_clean_data throws error if temporal scale same level as data", {
    df <- make_logger_df(list(
      conduct_uScm_adj = runif(24, 100, 500),
      spc_uScm_adj     = runif(24, 100, 500),
      watertemp_C_adj  = runif(24, 10, 20)
    ))
-   expect_error(summarize_clean_data(
+   expect_error(summarise_clean_data(
      input_data      = df,
      temporal_scale = "hourly"))
 

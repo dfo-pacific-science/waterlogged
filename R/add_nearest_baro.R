@@ -25,7 +25,7 @@
 #' @param input_data A data frame of logger observations. Must contain at
 #'   minimum: \code{timestamp} (POSIXct or parseable by
 #'   \code{lubridate::ymd_hms()}), \code{site_station_code}, and
-#'   \code{metric}. Typically the output of \code{\link{bind_hobo_files}}.
+#'   \code{metric}. Typically the output of \code{\link{bind_logger_files}}.
 #' @param path_to_output_folder Character scalar. Root directory for v0.2 CSV
 #'   output. If \code{NULL} (default), no files are written (Shiny mode).
 #' @param baro_data_path Character scalar. Directory containing BARO CSV files
@@ -92,7 +92,7 @@
 #'
 #' Timestamps are coerced to POSIXct (UTC) if not already.
 #'
-#' @seealso \code{\link{bind_hobo_files}} (upstream, produces v0.1 data),
+#' @seealso \code{\link{bind_logger_files}} (upstream, produces v0.1 data),
 #'   \code{\link{qc_barometric}} and \code{\link{barometric_qaqc_all}} (QAQC
 #'   baro data before this step),
 #'   \code{\link{resolve_metrics_param}},

@@ -1,9 +1,9 @@
-#' Run barometric QA/QC for all baro stations in metadata
+#' Run barometric QC for all baro stations in metadata
 #'
 #' Reads all barometric logger files for stations listed in the metadata
 #' (where `metric == "barometric"`), applies `qc_barometric()` to each
-#' station, writes yearly QA/QC CSVs (v0.1), and returns a combined data
-#' frame of all QA/QC'd barometric data.
+#' station, writes yearly QC CSVs (v0.1), and returns a combined data
+#' frame of all QC'd barometric data.
 #'
 #' Files are expected to follow the naming pattern
 #' `"<site_station_code>_BARO_YYYYMMDD_YYYYMMDD_v*.csv"` and live somewhere
@@ -13,14 +13,14 @@
 #'   files. All subdirectories are searched recursively for files matching
 #'   `"<station>_BARO_*.csv"`, where `<station>` comes from the metadata.
 #'   For example: `"data/testing/processed"`.
-#' @param metadata_path Path to the metadata CSV used by QAQC_metadata(),
+#' @param metadata_path Path to the metadata CSV used by QC_metadata(),
 #'   e.g. `"data/testing/raw/testing_metadata.csv"`. Must include
 #'   `site_station_code`, `metric`, and barometric station definitions
 #'   (`metric == "barometric"`).
-#' @param path_to_output_folder Root directory where yearly QA/QC barometric
+#' @param path_to_output_folder Root directory where yearly QC barometric
 #'   files will be written. Year- and `processed`-subfolders are created as
 #'   needed, e.g. `"data/testing/processed"`.
-#' @param log_root Root folder where QA/QC logs are written by
+#' @param log_root Root folder where QC logs are written by
 #'   [qc_barometric()] and related functions, typically the same as
 #'   `path_to_output_folder`, e.g. `"data/testing/processed"`.
 #' @param temp_low_limit_C Lower bound (C) for plausible air temperatures.
@@ -43,7 +43,7 @@
 #'   to flag a potential flatline in the pressure series.
 #'   Values are flagged for review as \code{TRUE} in \code{FLAG_FLATLINE}.
 #'   Default is 6.
-#' @param user Character username written into the QA/QC log. Defaults to
+#' @param user Character username written into the QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
 #'   local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
@@ -56,14 +56,14 @@
 #'   are filtered from this data frame instead of reading CSV files.
 #'
 #'
-#' @return A single long-format data frame created by binding the QA/QC'd
+#' @return A single long-format data frame created by binding the QC'd
 #'    barometric data for all stations. If no stations are processed
 #'   successfully, an empty tibble is returned and a warning is issued.
 #'
 #' @seealso [qc_barometric()], [add_nearest_baro()]
 #'
 #' @export
-barometric_qaqc_all <- function(
+qc_barometric_all <- function(
     baro_data_path = NULL,
     metadata_path = NULL,
     path_to_output_folder = NULL,
@@ -88,14 +88,14 @@ barometric_qaqc_all <- function(
     unique()
 
   if (!length(baro_sites)) {
-    stop("barometric_qaqc_all(): No barometric stations found in metadata ",
+    stop("qc_barometric_all(): No barometric stations found in metadata ",
          "(metric == 'barometric').", call. = FALSE)
   }
 
   all_baro_list <- list()
 
   for (stn in baro_sites) {
-    message("\n--- Barometric QA/QC for station: ", stn, " ---")
+    message("\n--- Barometric QC for station: ", stn, " ---")
 
     if (!is.null(baro_data) && is.data.frame(baro_data)) {
       raw_baro <- baro_data |>
@@ -145,7 +145,7 @@ barometric_qaqc_all <- function(
       raw_baro$site_station_code <- stn
     }
 
-    # run single-station QA/QC (this keeps all original cols + *_adj + baro_qaqc_*)
+    # run single-station QC (this keeps all original cols + *_adj + baro_qaqc_*)
     checked <- qc_barometric(
       input_data         = raw_baro,
       select_station     = stn,
@@ -214,14 +214,14 @@ barometric_qaqc_all <- function(
         out_path <- file.path(proc_dir, out_name)
 
         utils::write.csv(sub_write, out_path, row.names = FALSE)
-        message("  QA/QC BARO written: ", basename(out_path))
+        message("  QC BARO written: ", basename(out_path))
       }
     }
   }
 
-  # ---- RETURN: combined QA/QC’d BARO data (bind_hobo_files-style long DF) ----
+  # ---- RETURN: combined QC’d BARO data (bind_logger_files-style long DF) ----
   if (!length(all_baro_list)) {
-    warning("barometric_qaqc_all(): No stations processed successfully; returning empty tibble.")
+    warning("qc_barometric_all(): No stations processed successfully; returning empty tibble.")
     return(tibble::tibble())
   }
 
