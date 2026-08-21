@@ -72,10 +72,7 @@ A two-element list:
 \describe{
 \item{\code{[[1]]}}{A data frame: the input rows augmented with columns
 \code{airpress_kPa}, \code{airtemp_C}, \code{baro_site_stn_code},
-\code{edit_baro_offset}. \code{edit_baro_offset} is a logical column
-indicating where a pressure offset adjustment was applied to
-\code{airpress_kPa} of secondary/tertiary etc..
-\code{baro_site_stn_code} stations}
+\code{edit_baro_offset}
 \item{\code{[[2]]}}{A \code{ggplot2} object: faceted time series of
 barometric pressure coloured by contributing baro station, for visual
 QC of the stitch.}
@@ -118,7 +115,7 @@ composite series.
 \item Left-join the composite onto the site data by \code{timestamp}.
 }
 
-The function prefers \code{_adj} columns (post-QC) when present: it
+The function prefers \code{_adj} columns (post-QAQC) when present: it
 selects \code{airpress_kPa_adj} over \code{airpress_kPa} and
 \code{airtemp_C_adj} over \code{airtemp_C}.
 

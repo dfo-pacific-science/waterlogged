@@ -206,6 +206,7 @@ qc_dissox <- function(input_data,
       #temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit_C,
       temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_low_limit_C,
       wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj > temp_high_limit_C
+
     )
 
   # ---- 4. Apply DO / temp adjustments (vectorised) ---------------------------
