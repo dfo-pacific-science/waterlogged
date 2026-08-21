@@ -25,7 +25,7 @@
 #'   When \code{NULL} (default), no log files are written.
 #' @param temp_low_limit_C Lower bound (C) for plausible water temperatures.
 #'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
-#'   Default is -2 C.
+#'   Default is -1 C.
 #' @param temp_high_limit_C Upper bound (C) for plausible water temperature.
 #'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}.
 #'   Default is 50 C.
@@ -82,9 +82,10 @@ conductivity_qaqc_all <- function(
     log_root                = NULL,
     cond_low_limit_uScm     = 0,
     cond_high_limit_uScm    = 2500,
-    temp_low_limit_C        = -2,
+    temp_low_limit_C        = -1,
     temp_high_limit_C       = 50,
     spike_flag_uScm         = 200,
+    temp_ice_flag_C            = 0.3,
     dry_flag_uScm           = 10,
     temp_air_water_diff_C   = 2,
     file_suffix             = "COND",
@@ -108,7 +109,7 @@ conductivity_qaqc_all <- function(
   all_cond_list <- list()
 
   for (stn in cond_sites) {
-    message("\n--- Conductivity QA/QC for station: ", stn, " ---")
+    message("\n--- Conductivity QC for station: ", stn, " ---")
 
     if (!is.null(cond_data) && is.data.frame(cond_data)) {
       raw_cond <- cond_data |>
@@ -187,7 +188,8 @@ conductivity_qaqc_all <- function(
       cond_high_limit_uScm     = cond_high_limit_uScm,
       spike_flag_uScm          = spike_flag_uScm,
       dry_flag_uScm            = dry_flag_uScm,
-      temp_air_water_diff_C    = temp_air_water_diff_C
+      temp_air_water_diff_C    = temp_air_water_diff_C,
+      temp_ice_flag_C            = temp_ice_flag_C
     )
 
     # Simple printed summary
@@ -243,7 +245,7 @@ conductivity_qaqc_all <- function(
         out_path <- file.path(proc_dir, out_name)
 
         utils::write.csv(sub_write, out_path, row.names = FALSE)
-        message("  QA/QC ", file_suffix, " written: ", basename(out_path))
+        message("  QC ", file_suffix, " written: ", basename(out_path))
       }
     }
   }

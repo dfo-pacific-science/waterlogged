@@ -28,8 +28,8 @@
 #'
 #' @param input_data A data frame containing dissolved oxygen observations.
 #'   Must include the columns: \code{site_station_code}, \code{timestamp}
-#'   (POSIXct or parseable by \code{lubridate::ymd_hms()}), \code{do_mgl},
-#'   \code{do_percsat}, \code{watertemp_C}, and \code{airtemp_C}. Typically
+#'   (POSIXct or parseable by \code{lubridate::ymd_hms()}), \code{do_mgl}, and
+#'   \code{watertemp_C}. Optional columns are  \code{do_percsat} and \code{airtemp_C}. Typically
 #'   the output of \code{\link{convert_do_mgl_percsat}} or
 #'   \code{\link{add_nearest_baro}}.
 #' @param select_station Character scalar. The \code{site_station_code} to
@@ -101,15 +101,17 @@ qc_dissox <- function(input_data,
                         log_root = NULL,
                         user = NULL) {
   if (is.null(user)) user <- Sys.info()[["user"]]
+  # define global vars
+  do_dry_flag <- do_low_flag <- wt_high_limit <- NULL
 
-  # ---- 0. Validate inputs ---------------------------------------------------
+   # ---- 0. Validate inputs ---------------------------------------------------
   required_cols <- c(
     "site_station_code",
     "timestamp",
     "do_mgl",
-    "do_percsat",
-    "watertemp_C",
-    "airtemp_C"
+   # "do_percsat",
+    "watertemp_C"
+  #  "airtemp_C"
   )
 
   missing_cols <- setdiff(required_cols, names(input_data))
@@ -170,7 +172,7 @@ qc_dissox <- function(input_data,
   if (!"watertemp_C_do" %in% names(output_data)) {
     output_data$watertemp_C_do <- output_data$watertemp_C
   }
-  if (!"airtemp_C_baro" %in% names(output_data)) {
+  if (("airtemp_C" %in% names(output_data))&(!"airtemp_C_baro" %in% names(output_data))) {
     output_data$airtemp_C_baro <- output_data$airtemp_C
   }
 
@@ -178,7 +180,7 @@ qc_dissox <- function(input_data,
   if (!"do_mgl_adj" %in% names(output_data)) {
     output_data$do_mgl_adj <- output_data$do_mgl
   }
-  if (!"do_percsat_adj" %in% names(output_data)) {
+  if (("do_percsat" %in% names(output_data))&(!"do_percsat_adj" %in% names(output_data))) {
     output_data$do_percsat_adj <- output_data$do_percsat
   }
   if (!"watertemp_C_do_adj" %in% names(output_data)) {
@@ -190,9 +192,6 @@ qc_dissox <- function(input_data,
   # overwrite manual corrections.
   output_data <- output_data |>
     dplyr::mutate(
-      # temp difference for dryness test (using current temp adj)
-      air_watertemp_diff = airtemp_C_baro - watertemp_C_do_adj,
-
       # DO flags (using adj as working column)
       ERROR_DO         = (do_mgl == -888.88) | (watertemp_C_do == -888.88),
       do_neg_between   = !is.na(do_mgl_adj) & do_mgl_adj < 0  & do_mgl_adj >= do_low_limit_mgl,
@@ -209,6 +208,14 @@ qc_dissox <- function(input_data,
 
     )
 
+  # optional
+  # temp difference for dryness test (using current temp adj)
+ if("airtemp_C" %in% names(output_data)){
+   output_data <- output_data |>
+    dplyr::mutate(
+      air_watertemp_diff = airtemp_C_baro - watertemp_C_do_adj)}
+
+
   # ---- 4. Apply DO / temp adjustments (vectorised) ---------------------------
   output_data <- output_data |>
     dplyr::mutate(
@@ -217,11 +224,6 @@ qc_dissox <- function(input_data,
         ERROR_DO | do_neg_lt_minus1 | do_high ~ NA_real_,
         do_neg_between                         ~ 0,
         TRUE                                   ~ do_mgl_adj
-      ),
-      do_percsat_adj = dplyr::case_when(
-        ERROR_DO | do_neg_lt_minus1 | do_high ~ NA_real_,
-        do_neg_between                         ~ 0,
-        TRUE                                   ~ do_percsat_adj
       ),
       # DO temp adjustments
       watertemp_C_do_adj = dplyr::case_when(
@@ -236,20 +238,28 @@ qc_dissox <- function(input_data,
       OUTLIER_WT =  temp_neg_leq_minus1 | wt_high_limit, #temp_neg_between |
       FLAG_DRY = do_dry_flag,
       FLAG_RANGE = do_low_flag
-       ) |>
-    # drop only internal helpers we don't want in the output
-    dplyr::select(-dplyr::any_of(c("do_neg_between", "do_neg_lt_minus1", "do_high", "do_dry_flag", "do_low_flag",
-                                   "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit")))
+       )
+
+   # optional data flag if perc sat column present
+  if("do_percsat_adj" %in% names(output_data)){
+    output_data <- output_data |>
+    dplyr::mutate( do_percsat_adj = dplyr::case_when(
+    ERROR_DO | do_neg_lt_minus1 | do_high ~ NA_real_,
+    do_neg_between                         ~ 0,
+    TRUE                                   ~ do_percsat_adj
+      )
+    )
+  }
 
   # ---- 5. 12-point dry flag (FLAG_DRY) using adj DO -----------------------
-  n <- nrow(output_data)
+  if("air_watertemp_diff" %in% names(output_data)){
+    n <- nrow(output_data)
   output_data$FLAG_DRY <- FALSE
 
   if (n >= 12) {
     for (j in 1:(n - 11)) {
       window_diff <- output_data$air_watertemp_diff[j:(j + 11)]
-      window_do   <- output_data$do_percsat_adj[j:(j + 11)]
-
+        window_do   <- output_data$do_mgl_adj[j:(j + 11)]
       if (any(!is.na(window_diff)) && any(!is.na(window_do))) {
         if (max(abs(window_diff), na.rm = TRUE) <= temp_air_water_diff_C &&
             min(window_do, na.rm = TRUE) >= 100) {
@@ -258,18 +268,13 @@ qc_dissox <- function(input_data,
       }
     }
   }
-
- # drop only internal helpers we don't want in the output
-  output_data <- output_data |>
-  dplyr::select(
-    -air_watertemp_diff
-  )
+}
 
   # ---- 6. Build QAQC log rows (WL-style rules list) -------------------------
   metric      <- "DO"
   fun_name    <- "qc_dissox"
   action      <- "AUTO_QAQC"
-  manual_note <- "Automatic dissolved oxygen QA/QC; no manual note provided."
+  manual_note <- "Automatic dissolved oxygen QC; no manual note provided."
   run_time    <- Sys.time()
 
   rules <- list(
@@ -289,11 +294,19 @@ qc_dissox <- function(input_data,
     ),
     # temperature-driven rules
     list(
-      flag        = output_data$OUTLIER_WT %in% TRUE,
+      flag        = output_data$temp_neg_leq_minus1 %in% TRUE,
       field       = "watertemp_C_do_adj",
       code        = "OUTLIER_WT",
-      action_note = paste0("WT greater than ", temp_high_limit_C, " removed. WT < ", temp_low_limit_C, " removed.")
+      action_note = paste0("WT < ", temp_low_limit_C, " removed.")
     ),
+    # temperature-driven rules
+    list(
+      flag        = output_data$wt_high_limit %in% TRUE,
+      field       = "watertemp_C_do_adj",
+      code        = "OUTLIER_WT",
+      action_note = paste0("WT greater than ", temp_high_limit_C, " removed.")
+    ),
+
     list(
       flag        = output_data$FLAG_ICE %in% TRUE,
       field       = "watertemp_C_do_adj",
@@ -359,6 +372,10 @@ qc_dissox <- function(input_data,
   qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
   attr(output_data, "qaqc_log") <- log_this
+
+  # drop only internal helpers we don't want in the output
+  output_data <- output_data |> dplyr::select(-dplyr::any_of(c("do_neg_between", "do_neg_lt_minus1", "do_high", "do_dry_flag", "do_low_flag",
+                                                               "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit", "air_watertemp_diff")))
 
   return(output_data)
 }

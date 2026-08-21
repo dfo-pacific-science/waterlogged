@@ -25,7 +25,7 @@ air-water comparison dry checks are also applied.}
 \item{select_station}{Character, station code to process
 (matches \code{site_station_code}).}
 
-\item{temp_high_limit_C}{Upper bound (C) for plausible water temperature.
+\item{temp_high_limit_C}{Upper bound (C) for plausible water temperature. Default \code{50}.
 Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}}
 
 \item{temp_low_limit_C}{Lower bound (C) for plausible water temperature. Default \code{-1}.
@@ -46,7 +46,7 @@ log files. When non-\code{NULL}, a log CSV is written via
 \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
-\item{user}{Character username written into the QA/QC log. Defaults to
+\item{user}{Character username written into the QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.}
 }
 \value{

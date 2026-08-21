@@ -14,7 +14,7 @@
 #'   (matches \code{site_station_code}).
 #' @param temp_low_limit_C Lower bound (C) for plausible water temperature. Default \code{-1}.
 #'   Values below this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
-#' @param temp_high_limit_C Upper bound (C) for plausible water temperature.
+#' @param temp_high_limit_C Upper bound (C) for plausible water temperature. Default \code{50}.
 #'   Values above this are set to \code{NA} in \code{watertemp_C_adj} and flagged as \code{TRUE} in \code{OUTLIER_WT}
 #' @param temp_ice_flag_C Water temperature (C) below which ice conditions
 #'   are flagged as \code{TRUE} in \code{FLAG_ICE}. Default \code{0.3}.
@@ -27,7 +27,7 @@
 #'   log files. When non-\code{NULL}, a log CSV is written via
 #'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 #'   mode), no file is written.
-#' @param user Character username written into the QA/QC log. Defaults to
+#' @param user Character username written into the QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]}.
 #'
 #' @details
@@ -152,13 +152,6 @@ qc_watertemp <- function(input_data,
         }
       }
     }
-
-    # drop only internal helpers we don't want in the output
-    df <- df |>
-      dplyr::select(
-        -air_watertemp_diff
-      )
-
   }
 
 
@@ -225,8 +218,8 @@ qc_watertemp <- function(input_data,
       field          = "watertemp_C_adj",
       action         = "AUTO_QAQC",
       code           = NA_character_,
-      action_note    = "Water temperature QA/QC ran; no flags applied.",
-      manual_note    = "Automatic water temperature QA/QC; no manual note provided.",
+      action_note    = "Water temperature QC ran; no flags applied.",
+      manual_note    = "Automatic water temperature QC; no manual note provided.",
       ts_start       = NA_character_,
       ts_end         = NA_character_,
       duration_hours = NA_real_,
@@ -238,8 +231,12 @@ qc_watertemp <- function(input_data,
 
   qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
-  message("Water temperature QAQC completed for: ", select_station)
+  message("Water temperature QC completed for: ", select_station)
 
   attr(df, "qaqc_log") <- log_this
+
+  # drop only internal helpers we don't want in the output
+  df <- df |> dplyr::select(-dplyr::any_of(c( "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit", "air_watertemp_diff")))
+
   return(df)
 }
