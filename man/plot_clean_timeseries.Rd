@@ -14,7 +14,7 @@ plot_clean_timeseries(
 \arguments{
 \item{input_data}{A data frame of clean logger observations, produced by
 \code{\link{write_clean_data}}, or summarized clean data produced by
-\code{\link{summarize_clean_data}}.}
+\code{\link{summarise_clean_data}}.}
 
 \item{select_station}{Either \code{"all"} (default) or one or more
 \code{site_station_code} values to filter on. If  \code{"all"}, data will be
@@ -39,6 +39,6 @@ ggplot time series panels for the summarised data.  Each metric
 defines its own set of panels (up to three).
 }
 \seealso{
-\code{\link{summarize_clean_data}}
+\code{\link{summarise_clean_data}}
 }
 \keyword{internal}

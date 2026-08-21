@@ -1,10 +1,10 @@
-#' QA/QC for logger deployment metadata
+#' QC for logger deployment metadata
 #'
 #' Reads (from file or in-memory data frame) and validates a table of
 #' logger deployment metadata used throughout the \pkg{waterlogged}
 #' pipeline.  Called internally by \code{\link{bind_logger_files}},
-#' \code{\link{add_nearest_baro}}, \code{\link{barometric_qaqc_all}},
-#' and \code{\link{conductivity_qaqc_all}}.
+#' \code{\link{add_nearest_baro}}, \code{\link{qc_barometric_all}},
+#' and \code{\link{qc_conductivity_all}}.
 #'
 #' @param metadata_path Character scalar.
 #'   Path to a metadata CSV file.  Required when \code{metadata} is

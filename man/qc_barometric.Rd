@@ -2,7 +2,7 @@
 % Please edit documentation in R/qc_barometric.R
 \name{qc_barometric}
 \alias{qc_barometric}
-\title{QA/QC a single barometric pressure time series}
+\title{QC a single barometric pressure time series}
 \usage{
 qc_barometric(
   input_data,
@@ -30,7 +30,7 @@ log files. When non-\code{NULL}, a log CSV is written via
 \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
-\item{user}{Character username written into the QA/QC log. Defaults to
+\item{user}{Character username written into the QC log. Defaults to
 \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
 local OS user).
 In Shiny apps, pass the logged-in user explicitly
@@ -68,23 +68,23 @@ A data frame containing only rows for \code{select_station}, sorted by
 modified in-place.
 }
 \description{
-Applies automatic QA/QC rules to a barometric logger time series for one
+Applies automatic QC rules to a barometric logger time series for one
 station: removes out-of-range pressures and temperatures, flags spikes
-and flatlines, and writes QA/QC log entries. Returns the input data with
+and flatlines, and writes QC log entries. Returns the input data with
 adjusted columns (\code{airpress_kPa_adj}, \code{airtemp_C_adj}) and boolean edit
 flags.
 }
 \details{
 If \code{airpress_kPa_adj} or \code{airtemp_C_adj} do not exist, they are created as
 copies of the raw \code{airpress_kPa} / \code{airtemp_C} columns and then modified
-by the QA/QC rules. Edit flags (\code{OUTLIER_AP},
+by the QC rules. Edit flags (\code{OUTLIER_AP},
 \code{OUTLIER_AT}, \code{FLAG_SPIKE}, \code{FLAG_FLATLINE}) are created if missing
 and set to \code{TRUE} where each rule applies.
 
-For each rule that triggers, a corresponding QA/QC log entry is appended via
+For each rule that triggers, a corresponding QC log entry is appended via
 \code{\link[=make_qaqc_log_row]{make_qaqc_log_row()}} and \code{\link[=qaqc_log_append]{qaqc_log_append()}}, using metric \code{"BARO"} and
 field \code{"airpress_kPa_adj"}.
 }
 \seealso{
-\code{\link[=barometric_qaqc_all]{barometric_qaqc_all()}}, \code{\link[=add_nearest_baro]{add_nearest_baro()}}
+\code{\link[=qc_barometric_all]{qc_barometric_all()}}, \code{\link[=add_nearest_baro]{add_nearest_baro()}}
 }

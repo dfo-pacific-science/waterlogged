@@ -19,10 +19,10 @@ normalise_temporal_scale(temporal_scale)
 A single canonical temporal-scale string.
 }
 \description{
-Internal helper called by \code{\link{get_logger_data}} and \code{\link{summarize_clean_data}} to validate
+Internal helper called by \code{\link{get_logger_data}} and \code{\link{summarise_clean_data}} to validate
 and standardise the \code{temporal_scale} argument.
 }
 \seealso{
-\code{\link{get_logger_data}} \code{\link{summarize_clean_data}}
+\code{\link{get_logger_data}} \code{\link{summarise_clean_data}}
 }
 \keyword{internal}

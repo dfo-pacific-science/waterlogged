@@ -2,7 +2,7 @@
 
 #' Normalise a user-supplied temporal scale string
 #'
-#' Internal helper called by \code{\link{get_logger_data}} and \code{\link{summarize_clean_data}} to validate
+#' Internal helper called by \code{\link{get_logger_data}} and \code{\link{summarise_clean_data}} to validate
 #' and standardise the \code{temporal_scale} argument.
 #'
 #' @param temporal_scale Character scalar.  Recognised values
@@ -15,7 +15,7 @@
 #'
 #' @return A single canonical temporal-scale string.
 #'
-#' @seealso \code{\link{get_logger_data}} \code{\link{summarize_clean_data}}
+#' @seealso \code{\link{get_logger_data}} \code{\link{summarise_clean_data}}
 #'
 #' @keywords internal
 normalise_temporal_scale <- function(temporal_scale) {

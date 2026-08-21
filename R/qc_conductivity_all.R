@@ -70,7 +70,7 @@
 #'   successfully, an empty tibble is returned with a warning.
 #'
 #' @seealso \code{\link{qc_conductivity}} (per-station QC called
-#'   internally), \code{\link{barometric_qaqc_all}} (analogous batch
+#'   internally), \code{\link{qc_barometric_all}} (analogous batch
 #'   wrapper for barometric data),
 #'   \code{\link{bind_logger_files}} (upstream data ingestion)
 #'

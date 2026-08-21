@@ -72,7 +72,7 @@ A two-element list:
 \describe{
 \item{\code{[[1]]}}{A data frame: the input rows augmented with columns
 \code{airpress_kPa}, \code{airtemp_C}, \code{baro_site_stn_code},
-\code{edit_baro_offset}
+\code{edit_baro_offset}}
 \item{\code{[[2]]}}{A \code{ggplot2} object: faceted time series of
 barometric pressure coloured by contributing baro station, for visual
 QC of the stitch.}
@@ -123,7 +123,7 @@ Timestamps are coerced to POSIXct (UTC) if not already.
 }
 \seealso{
 \code{\link{bind_logger_files}} (upstream, produces v0.1 data),
-\code{\link{qc_barometric}} and \code{\link{barometric_qaqc_all}} (QAQC
+\code{\link{qc_barometric}} and \code{\link{qc_barometric_all}} (QC
 baro data before this step),
 \code{\link{resolve_metrics_param}},
 \code{\link{calibrate_baro_series}}

@@ -2,7 +2,7 @@
 % Please edit documentation in R/bind_hobo_files_helpers.R
 \name{QAQC_metadata}
 \alias{QAQC_metadata}
-\title{QA/QC for logger deployment metadata}
+\title{QC for logger deployment metadata}
 \usage{
 QAQC_metadata(metadata_path = NULL, metadata = NULL, tz = "UTC")
 }
@@ -34,8 +34,8 @@ decimal degrees.
 Reads (from file or in-memory data frame) and validates a table of
 logger deployment metadata used throughout the \pkg{waterlogged}
 pipeline.  Called internally by \code{\link{bind_logger_files}},
-\code{\link{add_nearest_baro}}, \code{\link{barometric_qaqc_all}},
-and \code{\link{conductivity_qaqc_all}}.
+\code{\link{add_nearest_baro}}, \code{\link{qc_barometric_all}},
+and \code{\link{qc_conductivity_all}}.
 }
 \details{
 The following validation steps are applied in order:
