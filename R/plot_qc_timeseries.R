@@ -1,12 +1,12 @@
-#' Plot QA/QC time series for logger data
+#' Plot QC time series for logger data
 #'
 #' Creates a multi-panel plot showing water level (WL), dissolved oxygen (DO),
 #' barometric pressure (BARO), conductivity (COND), standalone air temperature
 #' (AT), and/or standalone water temperature (WT) time series (raw vs.
-#' adjusted), corresponding logger/air temperatures, and QA/QC flags.
+#' adjusted), corresponding logger/air temperatures, and QC flags.
 #'
 #' Each data set is filtered to \code{select_station}, and any available
-#' QA/QC flags are shown in separate panels.
+#' QC flags are shown in separate panels.
 #'
 #' @param wl_data   Optional data frame of water-level records.
 #' @param do_data   Optional data frame of dissolved-oxygen records.
@@ -34,7 +34,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' plot_qaqc_timeseries(
+#' plot_qc_timeseries(
 #'   wl_data   = waterlevel_complete_QAQC,
 #'   do_data   = station_do_dat,
 #'   baro_data = all_checked_baro_data,
@@ -43,13 +43,13 @@
 #' )
 #'
 #' # standalone temperature plots
-#' plot_qaqc_timeseries(
+#' plot_qc_timeseries(
 #'   airtemp_data   = qc_airtemp_result,
 #'   watertemp_data = qc_watertemp_result,
 #'   select_station = "ALBR_ST_30"
 #' )
 #' }
-plot_qaqc_timeseries <- function(wl_data        = NULL,
+plot_qc_timeseries <- function(wl_data        = NULL,
                                  do_data        = NULL,
                                  baro_data      = NULL,
                                  cond_data      = NULL,
@@ -85,7 +85,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
 
   if (is.null(wl_df) && is.null(do_df) && is.null(baro_df) &&
       is.null(co_df) && is.null(at_df) && is.null(wt_df)) {
-    stop("plot_qaqc_timeseries(): no data for station '", select_station,
+    stop("plot_qc_timeseries(): no data for station '", select_station,
          "' in wl_data, do_data, baro_data, cond_data, airtemp_data, or watertemp_data.")
   }
 
@@ -141,7 +141,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     panels  <- c(panels, list("p_at"=p_at))
     heights <- c(heights, 0.20)
 
-    # 2) Air temperature QA/QC flags panel
+    # 2) Air temperature QC flags panel
     at_flag_cols <- c("OUTLIER_AT","FLAG_RANGE")
     at_flags     <- build_flag_long(at_df, at_flag_cols)
 
@@ -276,7 +276,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
       heights <- c(heights, 0.18)
     }
 
-    # 3) DO QA/QC flags panel
+    # 3) DO QC flags panel
     do_flag_cols <- c(
       "ERROR_DO",
       "OUTLIER_DO",
@@ -420,7 +420,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
       heights <- c(heights, 0.18)
     }
 
-    # 3) Conductivity QA/QC flags panel
+    # 3) Conductivity QC flags panel
     co_flag_cols <- c(
       "FLAG_SPIKE",
       "FLAG_ICE",
@@ -784,7 +784,7 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
     panels  <- c(panels, list(p_wt))
     heights <- c(heights, 0.20)
 
-    # 2) Water temperature QA/QC flags panel
+    # 2) Water temperature QC flags panel
     wt_flag_cols <- c(
       "FLAG_ICE",
       "FLAG_DRY",
@@ -827,14 +827,14 @@ plot_qaqc_timeseries <- function(wl_data        = NULL,
 
   # ---- combine panels --------------------------------------------------------
   if (!length(panels)) {
-    stop("plot_qaqc_timeseries(): no panels were built.")
+    stop("plot_qc_timeseries(): no panels were built.")
   }
 
   heights <- heights / sum(heights)
 
   if (static) {
     if (!requireNamespace("patchwork", quietly = TRUE)) {
-      stop("plot_qaqc_timeseries(static = TRUE) requires the 'patchwork' ",
+      stop("plot_qc_timeseries(static = TRUE) requires the 'patchwork' ",
            "package. Install it with install.packages('patchwork').")
     }
     patchwork::wrap_plots(panels, ncol = 1, heights = heights)
