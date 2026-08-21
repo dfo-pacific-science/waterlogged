@@ -34,7 +34,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' plot_qc_timeseries(
+#' plot_qaqc_timeseries(
 #'   wl_data   = waterlevel_complete_QAQC,
 #'   do_data   = station_do_dat,
 #'   baro_data = all_checked_baro_data,
@@ -43,13 +43,13 @@
 #' )
 #'
 #' # standalone temperature plots
-#' plot_qc_timeseries(
+#' plot_qaqc_timeseries(
 #'   airtemp_data   = qc_airtemp_result,
 #'   watertemp_data = qc_watertemp_result,
 #'   select_station = "ALBR_ST_30"
 #' )
 #' }
-plot_qc_timeseries <- function(wl_data        = NULL,
+plot_qaqc_timeseries <- function(wl_data        = NULL,
                                  do_data        = NULL,
                                  baro_data      = NULL,
                                  cond_data      = NULL,
@@ -73,7 +73,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
     needed_baro_cols <- c("airpress_kPa", "airpress_kPa_adj")
     if (all(needed_baro_cols %in% names(wl_df))) {
       extra_cols <- intersect(
-        c("airtemp_C", "airtemp_C_adj", "baro_qaqc_code",
+        c("airtemp_C", "airtemp_C_adj", "edit_baro_offset",
           "edit_press_high", "edit_press_low", "edit_flatline",
           "edit_spike", "edit_temp_range"),
         names(wl_df)
@@ -85,7 +85,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
 
   if (is.null(wl_df) && is.null(do_df) && is.null(baro_df) &&
       is.null(co_df) && is.null(at_df) && is.null(wt_df)) {
-    stop("plot_qc_timeseries(): no data for station '", select_station,
+    stop("plot_qaqc_timeseries(): no data for station '", select_station,
          "' in wl_data, do_data, baro_data, cond_data, airtemp_data, or watertemp_data.")
   }
 
@@ -676,7 +676,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
     baro_flags     <- build_flag_long(baro_df, baro_bool_cols)
     use_code_col   <- FALSE
     if (is.null(baro_flags)) {
-      baro_flags   <- build_qaqc_code_points(baro_df, "baro_qaqc_code")
+      baro_flags   <- build_qaqc_code_points(baro_df, "edit_baro_offset")
       use_code_col <- !is.null(baro_flags)
     }
 
@@ -827,14 +827,14 @@ plot_qc_timeseries <- function(wl_data        = NULL,
 
   # ---- combine panels --------------------------------------------------------
   if (!length(panels)) {
-    stop("plot_qc_timeseries(): no panels were built.")
+    stop("plot_qaqc_timeseries(): no panels were built.")
   }
 
   heights <- heights / sum(heights)
 
   if (static) {
     if (!requireNamespace("patchwork", quietly = TRUE)) {
-      stop("plot_qc_timeseries(static = TRUE) requires the 'patchwork' ",
+      stop("plot_qaqc_timeseries(static = TRUE) requires the 'patchwork' ",
            "package. Install it with install.packages('patchwork').")
     }
     patchwork::wrap_plots(panels, ncol = 1, heights = heights)
