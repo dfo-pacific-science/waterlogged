@@ -27,7 +27,9 @@
 #'
 #' @seealso \code{\link{write_clean_data}} (produces the v1.0 files this
 #'   function reads), \code{\link{bind_logger_files}} (produces v0.1),
-#'   \code{\link{get_logger_data_helpers.R}} (helper files)
+#'    in \file{get_logger_data_helpers.R}:
+#'   \code{\link{normalise_temporal_scale}},  \code{\link{normalise_station}} ,
+#'    in \file{utils.R}: \code{\link[=utils]{parse_dt}}
 #'
 #' @export
 

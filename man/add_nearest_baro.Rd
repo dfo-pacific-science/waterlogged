@@ -60,7 +60,7 @@ must be supplied.}
 
 \item{baro_data}{A data frame of barometric observations (alternative to
 \code{baro_data_path}). This is the recommended approach for cross-year
-workflows: run \code{\link{barometric_qaqc_all}} on your QAQC'd baro
+workflows: run \code{\link{qc_barometric_all}} on your QAQC'd baro
 files and pass the combined output directly. Must contain:
 \code{site_station_code}, \code{timestamp}, and either
 \code{airpress_kPa} or \code{airpress_kPa_adj}. Optionally
