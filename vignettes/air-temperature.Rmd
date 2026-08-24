@@ -1,6 +1,6 @@
 ---
 title: "Air Temperature Pipeline"
-output: rmarkdown::pdf_document
+output: rmarkdown::html_vignette
 output_dir: "E:/projects/waterlogged_v3.0/vignettes/"
 vignette: >
   %\VignetteIndexEntry{Air Temperature Pipeline}
