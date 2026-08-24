@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_qc_timeseries.R
 \name{plot_qc_timeseries}
 \alias{plot_qc_timeseries}
-\title{Plot QA/QC time series for logger data}
+\title{Plot QC time series for logger data}
 \usage{
 plot_qc_timeseries(
   wl_data = NULL,
@@ -51,11 +51,11 @@ When \code{static = FALSE}, a Plotly \code{htmlwidget}. When
 Creates a multi-panel plot showing water level (WL), dissolved oxygen (DO),
 barometric pressure (BARO), conductivity (COND), standalone air temperature
 (AT), and/or standalone water temperature (WT) time series (raw vs.
-adjusted), corresponding logger/air temperatures, and QA/QC flags.
+adjusted), corresponding logger/air temperatures, and QC flags.
 }
 \details{
 Each data set is filtered to \code{select_station}, and any available
-QA/QC flags are shown in separate panels.
+QC flags are shown in separate panels.
 }
 \examples{
 \dontrun{

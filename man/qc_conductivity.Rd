@@ -2,7 +2,7 @@
 % Please edit documentation in R/qc_conductivity.R
 \name{qc_conductivity}
 \alias{qc_conductivity}
-\title{Automatic QAQC for conductivity logger data}
+\title{Automatic QC for conductivity logger data}
 \usage{
 qc_conductivity(
   input_data,
@@ -25,17 +25,17 @@ Must contain: \code{site_station_code}, \code{timestamp} (POSIXct or
 parseable by \code{lubridate::ymd_hms()}), \code{conduct_uScm}, and
 \code{watertemp_C}. Optionally \code{airtemp_C} (used for the dry
 inference rule). Typically the output of
-\code{\link{conductivity_qaqc_all}} or \code{\link{bind_hobo_files}}.}
+\code{\link{qc_conductivity_all}} or \code{\link{bind_logger_files}}.}
 
 \item{select_station}{Character scalar. The \code{site_station_code} to
 process. Only rows matching this station are retained.}
 
-\item{log_root}{Character scalar or \code{NULL}. Root directory for QAQC
+\item{log_root}{Character scalar or \code{NULL}. Root directory for QC
 log files. When non-\code{NULL}, a log CSV is written via
 \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 mode), no file is written.}
 
-\item{user}{Character scalar. User name recorded in the QAQC log.
+\item{user}{Character scalar. User name recorded in the QC log.
 Defaults to \code{NULL}, which resolves to
 \code{Sys.info()[["user"]]} (the local OS user).
 In Shiny apps, pass the logged-in user explicitly
@@ -84,7 +84,7 @@ The filtered data frame for \code{select_station}, sorted by
 \code{FLAG_ICE}, \code{OUTLIER_WT}, \code{OUTLIER_CO},
 \code{FLAG_DRY}.
 \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
-of QAQC log rows summarising every rule that fired.
+of QC log rows summarising every rule that fired.
 }
 }
 \description{
@@ -117,9 +117,9 @@ air--water temperature difference must also be <=
 }
 }
 \seealso{
-\code{\link{conductivity_qaqc_all}} (wrapper that runs this
+\code{\link{qc_conductivity_all}} (wrapper that runs this
 function across all conductivity stations),
-\code{\link{qc_waterlevel}} (analogous QAQC for water level),
+\code{\link{qc_waterlevel}} (analogous QC for water level),
 \code{\link{qc_dissox}} (analogous for dissolved oxygen),
 \code{\link{wq_drift_correction}} (downstream drift correction)
 }

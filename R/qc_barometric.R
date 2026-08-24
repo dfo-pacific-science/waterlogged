@@ -1,8 +1,8 @@
-#' QA/QC a single barometric pressure time series
+#' QC a single barometric pressure time series
 #'
-#' Applies automatic QA/QC rules to a barometric logger time series for one
+#' Applies automatic QC rules to a barometric logger time series for one
 #' station: removes out-of-range pressures and temperatures, flags spikes
-#' and flatlines, and writes QA/QC log entries. Returns the input data with
+#' and flatlines, and writes QC log entries. Returns the input data with
 #' adjusted columns (`airpress_kPa_adj`, `airtemp_C_adj`) and boolean edit
 #' flags.
 #'
@@ -15,7 +15,7 @@
 #'   log files. When non-\code{NULL}, a log CSV is written via
 #'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 #'   mode), no file is written.
-#' @param user Character username written into the QA/QC log. Defaults to
+#' @param user Character username written into the QC log. Defaults to
 #'   \code{NULL}, which resolves to \code{Sys.info()[["user"]]} (the
 #'   local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
@@ -44,11 +44,11 @@
 #' @details
 #' If `airpress_kPa_adj` or `airtemp_C_adj` do not exist, they are created as
 #' copies of the raw `airpress_kPa` / `airtemp_C` columns and then modified
-#' by the QA/QC rules. Edit flags (`OUTLIER_AP`,
+#' by the QC rules. Edit flags (`OUTLIER_AP`,
 #' `OUTLIER_AT`, `FLAG_SPIKE`, `FLAG_FLATLINE`) are created if missing
 #' and set to `TRUE` where each rule applies.
 #'
-#' For each rule that triggers, a corresponding QA/QC log entry is appended via
+#' For each rule that triggers, a corresponding QC log entry is appended via
 #' [make_qaqc_log_row()] and [qaqc_log_append()], using metric `"BARO"` and
 #' field `"airpress_kPa_adj"`.
 #'
@@ -56,7 +56,7 @@
 #'   `timestamp`, with updated `*_adj` columns and edit flags. The input is not
 #'   modified in-place.
 #'
-#' @seealso [barometric_qaqc_all()], [add_nearest_baro()]
+#' @seealso [qc_barometric_all()], [add_nearest_baro()]
 #'
 #' @export
 qc_barometric <- function(input_data,

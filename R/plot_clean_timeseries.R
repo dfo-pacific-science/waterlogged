@@ -13,7 +13,7 @@
 #'   with hourly input data. Week start date is Monday by default.
 #' @param input_data A data frame of clean logger observations, produced by
 #' \code{\link{write_clean_data}}, or summarized clean data produced by
-#' \code{\link{summarize_clean_data}}.
+#' \code{\link{summarise_clean_data}}.
 #' @param path_to_output_folder Character scalar. Optional root directory for
 #'   csv file output. If \code{NULL} (default), no files are written
 #'   (Shiny mode).
@@ -21,7 +21,7 @@
 #' @return A named list with elements \code{plot1}, \code{plot2},
 #'   \code{plot3} (some may be \code{NULL}).
 #'
-#' @seealso \code{\link{summarize_clean_data}}
+#' @seealso \code{\link{summarise_clean_data}}
 #'
 #' @keywords internal
 plot_clean_timeseries <- function(input_data,
@@ -42,7 +42,7 @@ plot_clean_timeseries <- function(input_data,
 # check input data meets requirements -------------------------------------
 
   if (!is.null(input_data) && is.data.frame(input_data)) {
-    # if time group column exists, then input data is summary from summarize_clean_data
+    # if time group column exists, then input data is summary from summarise_clean_data
     if("time_group" %in% names(input_data)){
       dat <- input_data
     # otherwise, it is timeseries data, ensure correct formatting
@@ -195,7 +195,7 @@ plot_clean_timeseries <- function(input_data,
   if (metric_header == "WL") {
 
     p1 <- make_clean_plot(dat, "waterlevel_m_adj", "Water Level (m)",
-                           "Water Level", "#233d4d")
+                           "#233d4d")
     p2 <- make_clean_plot(dat, "watertemp_C_adj", "Water Temperature (\u00b0C)",
                            "#619b8a")
     return(list(plot1 = p1, plot2 = p2, plot3 = NULL))

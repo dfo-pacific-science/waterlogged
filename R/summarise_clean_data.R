@@ -27,7 +27,7 @@
 #'
 #' @seealso \code{\link{write_clean_data}} (produces the v1.0 files this
 #'   function reads), \code{\link{bind_logger_files}} (produces v0.1),
-#'   \code{\link{get_logger_data_helpers}} (helper files)
+#'   \code{\link{get_logger_data_helpers.R}} (helper files)
 #'
 #' @export
 

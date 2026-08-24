@@ -1,4 +1,4 @@
-#' Automatic QAQC for conductivity logger data
+#' Automatic QC for conductivity logger data
 #'
 #' Applies a suite of automated quality-control rules to conductivity and
 #' water temperature time series for a single station. Raw values are never
@@ -32,14 +32,14 @@
 #'   parseable by \code{lubridate::ymd_hms()}), \code{conduct_uScm}, and
 #'   \code{watertemp_C}. Optionally \code{airtemp_C} (used for the dry
 #'   inference rule). Typically the output of
-#'   \code{\link{conductivity_qaqc_all}} or \code{\link{bind_hobo_files}}.
+#'   \code{\link{qc_conductivity_all}} or \code{\link{bind_logger_files}}.
 #' @param select_station Character scalar. The \code{site_station_code} to
 #'   process. Only rows matching this station are retained.
-#' @param log_root Character scalar or \code{NULL}. Root directory for QAQC
+#' @param log_root Character scalar or \code{NULL}. Root directory for QC
 #'   log files. When non-\code{NULL}, a log CSV is written via
 #'   \code{\link{qaqc_log_maybe_append}()}. When \code{NULL} (default, Shiny
 #'   mode), no file is written.
-#' @param user Character scalar. User name recorded in the QAQC log.
+#' @param user Character scalar. User name recorded in the QC log.
 #'   Defaults to \code{NULL}, which resolves to
 #'   \code{Sys.info()[["user"]]} (the local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
@@ -79,12 +79,12 @@
 #'       \code{FLAG_ICE}, \code{OUTLIER_WT}, \code{OUTLIER_CO},
 #'       \code{FLAG_DRY}.
 #'     \item \strong{Attribute:} \code{attr(result, "qaqc_log")} -- a tibble
-#'       of QAQC log rows summarising every rule that fired.
+#'       of QC log rows summarising every rule that fired.
 #'   }
 #'
-#' @seealso \code{\link{conductivity_qaqc_all}} (wrapper that runs this
+#' @seealso \code{\link{qc_conductivity_all}} (wrapper that runs this
 #'   function across all conductivity stations),
-#'   \code{\link{qc_waterlevel}} (analogous QAQC for water level),
+#'   \code{\link{qc_waterlevel}} (analogous QC for water level),
 #'   \code{\link{qc_dissox}} (analogous for dissolved oxygen),
 #'   \code{\link{wq_drift_correction}} (downstream drift correction)
 #'
@@ -251,11 +251,11 @@ qc_conductivity <- function(
 
 
 
-  # ---- 6. Build QA/QC log rows (COND-style rules list) ----------------------
+  # ---- 6. Build QC log rows (COND-style rules list) ----------------------
   metric      <- "COND"
   fun_name    <- "qc_conductivity"
-  action      <- "AUTO_QAQC"
-  manual_note <- "Automatic conductivity QA/QC; no manual note provided."
+  action      <- "AUTO_QC"
+  manual_note <- "Automatic conductivity QC; no manual note provided."
   run_time    <- Sys.time()
 
   rules <- list(
@@ -342,7 +342,7 @@ qc_conductivity <- function(
       field          = "conduct_uScm_adj",
       action         = action,
       code           = NA_character_,
-      action_note    = "Automatic conductivity QA/QC ran; no flags applied.",
+      action_note    = "Automatic conductivity QC ran; no flags applied.",
       manual_note    = manual_note,
       ts_start       = NA_character_,
       ts_end         = NA_character_,
@@ -356,7 +356,7 @@ qc_conductivity <- function(
   # ---- 7. Append to on-disk log (conditionally) ------------------------------
   qaqc_log_maybe_append(log_root, select_station, metric, log_this)
 
-  message("Conductivity QAQC completed for: ", select_station)
+  message("Conductivity QC completed for: ", select_station)
   attr(df, "qaqc_log") <- log_this
   df
 }
