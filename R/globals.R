@@ -37,5 +37,6 @@ utils::globalVariables(c(
   "wt_air_close", "wt_air_warmer", "wt_high_dry",
   "year",
   # Internal helper functions referenced indirectly (e.g. passed to purrr::map)
-  "build_plots", "normalise_temporal_scale", "read_logger_file"
+  "build_plots", "normalise_temporal_scale", "read_logger_file", "make_qaqc_log_row",
+  "qaqc_log_path", "qaqc_log_append"
 ))
