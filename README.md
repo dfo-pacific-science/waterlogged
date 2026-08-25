@@ -104,8 +104,21 @@ Example metadata file, including all required columns:
 ## Convert Data Metric (if needed)
 
 If required, raw data can be converted into other metrics for further
-data processing. waterlogged currently supports the following data
-conversions:
+data processing.
+
+Some conversions require matching barometric pressure data. Barometric
+data can be bound to an existing non-baro logger dataset using the
+function **‘add_nearest_baro’**.
+
+<figure>
+<img src="man\figures\add-nearest-baro.png"
+alt="Example output of add_nearest_baro() for an input_data station identifier ‘FROG_WE_01’, and barometric data from the two nearest stations, ‘FROG_WE_01’ and ‘SLUG_ST_01’." />
+<figcaption aria-hidden="true">Example output of add_nearest_baro() for
+an input_data station identifier ‘FROG_WE_01’, and barometric data from
+the two nearest stations, ‘FROG_WE_01’ and ‘SLUG_ST_01’.</figcaption>
+</figure>
+
+waterlogged currently supports the following data conversions:
 
 - water pressure in kilopascals to depth or stage height in metres
   (requires matching barometric pressure data and field observations of
@@ -127,6 +140,14 @@ indicate the logger is potentially dry by default, but this flagging
 threshold value can be changed by the user to fit the expected
 conditions of their logger location.
 
+<figure>
+<img src="man\figures\qc-dissox.png"
+alt="Example output of qc_dissox() and plot_qc_timeseries() for dissolved oxygen data from station identifier ‘FROG_WE_01’." />
+<figcaption aria-hidden="true">Example output of qc_dissox() and
+plot_qc_timeseries() for dissolved oxygen data from station identifier
+‘FROG_WE_01’.</figcaption>
+</figure>
+
 A record of all data that is removed or flagged for review is saved in a
 Quality Control Log file.
 
@@ -136,12 +157,10 @@ Example QC Log file, produced by **`qc_airtemp()`**:
 |----|----|----|----|----|----|----|
 | airtemp_C_adj | AUTO_QAQC | Air temperature outside \[-10, 50\] C; flagged for review | 3/4/2024 2:00 | 3/4/2024 11:00 | 9 | qc_airtemp() |
 
-## Water Level
+## Example Workflows by Logger Type
 
-- **`bind_logger_files()`** — read raw baro CSVs, link to metadata,
-  combine by station → v0.1
-- **`qc_barometric()`** — auto QC baro stations (range, spikes,
-  flatlines)
+### Water Level
+
 - **`bind_logger_files()`** — read raw water level CSVs → v0.1
 - **`add_nearest_baro()`** — attach nearest baro station by geographic
   proximity → v0.2
@@ -158,10 +177,8 @@ Example QC Log file, produced by **`qc_airtemp()`**:
 - **`write_clean_data()`** — export final dataset per station/year →
   v1.0
 
-## Dissolved Oxygen
+### Dissolved Oxygen
 
-- **`bind_logger_files()`** — read raw baro CSVs → v0.1
-- **`qc_barometric()`** — auto QC all baro stations
 - **`bind_logger_files()`** — read raw DO CSVs → v0.1
 - **`add_nearest_baro()`** — attach nearest baro station → v0.2
 - **`convert_do_mgl_percsat()`** — compute percent saturation from mg/L,
@@ -173,21 +190,19 @@ Example QC Log file, produced by **`qc_airtemp()`**:
   disturbance)
 - **`write_clean_data()`** — export → v1.0
 
-## Conductivity
-
-No barometric data required.
+### Conductivity
 
 - **`bind_logger_files()`** — read raw conductivity CSVs → v0.1
+- **`convert_conductivity_uScm_SPC()`** — optional - convert EC to
+  specific conductance (SPC) at 25 °C
 - **`qc_conductivity()`** — auto QC (spikes, ice, temp range, dry
   sensor)
 - **`plot_qc_timeseries()`** — visual review
-- **`convert_conductivity_uScm_SPC()`** — convert EC to specific
-  conductance (SPC) at 25 °C
 - Manual corrections as needed: **`adjust_logger_NA()`** (ice, dry,
   disturbance)
 - **`write_clean_data()`** — export → v1.0
 
-## Shared Utilities
+### Shared Utilities
 
 - **`resample_timestamps()`** — snap logger timestamps to a regular
   interval
