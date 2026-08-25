@@ -31,7 +31,7 @@ This vignette assumes you have already installed `waterlogged`:
 
 ```r
 install.packages("pak")
-pak::pkg_install("dfo-pacific-science/waterlogged@main")
+pak::pkg_install("dfo-pacific-science/waterlogged")
 ```
 
 ```{r setup}

@@ -26,11 +26,11 @@ This tutorial will guide users through processing data from Onset HOBO barometri
 
 ## Setup
 
-This vignette assumes you have already installed `waterlogged` from the develop branch:
+This vignette assumes you have already installed `waterlogged`:
 
 ```r
 install.packages("pak")
-pak::pkg_install("dfo-pacific-science/waterlogged@develop")
+pak::pkg_install("dfo-pacific-science/waterlogged")
 ```
 
 ```{r setup}

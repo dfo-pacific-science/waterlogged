@@ -35,11 +35,11 @@ The pipeline processes raw HOBO U24 conductivity logger data through these steps
 
 **Why temperature compensation?** Conductivity varies with water temperature — warmer water conducts better. To compare readings across seasons (or between sites at different temperatures), we normalize to a standard temperature (25 °C). This normalized value is called "specific conductance" (SPC) and is the standard for reporting.
 
-This vignette assumes you have already installed `waterlogged` from the main branch:
+This vignette assumes you have already installed `waterlogged`:
 
 ```r
 install.packages("pak")
-pak::pkg_install("dfo-pacific-science/waterlogged@main")
+pak::pkg_install("dfo-pacific-science/waterlogged")
 ```
 
 ## Setup

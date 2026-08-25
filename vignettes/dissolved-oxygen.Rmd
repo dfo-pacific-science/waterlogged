@@ -37,11 +37,11 @@ The pipeline processes raw HOBO U26 DO logger data through these steps:
 
 **Why drift correction matters:** DO sensors gradually lose accuracy over time as the sensing element degrades ("fouling"). Field reference measurements taken during site visits tell us how far the sensor has drifted. The drift correction adjusts the logged data so it matches the field references.
 
-This vignette assumes you have already installed `waterlogged` from the develop branch:
+This vignette assumes you have already installed `waterlogged`:
 
 ```r
 install.packages("pak")
-pak::pkg_install("dfo-pacific-science/waterlogged@develop")
+pak::pkg_install("dfo-pacific-science/waterlogged")
 ```
 
 ## Setup
