@@ -35,11 +35,11 @@ The pipeline processes raw HOBO U20 pressure logger data through these steps:
 
 **Why barometric data matters:** HOBO U20 loggers measure absolute pressure — that includes both the weight of water above the sensor and the weight of the atmosphere. To get just the water depth, we need to subtract the atmospheric pressure. That's why we process barometric data first.
 
-This vignette assumes you have already installed `waterlogged` from the develop branch:
+This vignette assumes you have already installed `waterlogged`:
 
 ```r
 install.packages("pak")
-pak::pkg_install("dfo-pacific-science/waterlogged@develop")
+pak::pkg_install("dfo-pacific-science/waterlogged")
 ```
 
 ## Setup
