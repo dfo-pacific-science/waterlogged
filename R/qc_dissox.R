@@ -50,6 +50,9 @@
 #'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 #'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
 #'   than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.
+#' @param temp_dry_flag_C Water temperature (C) above which a dry sensor is
+#'   suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
+#'   Default is 25.
 #' @param temp_air_water_diff_C Absolute difference (C) between water and air
 #'   temperature below which a dry sensor is suspected (when \code{airtemp_C}
 #'   is present). Default \code{2}.
@@ -97,6 +100,7 @@ qc_dissox <- function(input_data,
                         temp_high_limit_C = 50,
                         temp_low_limit_C = -1,
                         temp_ice_flag_C = 0.3,
+                        temp_dry_flag_C  = 25,
                         temp_air_water_diff_C = 2,
                         log_root = NULL,
                         user = NULL) {
@@ -137,6 +141,12 @@ qc_dissox <- function(input_data,
     stop(
       paste("qc_dissox(): flagging threshold for ice, (temp_ice_flag_C:", temp_ice_flag_C,
       ") must be greater than temperature outlier limit (temp_low_limit_C:", temp_low_limit_C, "). ")
+    )
+  }
+  if (temp_dry_flag_C >= temp_high_limit_C) {
+    stop(
+      paste("qc_dissox(): flagging threshold for dry, (temp_dry_flag_C:", temp_dry_flag_C,
+            ") must be less than temperature outlier limit (temp_high_limit_C:", temp_high_limit_C, "). ")
     )
   }
 
@@ -204,6 +214,7 @@ qc_dissox <- function(input_data,
       FLAG_ICE       = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj <= temp_ice_flag_C,
       #temp_neg_between    = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < 0 & watertemp_C_do_adj >= temp_low_limit_C,
       temp_neg_leq_minus1 = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj < temp_low_limit_C,
+      wt_high_dry   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj > temp_dry_flag_C,
       wt_high_limit   = !is.na(watertemp_C_do_adj) & watertemp_C_do_adj > temp_high_limit_C
 
     )
@@ -236,7 +247,7 @@ qc_dissox <- function(input_data,
 
       OUTLIER_DO = do_high | do_neg_lt_minus1 | do_neg_between,
       OUTLIER_WT =  temp_neg_leq_minus1 | wt_high_limit, #temp_neg_between |
-      FLAG_DRY = do_dry_flag,
+      FLAG_DRY = do_dry_flag | wt_high_dry,
       FLAG_RANGE = do_low_flag
        )
 
@@ -273,7 +284,7 @@ qc_dissox <- function(input_data,
   # ---- 6. Build QAQC log rows (WL-style rules list) -------------------------
   metric      <- "DO"
   fun_name    <- "qc_dissox"
-  action      <- "AUTO_QAQC"
+  action      <- "AUTO_QC"
   manual_note <- "Automatic dissolved oxygen QC; no manual note provided."
   run_time    <- Sys.time()
 
@@ -312,6 +323,13 @@ qc_dissox <- function(input_data,
       field       = "watertemp_C_do_adj",
       code        = "FLAG_ICE",
       action_note = paste0("Possible ice conditions: DO water temp < ", temp_ice_flag_C," \u00b0C; flagged for review.")
+    ),
+
+    list(
+      flag        = output_data$wt_high_dry %in% TRUE,
+      field       = "watertemp_C_do_adj",
+      code        = "FLAG_DRY",
+      action_note = paste0("Possible dry conditions: DO water temp > ", temp_dry_flag_C," \u00b0C; flagged for review.")
     ),
     # dry periods (12-point rule) - DO-specific
     list(
@@ -357,7 +375,7 @@ qc_dissox <- function(input_data,
       field          = "do_mgl_adj",
       action         = action,
       code           = NA_character_,
-      action_note    = "Automatic dissolved oxygen QA/QC ran; no flags applied.",
+      action_note    = "Automatic dissolved oxygen QC ran; no flags applied.",
       manual_note    = manual_note,
       ts_start       = NA_character_,
       ts_end         = NA_character_,
@@ -375,7 +393,7 @@ qc_dissox <- function(input_data,
 
   # drop only internal helpers we don't want in the output
   output_data <- output_data |> dplyr::select(-dplyr::any_of(c("do_neg_between", "do_neg_lt_minus1", "do_high", "do_dry_flag", "do_low_flag",
-                                                               "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit", "air_watertemp_diff")))
+                                                               "temp_neg_leq_minus1", "temp_neg_between",  "wt_high_limit", "wt_high_dry", "air_watertemp_diff")))
 
   return(output_data)
 }
