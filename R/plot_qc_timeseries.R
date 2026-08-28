@@ -425,6 +425,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
       "FLAG_SPIKE",
       "FLAG_ICE",
       "FLAG_DRY",
+      "FLAG_DRY_WT",
       "OUTLIER_WT",
       "OUTLIER_CO"
     )
