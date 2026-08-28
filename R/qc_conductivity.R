@@ -60,6 +60,9 @@
 #'   flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 #'   and \code{temp_ice_flag_C} are flagged. Must be positive and greater
 #'   than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.
+#' @param temp_dry_flag_C Water temperature (C) above which a dry sensor is
+#'   suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
+#'   Default is 25.
 #' @param spike_flag_uScm Numeric. Absolute conductivity change
 #'   between consecutive samples that triggers the spike flag.
 #'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
@@ -99,6 +102,7 @@ qc_conductivity <- function(
     temp_low_limit_C           = -1,
     temp_high_limit_C          = 50,
     temp_ice_flag_C            = 0.3,
+    temp_dry_flag_C  = 25,
     spike_flag_uScm            = 200,
     dry_flag_uScm              = 10,
     temp_air_water_diff_C      = 2
@@ -120,6 +124,12 @@ qc_conductivity <- function(
     stop(
       "qc_conductivity(): temp_ice_flag_C (", temp_ice_flag_C,
       ") must be > temp_low_limit_C (", temp_low_limit_C, ") to form a valid window."
+    )
+  }
+  if (temp_dry_flag_C >= temp_high_limit_C) {
+    stop(
+      paste("qc_conductivity(): flagging threshold for dry, (temp_dry_flag_C:", temp_dry_flag_C,
+            ") must be less than temperature outlier limit (temp_high_limit_C:", temp_high_limit_C, "). ")
     )
   }
 
@@ -162,6 +172,7 @@ qc_conductivity <- function(
   # Temperature conditions
   temp_range <- df$watertemp_C_adj < temp_low_limit_C | df$watertemp_C_adj > temp_high_limit_C
   temp_ice   <- df$watertemp_C_adj >= temp_low_limit_C & df$watertemp_C_adj < temp_ice_flag_C
+  wt_high_dry   <- !is.na(df$watertemp_C_adj) & df$watertemp_C_adj >= temp_dry_flag_C
 
   # Conductivity spike (use adj)
   diff_cond  <- c(NA_real_, diff(df$conduct_uScm_adj))
@@ -202,12 +213,13 @@ qc_conductivity <- function(
       FLAG_SPIKE            = spike,
       FLAG_ICE              = temp_ice,
       OUTLIER_WT            = temp_range,
-      OUTLIER_CO            = cond_range
+      OUTLIER_CO            = cond_range,
+      FLAG_DRY_WT = wt_high_dry
     )
 
   # ---- 5. 12-point dry flag (FLAG_DRY) using adj CO -----------------------
   n <- nrow(df)
-  df$FLAG_DRY <- FALSE
+ df$FLAG_DRY <- FALSE
 
   # Check if the dataset has air temp
   has_air_temp <- any(!is.na(df$air_watertemp_diff))
@@ -310,6 +322,16 @@ qc_conductivity <- function(
           " uS/cm for >= 12 consecutive points (no air temperature data available)."
         )
       }
+    ),
+    # Dry conditions - temp-specific
+    list(
+      flag        = df$FLAG_DRY_WT %in% TRUE,
+      field       = "watertemp_C_adj",
+      code        = "FLAG_DRY_WT",
+      action_note =  paste0(
+          "Possible dry sensor: water temp. > ", temp_dry_flag_C,
+          " C; flagged for review."
+        )
     )
   )
 
