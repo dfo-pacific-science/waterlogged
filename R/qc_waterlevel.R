@@ -38,7 +38,7 @@
 #'   than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.
 #' @param temp_dry_flag_C Water temperature (C) above which a dry sensor is
 #'   suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
-#'   Default is 19.
+#'   Default is 25.
 #' @param wl_spike_flag_m Absolute step-change value (m) between
 #'   consecutive water level readings above which a spike is flagged.
 #'   Values are flagged for review as \code{TRUE} in \code{FLAG_SPIKE}.
@@ -172,7 +172,7 @@ qc_waterlevel <- function(input_data,
       )
     )
 
-  # 4. Build QA/QC log rows from flags ----------------------------------------
+  # 4. Build QC log rows from flags ----------------------------------------
   metric      <- "WL"
   action      <- "AUTO_QC"
   fun_name    <- "qc_waterlevel"
