@@ -1,7 +1,7 @@
 #' Set an arbitrary datum for water-level time series
 #'
 #' Creates a consistent arbitrary elevation system for a station by
-#' anchoring the first valid levelling visit's primary benchmark (PBM) at
+#' anchoring the first valid surveying visit's primary benchmark (PBM) at
 #' a user-specified elevation (default 100.0 m) and translating all other
 #' benchmarks using within-visit survey
 #' differences.  If later visits use a different PBM, its arbitrary
@@ -16,8 +16,8 @@
 #'   stations). Must contain \code{site_station_code}, \code{timestamp}
 #'   (POSIXct or parseable), and either \code{waterlevel_m_adj} (preferred)
 #'   or \code{waterlevel_m}.
-#' @param level_runs_path Character scalar or \code{NULL}. Path to a
-#'   levelling-runs CSV file. Required when \code{level_runs} is
+#' @param bm_survey_path Character scalar or \code{NULL}. Path to a
+#'   benchmark survey CSV file. Required when \code{bm_survey} is
 #'   \code{NULL}.
 #' @param select_station Character scalar. The \code{site_station_code} to
 #'   process.
@@ -30,9 +30,9 @@
 #'   \code{Sys.info()[["user"]]} (the local OS user).
 #'   In Shiny apps, pass the logged-in user explicitly
 #'   (e.g. \code{session$user}).
-#' @param level_runs A data frame of levelling-run data (alternative to
-#'   \code{level_runs_path} for Shiny mode). Exactly one of
-#'   \code{level_runs_path} or \code{level_runs} must be supplied.
+#' @param bm_survey A data frame of benchmark survey data (alternative to
+#'   \code{bm_survey_path} for Shiny mode). Exactly one of
+#'   \code{bm_survey_path} or \code{bm_survey} must be supplied.
 #' @param max_anchor_gap_h Numeric scalar. Maximum allowable gap (in hours)
 #'   between the anchor visit datetime and the nearest logger sample.
 #'   Default \code{1}. Increase for loggers with coarse time steps (e.g.
@@ -57,19 +57,19 @@
 #'   \code{WL_DATUM_APPLIED} log entry.
 #'
 #' @details
-#' \strong{Level-runs data format:}
+#' \strong{Benchmark survey data format:}
 #'
-#' The level-runs CSV (or data frame) must contain at minimum:
+#' The benchmark survey CSV (or data frame) must contain at minimum:
 #' \itemize{
 #'   \item \code{site_station_code}
-#'   \item \code{visit_date} (e.g. \code{"2025-04-19"} or
+#'   \item \code{survey_date} (e.g. \code{"2025-04-19"} or
 #'     \code{"4/19/2025"})
-#'   \item \code{visit_time} (e.g. \code{"16:26"} or \code{"16:26:00"})
-#'   \item \code{primary_bm} -- must exactly match a \code{BM*} or
-#'     \code{TBM*} column name (e.g. \code{"BM1"}, \code{"TBM1"})
+#'   \item \code{survey_time} (e.g. \code{"16:26"} or \code{"16:26:00"})
+#'   \item \code{primary_bm} -- must exactly match a \code{bm*} or
+#'     \code{TBM*} column name (e.g. \code{"bm1"}, \code{"tbm1"})
 #'   \item \code{grade} -- one of \code{"Excellent"}, \code{"Good"},
 #'     \code{"OK"}, \code{"Poor"}
-#'   \item One or more benchmark columns named \code{BM*} or \code{TBM*}
+#'   \item One or more benchmark columns named \code{bm*} or \code{tbm*}
 #'   \item One or more water-surface columns named \code{water_elev_<n>}
 #'     (e.g. \code{water_elev_1}, \code{water_elev_2})
 #' }
@@ -80,17 +80,17 @@
 #'
 #' \strong{Grade handling:}
 #' No filtering by grade is performed, but a warning is issued if the
-#' first valid visit (the datum anchor) is graded \code{"Poor"}.
+#' first valid survey visit (the datum anchor) is graded \code{"Poor"}.
 #'
 #' \strong{Benchmark network:}
-#' The function iterates visits in chronological order. If a visit's PBM
+#' The function iterates surveys in chronological order. If a visit's PBM
 #' is not yet in the network, it is inferred from any co-observed
 #' benchmark that \emph{is} known. An error is raised if a visit cannot be
 #' connected to the existing network. Benchmark inconsistencies exceeding
 #' \code{bm_tolerance_m} across visits trigger a warning.
 #'
 #' \strong{Timezone handling:}
-#' Visit date/time strings are parsed in the logger's timezone (detected
+#' Survey date/time strings are parsed in the logger's timezone (detected
 #' from the POSIXct \code{tzone} attribute of \code{input_data$timestamp}
 #' or an optional \code{timezone} column). Falls back to \code{"UTC"} if
 #' neither is available. Pass logger timestamps as POSIXct with the correct
@@ -102,11 +102,11 @@
 #'
 #' @export
 adjust_waterlevel_datum <- function(input_data,
-                         level_runs_path = NULL,
+                         bm_survey_path = NULL,
                          select_station,
                          log_root = NULL,
                          user = NULL,
-                         level_runs = NULL,
+                         bm_survey = NULL,
                          max_anchor_gap_h = 1,
                          bm_tolerance_m   = 0.02,
                          datum_elev_m     = 100) {
@@ -166,26 +166,26 @@ adjust_waterlevel_datum <- function(input_data,
     }
   }
 
-  # ---- 1. Read level runs (data frame OR file path) --------------------------
-  if (!is.null(level_runs) && is.data.frame(level_runs)) {
-    lv <- level_runs
-  } else if (!is.null(level_runs_path)) {
-    if (!is.character(level_runs_path) || length(level_runs_path) != 1L) {
-      stop("adjust_waterlevel_datum(): `level_runs_path` must be a single file path.", call. = FALSE)
+  # ---- 1. Read benchmark surveys (data frame OR file path) --------------------------
+  if (!is.null(bm_survey) && is.data.frame(bm_survey)) {
+    lv <- bm_survey
+  } else if (!is.null(bm_survey_path)) {
+    if (!is.character(bm_survey_path) || length(bm_survey_path) != 1L) {
+      stop("adjust_waterlevel_datum(): `bm_survey_path` must be a single file path.", call. = FALSE)
     }
-    if (!file.exists(level_runs_path)) {
-      stop("adjust_waterlevel_datum(): level runs file not found: ", level_runs_path, call. = FALSE)
+    if (!file.exists(bm_survey_path)) {
+      stop("adjust_waterlevel_datum(): benchmark survey file not found: ", bm_survey_path, call. = FALSE)
     }
-    lv <- utils::read.csv(level_runs_path, stringsAsFactors = FALSE, check.names = FALSE)
+    lv <- utils::read.csv(bm_survey_path, stringsAsFactors = FALSE, check.names = FALSE)
   } else {
-    stop("adjust_waterlevel_datum(): must provide either 'level_runs_path' or 'level_runs' as a data frame.", call. = FALSE)
+    stop("adjust_waterlevel_datum(): must provide either 'bm_survey_path' or 'bm_survey' as a data frame.", call. = FALSE)
   }
 
-  req_lv <- c("site_station_code", "visit_date", "visit_time", "primary_bm", "grade")
+  req_lv <- c("site_station_code", "survey_date", "survey_time", "primary_bm", "grade")
   missing_lv <- setdiff(req_lv, names(lv))
   if (length(missing_lv) > 0) {
     stop(
-      "adjust_waterlevel_datum(): level runs file is missing required column(s): ",
+      "adjust_waterlevel_datum(): benchmark survey file is missing required column(s): ",
       paste(missing_lv, collapse = ", "),
       call. = FALSE
     )
@@ -196,17 +196,17 @@ adjust_waterlevel_datum <- function(input_data,
     dplyr::filter(site_station_code == select_station)
 
   if (nrow(lv) == 0) {
-    stop("adjust_waterlevel_datum(): no level-run rows for station '", select_station, "'.", call. = FALSE)
+    stop("adjust_waterlevel_datum(): no benchmark survey rows for station '", select_station, "'.", call. = FALSE)
   }
 
   # benchmark + water elevation columns
-  bm_cols <- grep("^(BM|TBM)", names(lv), value = TRUE)
+  bm_cols <- grep("^(bm|tbm)", names(lv), value = TRUE)
   we_cols <- grep("^water_elev_", names(lv), value = TRUE)
 
   if (length(bm_cols) == 0) {
     stop(
       "adjust_waterlevel_datum(): no benchmark columns found. ",
-      "Expected columns starting with 'BM' or 'TBM' (e.g. BM1, TBM1).",
+      "Expected columns starting with 'bm' or 'tbm' (e.g. bm1, tbm1).",
       call. = FALSE
     )
   }
@@ -220,7 +220,7 @@ adjust_waterlevel_datum <- function(input_data,
   # build visit datetime from separate date + time (Excel-friendly)
   # parsed in the logger's detected timezone so timestamps align correctly
   lv$visit_dt <- lubridate::parse_date_time(
-    paste(lv$visit_date, lv$visit_time),
+    paste(lv$survey_date, lv$survey_time),
     orders = c(
       "ymd HMS", "ymd HM",
       "mdy HMS", "mdy HM",
@@ -232,7 +232,7 @@ adjust_waterlevel_datum <- function(input_data,
   if (any(is.na(lv$visit_dt))) {
     bad <- which(is.na(lv$visit_dt))
     stop(
-      "adjust_waterlevel_datum(): could not parse visit_date/visit_time on row(s): ",
+      "adjust_waterlevel_datum(): could not parse survey_date/survey_time on row(s): ",
       paste(bad, collapse = ", "),
       call. = FALSE
     )
@@ -256,7 +256,7 @@ adjust_waterlevel_datum <- function(input_data,
   missing_pbm <- which(!lv$primary_bm %in% bm_cols)
   if (length(missing_pbm) > 0) {
     stop(
-      "adjust_waterlevel_datum(): `primary_bm` does not match any BM/TBM column on row(s): ",
+      "adjust_waterlevel_datum(): `primary_bm` does not match any bm/tbm column on row(s): ",
       paste(missing_pbm, collapse = ", "),
       ". `primary_bm` must exactly match one of: ",
       paste(bm_cols, collapse = ", "),
@@ -264,7 +264,7 @@ adjust_waterlevel_datum <- function(input_data,
     )
   }
 
-  # coerce BM/TBM and water_elev columns to numeric
+  # coerce bm/tbm and water_elev columns to numeric
   for (nm in c(bm_cols, we_cols)) {
     lv[[nm]] <- suppressWarnings(as.numeric(lv[[nm]]))
   }
@@ -449,7 +449,7 @@ adjust_waterlevel_datum <- function(input_data,
     action      = "DATUM_SET",
     code        = "WL_DATUM_APPLIED",
     action_note = paste0(
-      "Applied arbitrary datum using first valid levelling visit (",
+      "Applied arbitrary datum using first valid survey visit (",
       as.character(anchor_dt), "). Primary BM '", anchor_pbm_id,
       "' anchored at ", datum_elev_m, " m. Datum offset = ", round(datum_offset_m, 3),
       " m (wl_elev_m = ", stage_col, " + offset)."

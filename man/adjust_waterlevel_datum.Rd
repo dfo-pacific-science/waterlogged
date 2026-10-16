@@ -72,7 +72,7 @@ station rows where the datum was applied).
 }
 \description{
 Creates a consistent arbitrary elevation system for a station by
-anchoring the first valid levelling visit's primary benchmark (PBM) at
+anchoring the first valid leveling visit's primary benchmark (PBM) at
 a user-specified elevation (default 100.0 m) and translating all other
 benchmarks using within-visit survey
 differences.  If later visits use a different PBM, its arbitrary
