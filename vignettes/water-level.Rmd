@@ -55,7 +55,7 @@ metadata_file   <- system.file("extdata/water_level/metadata.csv", package = "wa
 baro_folder     <- system.file("extdata/water_level/baro", package = "waterlogged")
 level_folder    <- system.file("extdata/water_level/level", package = "waterlogged")
 reference_file  <- system.file("extdata/water_level/stage_readings.csv", package = "waterlogged")
-level_runs_file <- system.file("extdata/water_level/benchmarks.csv", package = "waterlogged")
+bm_survey_file <- system.file("extdata/water_level/benchmarks.csv", package = "waterlogged")
 ```
 
 ## Bind Raw Barometric Logger Files (v0.1)
@@ -389,7 +389,7 @@ Applies a constant vertical shift to all data from a specific point onward, corr
 
 Here we will adjust the data to simulate a cable break on June 1st, and then show how to correct it. 
 
-```{r simm-cable-break}
+```{r simm-cable-break,, fig.height=10, fig.width=7}
 wl_qc <- wl_qc|> dplyr::mutate(waterlevel_m = dplyr::case_when(timestamp > as.POSIXct("2025-06-01 00:00:00" ,tz = "UTC") ~   waterlevel_m+4,
                                                      .default = waterlevel_m ))
 wl_qc$waterlevel_m_adj <- wl_qc$waterlevel_m
@@ -457,22 +457,22 @@ plot_qc_timeseries(
 
 ## Setting the Water-Level Datum (Optional)
 
-`adjust_waterlevel_datum()` is the last conversion step for water level data, run after the logger series has already been cleaned. It translates a station's relative logger stage into elevation on the station's arbitrary operating datum, using an independent field levelling survey rather than anything derived from the logger record itself.
+`adjust_waterlevel_datum()` is the last conversion step for water level data, run after the logger series has already been cleaned. It translates a station's relative logger stage into elevation on the station's arbitrary operating datum, using an independent field benchmark survey rather than data derived from the logger record itself.
 
-A levelling survey has to exist for this step to apply — where one does, run it every time, since it's what helps preserve continuity in the timeseries. Anchoring a series to the station's Primary Benchmark (PBM) is what lets surveyed elevations be compared consistently over the station's full period of record, and because the datum is tied to a physical relocatable benchmark network rather than the sensor itself, the data can be recovered if the logger or reference gauge is later lost or replaced. 
+A benchmark survey has to exist for this step to apply — where one does, run it every time, since it's what helps preserve continuity in the timeseries. Anchoring a series to the station's Primary Benchmark (PBM) is what lets surveyed elevations be compared consistently over the station's full period of record, and because the datum is tied to a physical relocatable benchmark network rather than the sensor itself, the data can be recovered if the logger or reference gauge is later lost or replaced. 
 
-It doesn't correct the *trace* of the water-level series, QAQC and drift correction do that, it adds a constant offset, computed from the first valid levelling visit, that anchors the whole series to the station's PBM.
+It doesn't correct the *trace* of the water-level series, QAQC and drift correction do that, it adds a constant offset, computed from the first valid survey visit, that anchors the whole series to the station's PBM.
 
 ### A worked example
 
 Suppose station `WL_ALBR_ST_30` has been surveyed twice: once at establishment, and once several months later as a routine check. The
-levelling-runs table records the primary benchmark (`BM1`), a secondary benchmark (`BM2`), a tertiary benchmark (`BM3`),and the water-surface elevations observed at each visit, all in the same per-visit raw coordinate system:
+bm_survey table records the primary benchmark (`bm1`), a secondary benchmark (`bm2`), a tertiary benchmark (`bm3`),and the water-surface elevations observed at each visit, all in the same per-visit raw coordinate system:
 
-```{r level-runs}
-wl_level_runs_ALBR_ST_30 <- tibble::tribble(
-  ~site_station_code, ~visit_date,  ~visit_time, ~primary_bm, ~grade, ~BM1,  ~BM2, ~BM3,  ~water_elev_1, ~water_elev_2,
-  "WL_ALBR_ST_30",     "2024-05-01", "09:00",     "BM1",       "Good", 1.500, 2.150, 1.851, 1.870, 1.871,
-  "WL_ALBR_ST_30",     "2024-09-15", "10:30",     "BM1",       "Good", 1.502, 2.148, 1.852, 1.905, 1.904
+```{r benchmark_survey}
+wl_bm_survey_ALBR_ST_30 <- tibble::tribble(
+  ~site_station_code, ~survey_date,  ~survey_time, ~primary_bm, ~grade, ~bm1,  ~bm2, ~bm3,  ~water_elev_1, ~water_elev_2,
+  "WL_ALBR_ST_30",     "2024-05-01", "09:00",     "bm1",       "Good", 1.500, 2.150, 1.851, 1.870, 1.871,
+  "WL_ALBR_ST_30",     "2024-09-15", "10:30",     "bm1",       "Good", 1.502, 2.148, 1.852, 1.905, 1.904
 )
 ```
 
@@ -494,7 +494,7 @@ Applying the datum:
 ```{r apply-datum}
 station_wl_datum <- waterlogged::adjust_waterlevel_datum(
   input_data = station_wl_drift,
-  level_runs = wl_level_runs_ALBR_ST_30,
+  bm_survey = wl_bm_survey_ALBR_ST_30,
   select_station = "WL_ALBR_ST_30"
 )
 
@@ -503,34 +503,34 @@ station_wl_datum
 
 Walking through what happened:
 
-- The **first** visit (2024-05-01) is the datum anchor. `BM1` is pinned to `datum_elev_m = 100` (the default), and `BM2` is inferred from it: since `BM2` read 2.150 while `BM1` read 1.500 at that same visit, `BM2`'s arbitrary elevation is `100 + (2.150 - 1.500) = 100.65`.
+- The **first** visit (2024-05-01) is the datum anchor. `bm1` is pinned to `datum_elev_m = 100` (the default), and `bm2` is inferred from it: since `bm2` read 2.150 while `BM1` read 1.500 at that same visit, `bm2`'s arbitrary elevation is `100 + (2.150 - 1.500) = 100.65`.
 - The anchor visit's water-surface reading (1.870) converts to an absolute arbitrary elevation of `100 + (1.870 - 1.500) = 100.370`.
 - The nearest logger sample to the anchor visit (09:00, an exact match) read `waterlevel_m_adj = 0.870`, so the constant datum offset is
   `100.370 - 0.870 = 99.5`.
-- That single offset is added to every row for the station, giving `wl_elev_m`, including the September visit's samples -- **the second visit does not create a new anchor.** It's only used to check the benchmark network (here, `BM1` and `BM2` both came back within `bm_tolerance_m` of their original values, so no warning was raised).
+- That single offset is added to every row for the station, giving `waterlevel_elev_m`, including the September visit's samples -- **the second visit does not create a new anchor.** It's only used to check the benchmark network (here, `bm1` and `bm2` both came back within `bm_tolerance_m` of their original values, so no warning was raised).
 
 ### Known limitations & operating procedure
 
 #### What is handled correctly
 
-**The anchor is always the earliest valid visit.** `level_runs` is sorted chronologically and the anchor is the first row where the PBM and at least one water-elevation reading are present. A later visit -- no matter how much more recent, or how many more visits accumulate -- never becomes the anchor, as shown above.
+**The anchor is always the earliest valid visit.** `bm_survey` is sorted chronologically and the anchor is the first row where the PBM and at least one water-elevation reading are present. A later visit -- no matter how much more recent, or how many more visits accumulate -- never becomes the anchor, as shown above.
 
 **A later re-survey of an existing benchmark cannot silently overwrite the datum.** When the benchmark network is built, a new inferred elevation for a benchmark that's *already known* only triggers a warning if it disagrees by more than `bm_tolerance_m` -- it does not replace the original value. A second visit can *extend* the network (new benchmarks) or *flag* a suspicious shift in an existing one, but it can never quietly re-anchor the datum.
 
 #### Limitations
 
-The anchor is only guaranteed to be the station's true establishment visit if the **complete** surveying history -- starting from the original establishment survey -- is what's passed into `level_runs` / `level_runs_path` every time the function is called. The function has no visibility outside the data it's given, so an incremental export, a date-filtered subset, or a file that was never backfilled with the original establishment survey will cause the function to silently anchor to whichever visit happens to be earliest *in that file* -- creating a new, disconnected arbitrary datum. There is currently no "anchor visit" parameter to pin the anchor explicitly.
+The anchor is only guaranteed to be the station's true establishment visit if the **complete** surveying history -- starting from the original establishment survey -- is what's passed into `bm_survey` / `bm_survey_path` every time the function is called. The function has no visibility outside the data it's given, so an incremental export, a date-filtered subset, or a file that was never backfilled with the original establishment survey will cause the function to silently anchor to whichever visit happens to be earliest *in that file* -- creating a new, disconnected arbitrary datum. There is currently no "anchor visit" parameter to pin the anchor explicitly.
 
 This matters because hydrometric standards are explicit that a station's elevations should be expressed relative to the same assumed datum for its whole period of record, and that any deliberate datum change should be logged as a formal event on the station history.
 
 #### Operating procedure (until the code is updated)
 
-1. **Always pass the full levelling history for a station**, from establishment onward -- never a filtered or incremental slice of `level_runs`. Since the function always selects the earliest valid row itself, this alone guarantees correct anchoring with no code changes.
+1. **Always pass the full benchmark survey history for a station**, from establishment onward -- never a filtered or incremental slice of `bm_survey`. Since the function always selects the earliest valid row itself, this alone guarantees correct anchoring with no code changes.
 
 2. **Review `bm_tolerance_m` warning carefully**, The function keeps running regardless, using the original benchmark value -- the user will need to judge whether the discrepancy reflects subsidence, benchmark disturbance, or survey error.
 
 3. **If a station's operating datum genuinely changes** (destroyed benchmark, deliberate re-establishment), do not run `adjust_waterlevel_datum()` once
-   across the full record. Instead, split both `input_data` and `level_runs` by date range at the break point, call `adjust_waterlevel_datum()` separately for each era, and keep the two resulting `wl_elev_m` segments clearly labelled as being on different datums.
+   across the full record. Instead, split both `input_data` and `bm_survey` by date range at the break point, call `adjust_waterlevel_datum()` separately for each era, and keep the two resulting `waterlevel_elev_m` segments clearly labelled as being on different datums.
 
 
 ## Export Clean Data (v1.0)

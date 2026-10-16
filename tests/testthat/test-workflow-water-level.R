@@ -4,7 +4,7 @@ test_that("water level workflow runs end-to-end", {
   baro_folder     <- system.file("extdata/water_level/baro", package = "waterlogged")
   level_folder    <- system.file("extdata/water_level/level", package = "waterlogged")
   reference_file  <- system.file("extdata/water_level/stage_readings.csv", package = "waterlogged")
-  level_runs_file <- system.file("extdata/water_level/benchmarks.csv", package = "waterlogged")
+  bm_survey_file <- system.file("extdata/water_level/benchmarks.csv", package = "waterlogged")
 
   # Step 1: Bind baro files
   baro_bound <- bind_logger_files(
@@ -100,11 +100,11 @@ test_that("water level workflow runs end-to-end", {
   # Step 8: Set datum
   wl_datum <- adjust_waterlevel_datum(
     input_data      = wl_qc,
-    level_runs_path = level_runs_file,
+    bm_survey_path = bm_survey_file,
     select_station  = "ALBR_ST_30"
   )
 
   expect_s3_class(wl_datum, "data.frame")
-  expect_true("wl_elev_m" %in% names(wl_datum))
-  expect_false(all(is.na(wl_datum$wl_elev_m)))
+  expect_true("waterlevel_elev_m" %in% names(wl_datum))
+  expect_false(all(is.na(wl_datum$waterlevel_elev_m)))
 })
