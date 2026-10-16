@@ -10,7 +10,7 @@
 #'
 #' A single constant datum offset is computed from the first valid visit's
 #' mean water-surface elevation and applied to the station's logger stage
-#' series, producing the column \code{wl_elev_m}.
+#' series, producing the column \code{waterlevel_elev_m}.
 #'
 #' @param input_data A data frame of logger observations (one or more
 #'   stations). Must contain \code{site_station_code}, \code{timestamp}
@@ -49,7 +49,7 @@
 #' @return The full \code{input_data} data frame with two columns
 #'   added/updated for \code{select_station}:
 #'   \itemize{
-#'     \item \code{wl_elev_m} -- water level on the arbitrary datum (m).
+#'     \item \code{waterlevel_elev_m} -- water level on the arbitrary datum (m).
 #'     \item \code{flag_wl_datum_applied} -- logical flag (\code{TRUE} for
 #'       station rows where the datum was applied).
 #'   }
@@ -415,14 +415,14 @@ adjust_waterlevel_datum <- function(input_data,
   datum_offset_m <- anchor_water_abs - stage_at_anchor
 
   # ---- 6. Apply datum to station time series --------------------------------
-  logger_data$wl_elev_m <- logger_data[[stage_col]] + datum_offset_m
+  logger_data$waterlevel_elev_m <- logger_data[[stage_col]] + datum_offset_m
 
   logger_data$flag_wl_datum_applied <- TRUE
 
   # ---- ensure columns exist in full input_data with correct types ------------
-  # wl_elev_m must be numeric
-  if (!"wl_elev_m" %in% names(input_data) || !is.numeric(input_data$wl_elev_m)) {
-    input_data$wl_elev_m <- NA_real_
+  # waterlevel_elevation_ must be numeric
+  if (!"waterlevel_elevation_" %in% names(input_data) || !is.numeric(input_data$waterlevel_elevation_)) {
+    input_data$waterlevel_elevation_ <- NA_real_
   }
 
   # flag must be logical
@@ -445,14 +445,14 @@ adjust_waterlevel_datum <- function(input_data,
     timestamps  = ts_for_log,
     station     = select_station,
     metric      = "WL",
-    field       = "wl_elev_m",
+    field       = "waterlevel_elevation_",
     action      = "DATUM_SET",
     code        = "WL_DATUM_APPLIED",
     action_note = paste0(
       "Applied arbitrary datum using first valid survey visit (",
       as.character(anchor_dt), "). Primary BM '", anchor_pbm_id,
       "' anchored at ", datum_elev_m, " m. Datum offset = ", round(datum_offset_m, 3),
-      " m (wl_elev_m = ", stage_col, " + offset)."
+      " m (waterlevel_elev_m = ", stage_col, " + offset)."
     ),
     manual_note = "AUTOMATIC DATUM SET",
     fun_name    = "adjust_waterlevel_datum",
