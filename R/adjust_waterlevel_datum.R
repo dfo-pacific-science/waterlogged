@@ -420,9 +420,9 @@ adjust_waterlevel_datum <- function(input_data,
   logger_data$flag_wl_datum_applied <- TRUE
 
   # ---- ensure columns exist in full input_data with correct types ------------
-  # waterlevel_elevation_ must be numeric
-  if (!"waterlevel_elevation_" %in% names(input_data) || !is.numeric(input_data$waterlevel_elevation_)) {
-    input_data$waterlevel_elevation_ <- NA_real_
+  # waterlevel_elevation_m must be numeric
+  if (!"waterlevel_elevation_m" %in% names(input_data) || !is.numeric(input_data$waterlevel_elevation_m)) {
+    input_data$waterlevel_elevation_m <- NA_real_
   }
 
   # flag must be logical
@@ -445,7 +445,7 @@ adjust_waterlevel_datum <- function(input_data,
     timestamps  = ts_for_log,
     station     = select_station,
     metric      = "WL",
-    field       = "waterlevel_elevation_",
+    field       = "waterlevel_elevation_m",
     action      = "DATUM_SET",
     code        = "WL_DATUM_APPLIED",
     action_note = paste0(
