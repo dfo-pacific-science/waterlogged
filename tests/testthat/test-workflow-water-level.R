@@ -105,6 +105,6 @@ test_that("water level workflow runs end-to-end", {
   )
 
   expect_s3_class(wl_datum, "data.frame")
-  expect_true("waterlevel_elev_,m_m" %in% names(wl_datum))
-  expect_false(all(is.na(wl_datum$waterlevel_elev_,m_m)))
+  expect_true("waterlevel_elev_m" %in% names(wl_datum))
+  expect_false(all(is.na(wl_datum$waterlevel_elev_m)))
 })
