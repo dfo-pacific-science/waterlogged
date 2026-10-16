@@ -100,7 +100,7 @@ test_that("water level workflow runs end-to-end", {
   # Step 8: Set datum
   wl_datum <- adjust_waterlevel_datum(
     input_data      = wl_qc,
-    bechmark_survey_path = bm_survey_file,
+    bm_survey_path = bm_survey_file,
     select_station  = "ALBR_ST_30"
   )
 
