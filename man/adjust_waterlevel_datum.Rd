@@ -6,11 +6,11 @@
 \usage{
 adjust_waterlevel_datum(
   input_data,
-  level_runs_path = NULL,
+  bm_survey_path = NULL,
   select_station,
   log_root = NULL,
   user = NULL,
-  level_runs = NULL,
+  bm_survey = NULL,
   max_anchor_gap_h = 1,
   bm_tolerance_m = 0.02,
   datum_elev_m = 100
@@ -22,8 +22,8 @@ stations). Must contain \code{site_station_code}, \code{timestamp}
 (POSIXct or parseable), and either \code{waterlevel_m_adj} (preferred)
 or \code{waterlevel_m}.}
 
-\item{level_runs_path}{Character scalar or \code{NULL}. Path to a
-levelling-runs CSV file. Required when \code{level_runs} is
+\item{bm_survey_path}{Character scalar or \code{NULL}. Path to a
+benchmark survey CSV file. Required when \code{bm_survey} is
 \code{NULL}.}
 
 \item{select_station}{Character scalar. The \code{site_station_code} to
@@ -40,9 +40,9 @@ Defaults to \code{NULL}, which resolves to
 In Shiny apps, pass the logged-in user explicitly
 (e.g. \code{session$user}).}
 
-\item{level_runs}{A data frame of levelling-run data (alternative to
-\code{level_runs_path} for Shiny mode). Exactly one of
-\code{level_runs_path} or \code{level_runs} must be supplied.}
+\item{bm_survey}{A data frame of benchmark survey data (alternative to
+\code{bm_survey_path} for Shiny mode). Exactly one of
+\code{bm_survey_path} or \code{bm_survey} must be supplied.}
 
 \item{max_anchor_gap_h}{Numeric scalar. Maximum allowable gap (in hours)
 between the anchor visit datetime and the nearest logger sample.
@@ -63,7 +63,7 @@ geodetic elevation).}
 The full \code{input_data} data frame with two columns
 added/updated for \code{select_station}:
 \itemize{
-\item \code{wl_elev_m} -- water level on the arbitrary datum (m).
+\item \code{waterlevel_elev_m} -- water level on the arbitrary datum (m).
 \item \code{flag_wl_datum_applied} -- logical flag (\code{TRUE} for
 station rows where the datum was applied).
 }
@@ -72,7 +72,7 @@ station rows where the datum was applied).
 }
 \description{
 Creates a consistent arbitrary elevation system for a station by
-anchoring the first valid leveling visit's primary benchmark (PBM) at
+anchoring the first valid surveying visit's primary benchmark (PBM) at
 a user-specified elevation (default 100.0 m) and translating all other
 benchmarks using within-visit survey
 differences.  If later visits use a different PBM, its arbitrary
@@ -82,21 +82,21 @@ elevation is inferred from the existing benchmark network (it is
 \details{
 A single constant datum offset is computed from the first valid visit's
 mean water-surface elevation and applied to the station's logger stage
-series, producing the column \code{wl_elev_m}.
+series, producing the column \code{waterlevel_elev_m}.
 
-\strong{Level-runs data format:}
+\strong{Benchmark survey data format:}
 
-The level-runs CSV (or data frame) must contain at minimum:
+The benchmark survey CSV (or data frame) must contain at minimum:
 \itemize{
 \item \code{site_station_code}
-\item \code{visit_date} (e.g. \code{"2025-04-19"} or
+\item \code{survey_date} (e.g. \code{"2025-04-19"} or
 \code{"4/19/2025"})
-\item \code{visit_time} (e.g. \code{"16:26"} or \code{"16:26:00"})
-\item \code{primary_bm} -- must exactly match a \code{BM*} or
-\code{TBM*} column name (e.g. \code{"BM1"}, \code{"TBM1"})
+\item \code{survey_time} (e.g. \code{"16:26"} or \code{"16:26:00"})
+\item \code{primary_bm} -- must exactly match a \code{bm*} or
+\code{TBM*} column name (e.g. \code{"bm1"}, \code{"tbm1"})
 \item \code{grade} -- one of \code{"Excellent"}, \code{"Good"},
 \code{"OK"}, \code{"Poor"}
-\item One or more benchmark columns named \code{BM*} or \code{TBM*}
+\item One or more benchmark columns named \code{bm*} or \code{tbm*}
 \item One or more water-surface columns named \code{water_elev_<n>}
 (e.g. \code{water_elev_1}, \code{water_elev_2})
 }
@@ -107,17 +107,17 @@ system.  The absolute arbitrary elevation for any value is:
 
 \strong{Grade handling:}
 No filtering by grade is performed, but a warning is issued if the
-first valid visit (the datum anchor) is graded \code{"Poor"}.
+first valid survey visit (the datum anchor) is graded \code{"Poor"}.
 
 \strong{Benchmark network:}
-The function iterates visits in chronological order. If a visit's PBM
+The function iterates surveys in chronological order. If a visit's PBM
 is not yet in the network, it is inferred from any co-observed
 benchmark that \emph{is} known. An error is raised if a visit cannot be
 connected to the existing network. Benchmark inconsistencies exceeding
 \code{bm_tolerance_m} across visits trigger a warning.
 
 \strong{Timezone handling:}
-Visit date/time strings are parsed in the logger's timezone (detected
+Survey date/time strings are parsed in the logger's timezone (detected
 from the POSIXct \code{tzone} attribute of \code{input_data$timestamp}
 or an optional \code{timezone} column). Falls back to \code{"UTC"} if
 neither is available. Pass logger timestamps as POSIXct with the correct
