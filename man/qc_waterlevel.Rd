@@ -41,7 +41,7 @@ than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \c
 
 \item{temp_dry_flag_C}{Water temperature (C) above which a dry sensor is
 suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
-Default is 19.}
+Default is 25.}
 
 \item{wl_spike_flag_m}{Absolute step-change value (m) between
 consecutive water level readings above which a spike is flagged.

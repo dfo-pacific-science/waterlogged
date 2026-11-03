@@ -14,6 +14,7 @@ qc_dissox(
   temp_high_limit_C = 50,
   temp_low_limit_C = -1,
   temp_ice_flag_C = 0.3,
+  temp_dry_flag_C = 25,
   temp_air_water_diff_C = 2,
   log_root = NULL,
   user = NULL
@@ -58,6 +59,10 @@ Values below this are set to \code{NA} in \code{watertemp_C_do_adj} and flagged 
 flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 and \code{temp_ice_flag_C} are flagged. Must be positive and greater
 than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
+
+\item{temp_dry_flag_C}{Water temperature (C) above which a dry sensor is
+suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
+Default is 25.}
 
 \item{temp_air_water_diff_C}{Absolute difference (C) between water and air
 temperature below which a dry sensor is suspected (when \code{airtemp_C}

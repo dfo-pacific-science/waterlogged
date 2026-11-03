@@ -14,6 +14,7 @@ qc_conductivity(
   temp_low_limit_C = -1,
   temp_high_limit_C = 50,
   temp_ice_flag_C = 0.3,
+  temp_dry_flag_C = 25,
   spike_flag_uScm = 200,
   dry_flag_uScm = 10,
   temp_air_water_diff_C = 2
@@ -61,6 +62,10 @@ Default is 50 C.}
 flagging ice conditions. Temperatures between \code{temp_low_limit_C}
 and \code{temp_ice_flag_C} are flagged. Must be positive and greater
 than \code{temp_low_limit_C}. Values are flagged for review as \code{TRUE} in \code{FLAG_ICE}. Default is 0.3 C.}
+
+\item{temp_dry_flag_C}{Water temperature (C) above which a dry sensor is
+suspected. Values are flagged for review as \code{TRUE} in \code{FLAG_DRY}.
+Default is 25.}
 
 \item{spike_flag_uScm}{Numeric. Absolute conductivity change
 between consecutive samples that triggers the spike flag.

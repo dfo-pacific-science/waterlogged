@@ -58,8 +58,7 @@ by \code{timestamp}, with \code{watertemp_C_adj}, \code{FLAG_ICE},
 }
 \description{
 Applies automatic QA/QC rules to a water temperature time series for one
-station: flags possible ice and dry conditions, corrects small negative
-temperatures to 0, and removes clearly impossible values (< -1 C). Returns
+station: flags possible ice and dry conditions, and removes clearly impossible values (< temp_low_limit_C). Returns
 the input data (filtered to \code{select_station}) with adjusted columns and
 boolean flag/edit columns.
 }
