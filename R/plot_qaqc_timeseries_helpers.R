@@ -12,6 +12,7 @@
 normalize_qaqc_df <- function(df, station) {
   if (is.null(df)) return(NULL)
 
+
   req_cols <- c("site_station_code", "timestamp")
   missing  <- setdiff(req_cols, names(df))
   if (length(missing) > 0) {
@@ -24,6 +25,18 @@ normalize_qaqc_df <- function(df, station) {
   if (!inherits(df$timestamp, "POSIXt")) {
     df <- df |>
       dplyr::mutate(timestamp = lubridate::ymd_hms(.data$timestamp))
+  }
+
+  # if select station not supplied but only one station present in data
+  # continue without error
+  if(is.null(station) && length(unique(df$site_station_code))==1){
+    select_station <- as.character(unique(df$site_station_code))
+    station <- as.character(unique(df$site_station_code))
+  }
+
+  # select station not supplied but multiple stations in data, stop with error
+  if(is.null(station) && length(unique(df$site_station_code))>1){
+    stop("plot_qc_timeseries: Missing argument 'select_station'. Multiple stations detected in input data: ", paste(unique(df$site_station_code), collapse = ", "), ". Enter a single station identifier as 'select_station' and run function again.")
   }
 
   df <- df |>
