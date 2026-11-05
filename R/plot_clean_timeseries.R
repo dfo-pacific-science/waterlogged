@@ -20,6 +20,7 @@
 #'
 #' @return A named list with elements \code{plot1}, \code{plot2},
 #'   \code{plot3} (some may be \code{NULL}).
+#' @export
 #'
 #' @seealso \code{\link{summarise_clean_data}}
 #'
