@@ -11,8 +11,8 @@ qc_barometric_all(
   log_root = NULL,
   temp_low_limit_C = -40,
   temp_high_limit_C = 50,
-  pressure_low_limit_kpa = 51,
-  pressure_high_limit_kpa = 112,
+  pressure_low_limit_kpa = 85,
+  pressure_high_limit_kpa = 105,
   spike_flag_kpa = 1.5,
   flatline_n = 6,
   user = NULL,
@@ -49,11 +49,11 @@ Default is 50 C.}
 
 \item{pressure_low_limit_kpa}{Lower bound (kPa) for plausible barometric pressure.
 Values below this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
-Default is 51 kPa.}
+Default is 85 kPa.}
 
 \item{pressure_high_limit_kpa}{Upper bound (kPa) for plausible barometric pressure.
 Values above this are set to \code{NA} in \code{airpress_kPa_adj} and flagged as \code{TRUE} in \code{OUTLIER_AP}.
-Default is 112 kPa.}
+Default is 105 kPa.}
 
 \item{spike_flag_kpa}{Pressure value (kPa) for flagging sudden pressure
 spikes between consecutive timesteps (absolute difference in kPa).
