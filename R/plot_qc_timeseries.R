@@ -55,7 +55,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
                                  cond_data      = NULL,
                                  airtemp_data   = NULL,
                                  watertemp_data = NULL,
-                                 select_station,
+                                 select_station = NULL,
                                  static = FALSE) {
 
   cols <- qaqc_plot_cols()
