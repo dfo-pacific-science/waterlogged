@@ -426,7 +426,7 @@ add_nearest_baro <- function(input_data,
       # Warn if composite baro has gaps
       pct <- pct_missing(wide_baro_df_site$airpress_kPa)
       if (!is.na(pct) && pct > 0) {
-        warning(sprintf("add_nearest_baro(): Baro data missing for %.1f%% of timestamps for site %s.", pct, site_i))
+        warning(sprintf("add_nearest_baro(): Baro data missing for %.1f%% of timestamps for site %s, given max_stations = %d and max_km = %d. Consider increasing limits.", pct, site_i, max_stations, max_km))
       }
 
       # ---- Left-join baro composite onto site data ----
