@@ -55,7 +55,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
                                  cond_data      = NULL,
                                  airtemp_data   = NULL,
                                  watertemp_data = NULL,
-                                 select_station,
+                                 select_station = NULL,
                                  static = FALSE) {
 
   cols <- qaqc_plot_cols()
@@ -659,7 +659,7 @@ plot_qc_timeseries <- function(wl_data        = NULL,
         press_adj = cols$baro_p_adj
       )) +
       ggplot2::labs(
-        title  = paste("Barometric air temperature -", select_station),
+        title  = paste("Barometric air pressure -", select_station),
         y      = "Air pressure (kPa)",
         x      = "",
         colour = ""

@@ -11,7 +11,7 @@ plot_qc_timeseries(
   cond_data = NULL,
   airtemp_data = NULL,
   watertemp_data = NULL,
-  select_station,
+  select_station = NULL,
   static = FALSE
 )
 }
