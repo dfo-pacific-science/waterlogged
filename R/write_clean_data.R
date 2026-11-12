@@ -329,7 +329,7 @@ write_clean_data <- function(
         )
       )
 
-      #prevent overwritting
+      #prevent overwriting
       if(file.exists(file_out)){
         version_label <- as.numeric(regmatches(version_label,
                                                gregexpr("\\d*\\.\\d*",
@@ -339,7 +339,7 @@ write_clean_data <- function(
           clean_path,
           paste0(
             site_i, "_", cfg$header, "_",
-            start_j, "_", end_j, "_", version_label, ".csv"
+            start_j, "_", end_j, "_v", version_label, ".csv"
           )
         )
 
