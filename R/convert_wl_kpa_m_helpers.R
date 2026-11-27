@@ -6,14 +6,17 @@
 #'
 #' @param input_data A data frame of logger observations.  Must contain
 #'   \code{site_station_code}, \code{timestamp}, \code{waterpress_kPa},
-#'   \code{watertemp_C}, and \code{airpress_kPa}.  Optionally
-#'   \code{logger_type}.
+#'   and \code{watertemp_C}, plus either \code{airpress_kPa_adj} or
+#'   \code{airpress_kPa}.  When both pressure columns are present, the
+#'   adjusted column is used.  Optionally \code{logger_type}.
 #' @param logger_type_expected Character scalar.  Expected pattern in the
 #'   \code{logger_type} column (matched case-insensitively).
 #'   Default \code{"u20"}.
 #'
 #' @return \code{input_data} with \code{timestamp} coerced to POSIXct
-#'   (UTC) if not already.
+#'   (UTC) if not already and \code{airpress_kPa} set to the preferred
+#'   pressure series.  An existing \code{airpress_kPa_adj} column takes
+#'   precedence, including its missing values.
 #'
 #' @seealso \code{\link{convert_waterlevel_kPa_m}} (sole caller)
 #'
@@ -24,14 +27,22 @@ QAQC_wl_kpa_inputs <- function(input_data, logger_type_expected = "u20") {
   required_cols <- c("site_station_code",
                      "timestamp",
                      "waterpress_kPa",
-                     "watertemp_C",
-                     "airpress_kPa")
+                     "watertemp_C")
 
   missing_cols <- setdiff(required_cols, names(input_data))
   if (length(missing_cols) > 0) {
     stop(
       "convert_waterlevel_kPa_m(): input_data is missing required column(s): ",
       paste(missing_cols, collapse = ", ")
+    )
+  }
+
+  if ("airpress_kPa_adj" %in% names(input_data)) {
+    input_data$airpress_kPa <- input_data$airpress_kPa_adj
+  } else if (!"airpress_kPa" %in% names(input_data)) {
+    stop(
+      "convert_waterlevel_kPa_m(): input_data is missing required column(s): ",
+      "airpress_kPa or airpress_kPa_adj"
     )
   }
 

@@ -61,3 +61,51 @@ test_that("test convert wl kpa m without baro data", {
     "input_data is missing required column"
   )
 })
+
+test_that("water-level conversion prefers adjusted barometric pressure", {
+  timestamp <- as.POSIXct(
+    c("2025-01-01 00:00:00", "2025-01-01 01:00:00"),
+    tz = "UTC"
+  )
+  input_data <- data.frame(
+    site_station_code = c("S1", "S1"),
+    timestamp = timestamp,
+    waterpress_kPa = c(120, 121),
+    watertemp_C = c(10, 10),
+    airpress_kPa = c(100, 100),
+    airpress_kPa_adj = c(90, 95),
+    logger_type = c("U20", "U20")
+  )
+  reference_data <- data.frame(
+    site_station_code = "S1",
+    timestamp = "2025-01-01 00:00:00",
+    stage_m = 1,
+    site_comments = ""
+  )
+
+  converted <- convert_waterlevel_kPa_m(
+    input_data = input_data,
+    reference_data = reference_data,
+    return_plots = FALSE
+  )
+
+  expect_equal(converted$site_wl$airpress_kPa, input_data$airpress_kPa_adj)
+  expect_equal(
+    converted$site_wl$baro_sensor_depth_m[2] - converted$site_wl$baro_sensor_depth_m[1],
+    0.3048 * (0.1450377 * 144 * 5) / converted$site_wl$density_lbft3[1],
+    tolerance = 1e-10
+  )
+
+  adjusted_only <- input_data[setdiff(names(input_data), "airpress_kPa")]
+  expect_equal(
+    QAQC_wl_kpa_inputs(adjusted_only)$airpress_kPa,
+    input_data$airpress_kPa_adj
+  )
+
+  adjusted_with_na <- input_data
+  adjusted_with_na$airpress_kPa_adj[2] <- NA_real_
+  expect_true(is.na(QAQC_wl_kpa_inputs(adjusted_with_na)$airpress_kPa[2]))
+
+  raw_only <- input_data[setdiff(names(input_data), "airpress_kPa_adj")]
+  expect_equal(QAQC_wl_kpa_inputs(raw_only)$airpress_kPa, input_data$airpress_kPa)
+})
