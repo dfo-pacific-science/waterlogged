@@ -19,7 +19,9 @@ convert_waterlevel_kPa_m(
 \item{input_data}{A data frame of logger observations.
 Must contain: \code{site_station_code}, \code{timestamp} (POSIXct or
 parseable by \code{lubridate::ymd_hms()}), \code{waterpress_kPa},
-\code{watertemp_C}, and \code{airpress_kPa}.  Optionally
+\code{watertemp_C}, and either \code{airpress_kPa_adj} or
+\code{airpress_kPa}.  If both are present, the adjusted pressure is
+used.  Optionally
 \code{logger_type} (used for a sanity check against
 \code{logger_type_expected}).  Typically the output of
 \code{\link{add_nearest_baro}}.}

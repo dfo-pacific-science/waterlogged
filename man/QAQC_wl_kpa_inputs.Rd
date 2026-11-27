@@ -9,8 +9,9 @@ QAQC_wl_kpa_inputs(input_data, logger_type_expected = "u20")
 \arguments{
 \item{input_data}{A data frame of logger observations.  Must contain
 \code{site_station_code}, \code{timestamp}, \code{waterpress_kPa},
-\code{watertemp_C}, and \code{airpress_kPa}.  Optionally
-\code{logger_type}.}
+and \code{watertemp_C}, plus either \code{airpress_kPa_adj} or
+\code{airpress_kPa}.  When both pressure columns are present, the
+adjusted column is used.  Optionally \code{logger_type}.}
 
 \item{logger_type_expected}{Character scalar.  Expected pattern in the
 \code{logger_type} column (matched case-insensitively).
@@ -18,7 +19,9 @@ Default \code{"u20"}.}
 }
 \value{
 \code{input_data} with \code{timestamp} coerced to POSIXct
-(UTC) if not already.
+(UTC) if not already and \code{airpress_kPa} set to the preferred
+pressure series.  An existing \code{airpress_kPa_adj} column takes
+precedence, including its missing values.
 }
 \description{
 Internal helper called by \code{\link{convert_waterlevel_kPa_m}} to
